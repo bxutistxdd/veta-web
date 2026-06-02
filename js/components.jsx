@@ -435,9 +435,10 @@ function Footer({ onNavigate }) {
    Stock helpers (compartidos en todo el sitio)
    ───────────────────────────────────────────── */
 function getStockStatus(pid, sz) {
-  const adm = window.VETA_ADMIN;
-  if (!adm) return { qty: null, status: "ok" };
-  const qty = adm.getStock(pid, sz);
+  // Supabase primero, fallback a admin localStorage
+  const qty = window.VETA_DB
+    ? window.VETA_DB.getStock(pid, sz)
+    : window.VETA_ADMIN?.getStock(pid, sz) ?? null;
   if (qty === null) return { qty: null, status: "ok" };
   if (qty === 0)    return { qty: 0, status: "out" };
   if (qty <= 2)     return { qty, status: "low" };

@@ -3,8 +3,12 @@
    Cada pantalla recibe { onNavigate, onAdd, ... } por props.
 */
 
-/* Devuelve solo los productos visibles según el admin (localStorage) */
+/* Devuelve solo los productos visibles — Supabase primero, localStorage como fallback */
 function visibleProducts() {
+  if (window.VETA_DB) {
+    const all = window.VETA_DB.getProducts();
+    return all.filter(p => p.visible !== false);
+  }
   const adm = window.VETA_ADMIN;
   const all = adm ? adm.getProducts() : VETA_DATA.products;
   return adm ? all.filter(p => !adm.isHidden(p.id)) : all;

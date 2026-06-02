@@ -334,7 +334,15 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [cartBump, setCartBump] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [, forceUpdate] = useState(0);
   const cart = useCart();
+
+  // Inicializar Supabase y re-renderizar cuando los datos lleguen
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    window.VETA_DB.init().then(() => forceUpdate(n => n + 1));
+    return window.VETA_DB.onReady(() => forceUpdate(n => n + 1));
+  }, []);
 
   /* Aplica tweaks visuales */
   useEffect(() => {

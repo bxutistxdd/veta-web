@@ -90,6 +90,11 @@ function useAuth() {
 // ── Data hooks ────────────────────────────────────────────
 function useProductCRUD() {
   const [products, setProducts] = useState(() => {
+    // Supabase data si ya cargó, si no localStorage/seed
+    if (window.VETA_DB) {
+      const sp = window.VETA_DB.getProducts();
+      if (sp && sp.length) return sp;
+    }
     try {
       const stored = localStorage.getItem(ADM.products);
       if (stored) return JSON.parse(stored);
@@ -107,9 +112,22 @@ function useProductCRUD() {
     }
   };
 
-  const add    = useCallback((p) => persist([...products, p]), [products]);
-  const update = useCallback((id, data) => persist(products.map(p => p.id === id ? { ...p, ...data } : p)), [products]);
-  const remove = useCallback((id) => persist(products.filter(p => p.id !== id)), [products]);
+  const add = useCallback((p) => {
+    persist([...products, p]);
+    window.VETA_DB?.upsertProduct(p).catch(e => console.warn("[Admin] upsertProduct:", e));
+  }, [products]);
+
+  const update = useCallback((id, data) => {
+    const updated = products.map(p => p.id === id ? { ...p, ...data } : p);
+    persist(updated);
+    const full = updated.find(p => p.id === id);
+    if (full) window.VETA_DB?.upsertProduct(full).catch(e => console.warn("[Admin] upsertProduct:", e));
+  }, [products]);
+
+  const remove = useCallback((id) => {
+    persist(products.filter(p => p.id !== id));
+    window.VETA_DB?.deleteProduct(id).catch(e => console.warn("[Admin] deleteProduct:", e));
+  }, [products]);
 
   const generateId = useCallback((cat) => {
     const pfx = { anillos:"an", collares:"co", aretes:"ar", pulseras:"pu", piercings:"pi" }[cat] || "prod";
@@ -133,6 +151,8 @@ function useHidden() {
     setHiddenRaw(prev => {
       const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
       wr(ADM.hidden, next);
+      const visible = !next.includes(id);
+      window.VETA_DB?.setVisible(id, visible).catch(e => console.warn("[Admin] setVisible:", e));
       return next;
     });
   }, []);
@@ -145,8 +165,11 @@ function useStock() {
     setStockRaw(prev => {
       const k = `${pid}::${sz}`;
       const next = { ...prev };
-      if (qty < 0) delete next[k]; else next[k] = Math.max(0, qty);
-      wr(ADM.stock, next); return next;
+      const finalQty = Math.max(0, qty);
+      if (qty < 0) delete next[k]; else next[k] = finalQty;
+      wr(ADM.stock, next);
+      if (qty >= 0) window.VETA_DB?.setStock(pid, sz, finalQty).catch(e => console.warn("[Admin] setStock:", e));
+      return next;
     });
   }, []);
   const get   = useCallback((pid, sz) => { const v = stock[`${pid}::${sz}`]; return v === undefined ? "" : v; }, [stock]);

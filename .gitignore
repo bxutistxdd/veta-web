@@ -3,3 +3,4 @@ CLAUDE.md
 *.log
 .DS_Store
 Thumbs.db
+js/config.local.js
