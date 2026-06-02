@@ -1,0 +1,578 @@
+════════════════════════════════════════════════════════════════════════════════
+  VETA — ANÁLISIS COMPLETO: PENDIENTES, MEJORAS Y RECOMENDACIONES
+  Fecha: 2026-05-26
+════════════════════════════════════════════════════════════════════════════════
+
+Este documento cubre todo lo que falta, lo que puede mejorar y lo que debería
+existir para que VETA funcione como una tienda real, no como un prototipo.
+Organizado por área de prioridad.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. LO MÁS URGENTE — SIN ESTO LA TIENDA NO PUEDE OPERAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1.1  FOTOGRAFÍA DE PRODUCTO (BLOQUEANTE)
+     La web entera corre con placeholders SVG. Sin fotos reales, ninguna
+     funcionalidad importa. La fotografía es la primera conversión.
+     Lo que se necesita:
+     - Foto principal de cada producto sobre fondo neutro (blanco roto o crema,
+       consistente con la paleta Mediterranean del sitio).
+     - Al menos 3–4 ángulos por pieza: frontal, perfil, detalle de acabado,
+       foto "en uso" (sobre piel, en mano, en cuello).
+     - Formato mínimo: 1200×1500 px, JPG optimizado a WebP.
+     - Fondo consistente en todas las fotos para coherencia visual.
+     - Fotografía lifestyle: ambiente, textura, contexto. Esto eleva la
+       percepción de marca mucho más que la foto técnica sola.
+     Sistema ya preparado: el archivo data.js tiene la variable VETA_IMG {}
+     lista para recibir rutas de imagen por ID de producto. Solo hay que
+     añadir las fotos en assets/images/ y mapearlas.
+
+1.2  NÚMERO DE WHATSAPP REAL
+     El checkout completo está operativo pero el número de destino es el
+     placeholder "573001234567". Antes de publicar hay que actualizarlo.
+     Se hace en el panel de Tweaks (engranaje abajo a la derecha) o
+     directamente en js/app.jsx línea 14.
+
+1.3  DOMINIO Y HOSTING
+     La tienda vive en archivos locales. Necesita un servidor público.
+     Recomendación: Netlify o Vercel (ambos gratuitos para proyectos pequeños,
+     arrastras y sueltas la carpeta del proyecto y queda publicado en minutos).
+     Dominio sugerido: veta.com.co (dominio .co colombiano, refuerza origen).
+     Costo aproximado: $40.000–$80.000 COP/año según registrador.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. INFRAESTRUCTURA TÉCNICA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1  MIGRACIÓN DEL STACK (CUANDO EL DISEÑO ESTÉ LISTO)
+     El proyecto actual usa React + Babel transpilado en el navegador del
+     usuario. Eso es ideal para prototipar rápido pero tiene problemas reales:
+     - Primera carga lenta (~3–4 MB de Babel + React sin compilar).
+     - No hay SSR, el HTML que llega al navegador está vacío (malo para SEO).
+     - No se pueden usar módulos ES, imports, ni npm packages sin un bundler.
+     Opciones de migración, de menor a mayor complejidad:
+       a) Vite (recomendado para empezar): build tool ultrarrápido, mismo React,
+          mismo JSX, zero config. Migración de 1–2 horas.
+       b) Next.js: agrega SSR/SSG que beneficia mucho al SEO de producto.
+          Más potente pero requiere Node.js en el servidor o Vercel.
+       c) Astro: ideal para sitios de contenido con islas de React. Genera
+          HTML estático por defecto. Perfecto para una tienda de joyería con
+          poco JavaScript dinámico.
+     Esta migración se puede hacer cuando el diseño final esté aprobado, no
+     antes. No rompe nada si se hace bien.
+
+2.2  CMS / GESTIÓN DE PRODUCTOS SIN CÓDIGO
+     Ahora mismo el catálogo está hardcodeado en js/data.js. Añadir un
+     producto nuevo requiere tocar código. Eso no escala y excluye a personas
+     no técnicas del equipo.
+     Opciones:
+       a) Sanity.io (recomendado): headless CMS gratuito para volumen bajo,
+          excelente para catálogos de producto, tiene studio visual para editar.
+       b) Notion como base de datos + Notion API: si ya se usa Notion en el
+          negocio, es conveniente. Limitaciones en consultas complejas.
+       c) Google Sheets + script: opción mínima, funciona para catálogos
+          pequeños. El data.js podría leer una hoja publicada como JSON.
+       d) Contentful, Directus, Payload CMS: más robusto, más configuración.
+     Beneficio inmediato: agregar, editar y desactivar productos desde una
+     interfaz visual, sin tocar una sola línea de código.
+
+2.3  OPTIMIZACIÓN DE IMÁGENES
+     Cuando lleguen las fotos, hay que procesarlas:
+     - Convertir a WebP (30–50% más ligero que JPG con misma calidad).
+     - Generar versiones múltiples (400w, 800w, 1200w) para srcset responsivo.
+     - Blurhash o LQIP (Low Quality Image Placeholder): mostrar un blur
+       color mientras carga la imagen real. Hoy los placeholders SVG ya
+       cumplen esta función visualmente, pero con fotos reales necesitas algo
+       más sofisticado.
+     - Lazy loading ya está configurado en el componente Placeholder.
+
+2.4  SEO TÉCNICO
+     La web actual no tiene ningún SEO. Para aparecer en Google buscando
+     "joyería plata 925 Colombia" o "anillos plata Bogotá":
+     - Meta title y description únicos por página.
+     - Open Graph tags (og:title, og:description, og:image) para compartir en
+       redes. Crucial para que los links en Instagram/WhatsApp se vean bien.
+     - Structured data JSON-LD para productos: Google puede mostrar precio,
+       disponibilidad y nombre directamente en los resultados de búsqueda.
+     - sitemap.xml: lista de URLs del sitio para que Google las indexe.
+     - robots.txt: decirle a los crawlers qué pueden indexar.
+     - Canonical URLs para evitar contenido duplicado entre filtros.
+     - URL legibles: /catalogo/anillos/anillo-vena en vez de #pdp/an-01.
+       Esto requiere migrar el routing de hash a pathname (Next.js lo hace
+       automáticamente).
+
+2.5  ANALYTICS Y MÉTRICAS
+     Sin datos no hay decisiones. Lo mínimo:
+     - Google Analytics 4 o Plausible (Plausible es más privado, GDPR
+       friendly, pago pequeño mensual).
+     - Eventos personalizados: agregar al carrito, abrir WhatsApp, ver
+       categoría, tiempo en PDP.
+     - Meta Pixel (Facebook/Instagram): indispensable si van a hacer pauta
+       en Instagram. Permite retargeting de quienes visitaron la tienda.
+     - Google Tag Manager: contenedor que centraliza todos los scripts de
+       tracking sin tocar el código cada vez.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. FUNCIONALIDADES DE TIENDA FALTANTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+3.1  MENÚ MÓVIL (CRÍTICO)
+     La navegación actual no tiene versión móvil. En pantallas pequeñas los
+     links del nav se comprimen o desaparecen. Falta implementar:
+     - Botón hamburger para abrir/cerrar menú en móvil.
+     - Drawer lateral o menú fullscreen al abrirlo.
+     - Cierre al hacer clic fuera o presionar Escape.
+     En Colombia el 70–80% del tráfico web viene de celular. Esto es crítico.
+
+3.2  BÚSQUEDA DE PRODUCTOS
+     Con 20+ productos no es urgente, pero cuando el catálogo crezca a 50+
+     piezas la búsqueda se vuelve esencial. Podría ser:
+     - Barra de búsqueda en el nav (icono de lupa → input expand).
+     - Búsqueda en tiempo real por nombre, categoría, material.
+     - Fuse.js: librería de búsqueda fuzzy liviana, funciona sin servidor.
+
+3.3  LISTA DE DESEOS / FAVORITOS
+     Muchas compradoras de joyería no compran en la primera visita. Guardan
+     para pensar, para mostrárselo a alguien. Una wishlist con localStorage
+     (como el carrito) haría que vuelvan:
+     - Botón de corazón en cada product card.
+     - Página "Mis favoritos" o sección en el carrito.
+     - "Compartir lista" que genera un link o mensaje de WA con las piezas.
+
+3.4  FILTRO DE PRECIO (SLIDER DE RANGO)
+     El catálogo tiene filtros por categoría y material, pero no por precio.
+     Los productos van desde $65.000 hasta $420.000 COP. Un slider de rango
+     ayuda a quien tiene un presupuesto específico ("busco algo entre
+     $100.000 y $200.000").
+
+3.5  GUÍA DE TALLAS INTERACTIVA
+     Los anillos tienen tallas del 5 al 9 (sistema americano). Muchas
+     compradoras colombianas no saben su talla de anillo. Una guía de medición
+     en la página del PDP (imprimir y medir, o medir con regla) reduciría los
+     cambios post-compra. Para collares y pulseras, una tabla de largos en cm
+     con referencia visual ("45cm cae sobre la clavícula").
+
+3.6  ZOOM / VISOR DE IMAGEN EN PDP
+     Cuando haya fotos reales, el PDP necesita:
+     - Zoom al hacer hover (lupa) o click.
+     - Swipe entre imágenes en móvil (touch/swipe, no botones).
+     - Lightbox para ver la imagen en grande sin distracciones.
+
+3.7  VISTA RÁPIDA (QUICK VIEW)
+     En el catálogo, al hacer hover en una card, mostrar un botón "Vista
+     rápida" que abre un modal con la info esencial del producto (foto, precio,
+     tallas, botón de agregar) sin tener que ir al PDP completo. Reduce la
+     fricción para quienes están explorando.
+
+3.8  INDICADOR DE DISPONIBILIDAD
+     Aunque no hay inventario real conectado, mostrar "Últimas unidades" o
+     "Disponible" crea urgencia psicológica real. Con el CMS futuro se podría
+     conectar a un stock real.
+
+3.9  PRODUCTOS RELACIONADOS MEJORADOS
+     La sección "También te puede interesar" en el PDP muestra solo piezas de
+     la misma categoría. Podría mejorar mostrando:
+     - Piezas del mismo material.
+     - "Combina con" — curaduría manual de sets (anillo + arete del mismo
+       estilo).
+     - Piezas a precio similar.
+
+3.10 COMPARTIR PRODUCTO
+     Botón para compartir el link de un PDP directamente en WhatsApp o
+     Instagram Stories. Hoy los links son hashes (#pdp/an-01) que no
+     se comparten bien. Con URLs limpias (/joya/anillo-vena) esto funcionaría
+     perfectamente y sería una fuente de tráfico orgánico gratuito.
+
+3.11 PRODUCTOS RECIENTEMENTE VISTOS
+     "Viste esto antes": mostrar en el carrito o en la home un carrusel de
+     las últimas 4 piezas que el usuario visitó. localStorage, sin servidor.
+     Reduce el tiempo de vuelta al PDP cuando alguien estaba comparando.
+
+3.12 NOTIFICACIONES TOAST
+     Cuando alguien agrega al carrito, hoy el drawer se abre automáticamente.
+     Considera también agregar un toast (notificación pequeña) que aparece
+     en la esquina por 3 segundos: "Anillo Vena agregado a tu bolsa →".
+     Menos disruptivo que abrir el drawer completo.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. PÁGINAS Y CONTENIDO FALTANTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+4.1  "NUESTRA HISTORIA" — PÁGINA ABOUT
+     El footer tiene el link "Nuestra historia" apuntando a #. El manifiesto
+     en home es un aperitivo pero necesita su propia página.
+     Contenido sugerido:
+     - Origen de VETA: quién la fundó, por qué, cuándo.
+     - Los artesanos: quiénes hacen las piezas, dónde (Mompox, Bogotá).
+     - El proceso: cómo va del metal a la pieza terminada.
+     - Fotos del taller, del proceso, de las personas detrás.
+     - El por qué del nombre "VETA".
+     Esto no es decorativo. El comprador de joyería artesanal quiere saber
+     a quién le está comprando. La historia vende tanto como la pieza.
+
+4.2  PÁGINA DE GARANTÍA
+     "Garantía de por vida" es una promesa enorme. Necesita su propia página
+     que explique qué cubre (estructura), qué no cubre (desgaste normal del
+     laminado), cómo activarla, y el proceso paso a paso. La vaguedad genera
+     desconfianza; la claridad genera ventas.
+
+4.3  PÁGINA DE ENVÍOS
+     Preguntas que todo comprador tiene antes de pagar:
+     - ¿A dónde envían? (Toda Colombia, ¿internacional?)
+     - ¿Cuánto cuesta? (Gratuito desde $300.000 COP según el carrito)
+     - ¿Cuánto demora? (3–5 días hábiles según el carrito)
+     - ¿Con qué empresa? (Servientrega, Coordinadora, Interrapidísimo)
+     - ¿Qué pasa si el paquete llega dañado?
+     Esta página reduce las preguntas por WhatsApp antes de comprar.
+
+4.4  POLÍTICA DE DEVOLUCIONES Y CAMBIOS
+     Legalmente en Colombia (Estatuto del Consumidor) el comprador tiene
+     derecho a devolver en ciertos casos. Necesitan una política clara:
+     - Qué se puede cambiar (talla incorrecta de anillo).
+     - Qué no (piezas personalizadas, piercings por higiene).
+     - Plazo (5–15 días hábiles desde recepción).
+     - Proceso: contactar por WhatsApp, foto del problema, coordinar.
+     Sin esta página, la tienda genera desconfianza legal.
+
+4.5  PREGUNTAS FRECUENTES (FAQ)
+     Reduce la carga de atención por WhatsApp. Las preguntas que se repiten:
+     - ¿Son piezas originales plata 925?
+     - ¿Se oscurecen? ¿Se oxidan?
+     - ¿El oro laminado dura? ¿Cuánto?
+     - ¿Hacen personalización?
+     - ¿Puedo comprar para regalo? ¿Hacen empaque especial?
+     - ¿Tienen tienda física?
+     - ¿Aceptan tarjeta? (Hoy solo WA, ¿habrá PSE o Wompi?)
+
+4.6  PÁGINA DE PERSONALIZACIÓN
+     Varios productos del catálogo mencionan "personalizable" (grabado
+     interior, largo ajustable). Esto merece su propia página o sección:
+     - Qué se puede personalizar (grabado de iniciales, fechas, coordenadas).
+     - Costo adicional.
+     - Tiempo de producción extra.
+     - Cómo solicitarlo (por WA con referencia del producto).
+     La personalización es una ventaja competitiva enorme y ahora está oculta
+     en el texto del PDP donde nadie la ve.
+
+4.7  LOOKBOOK / GALERÍA EDITORIAL
+     Una galería de fotos de alta calidad con las piezas en contexto real:
+     sobre piel, con outfits, en escenas de vida cotidiana. No es un catálogo
+     técnico, es inspiración. Esto alimenta Instagram y alimenta el deseo.
+
+4.8  BLOG / DIARIO DE MARCA
+     Contenido de valor para SEO y para fidelizar:
+     - "Cómo limpiar tu anillo de plata en casa"
+     - "Diferencia entre plata 925 y plata 800"
+     - "Historia de la filigrana momposina"
+     - "Cómo elegir el largo correcto de un collar"
+     Cada artículo atrae tráfico orgánico de Google sin pagar publicidad.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. EXPERIENCIA DE USUARIO (UX) Y DETALLES DE INTERFAZ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+5.1  TRANSICIONES ENTRE PÁGINAS
+     Actualmente al cambiar de página (home → catálogo → PDP) el cambio es
+     instantáneo. Una transición suave (fade de 300ms) mantiene la sensación
+     de continuidad y calidad. Hay una clase "page-enter" ya definida en el
+     CSS que se puede aprovechar para esto.
+
+5.2  BREADCRUMB EN PDP
+     Cuando alguien llega al detalle de un producto necesita saber dónde está:
+     "Inicio > Catálogo > Anillos > Anillo Vena". Esto también es SEO.
+
+5.3  BOTÓN "VOLVER ARRIBA"
+     En páginas largas (catálogo con muchos productos, care guide) un botón
+     flotante que aparece al hacer scroll hacia abajo y lleva al top. Simple
+     pero muy usado en móvil.
+
+5.4  SKELETON LOADING
+     En vez de mostrar nada mientras cargan imágenes o se filtran productos,
+     mostrar un "esqueleto" animado (bloques grises pulsantes con el mismo
+     layout). Ya existe el Reveal/fade pero no hay skeleton.
+
+5.5  EMPTY STATES MEJORADOS
+     Cuando el catálogo filtra y no hay resultados, el mensaje actual es
+     genérico. Se puede mejorar con una ilustración o propuesta: "Sin piezas
+     en Piercings + Oro laminado. ¿Probás solo Piercings?" con botón que
+     quita el filtro de material.
+
+5.6  INFINITE SCROLL O PAGINACIÓN EN CATÁLOGO
+     Con 20 productos actuales no es urgente, pero cuando sean 50–100 piezas
+     cargar todo de golpe pesa. Paginación simple (20 por página) o infinite
+     scroll con IntersectionObserver (el hook useInView ya existe).
+
+5.7  INDICADOR DE SCROLL EN HOME
+     Un indicador visual en el hero que invite a hacer scroll hacia abajo.
+     Arrow animada o texto "Descubrir ↓". El hero actualmente no da pistas
+     de que hay contenido debajo.
+
+5.8  CONFIRMACIÓN VISUAL AL ENVIAR A WHATSAPP
+     Cuando el usuario hace clic en "Continuar por WhatsApp", el drawer
+     podría mostrar un estado de éxito brevemente ("¡Listo! Abriendo WhatsApp")
+     antes de cerrar. Reduce la confusión de si algo pasó o no.
+
+5.9  NAVEGACIÓN ENTRE PRODUCTOS EN PDP
+     "Anterior / Siguiente" para moverse entre productos sin volver al
+     catálogo. Muy útil cuando alguien está explorando. Se puede respetar el
+     filtro activo (si estaba en "Anillos", navega entre anillos).
+
+5.10 MODO REGALO
+     Un toggle en el carrito: "Es para regalo". Activa opciones de empaque
+     especial y puede modificar el mensaje de WhatsApp para incluir esa nota.
+     Las joyas son uno de los regalos más frecuentes en Colombia.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. MARKETING Y CRECIMIENTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+6.1  INTEGRACIÓN CON INSTAGRAM
+     VETA es un negocio visual. Instagram es su canal natural. La web debería
+     reflejar esa relación:
+     - Feed de Instagram embebido en la home (últimas 6–9 fotos).
+     - Botón "Síguenos en Instagram" visible y con el handle real.
+     - Fotos del IG en el lookbook.
+     - Etiquetado de productos en IG → link directo al PDP de la web.
+
+6.2  RESEÑAS Y TESTIMONIOS
+     Social proof. El comprador online de joyería tiene miedo a comprar
+     algo que no puede ver en persona. Las reseñas de otras personas lo
+     convencen. Opciones:
+     - Sección de testimonios curada manualmente en home (quotes, nombre,
+       ciudad, pieza comprada).
+     - En el futuro, integración con Google Reviews o una plataforma de
+       reviews de e-commerce.
+     - UGC: "Como se ve en ti" — fotos enviadas por clientas mostrando la
+       pieza puesta. Pedir permiso y publicar con nombre y ciudad.
+
+6.3  CAPTURA DE EMAIL / NEWSLETTER
+     Un pop-up o banner al salir de la página (exit intent) o después de 30s:
+     "Suscríbete y recibe 10% de descuento en tu primer pedido".
+     - Conectar con Mailchimp, Klaviyo o MailerLite.
+     - Enviar emails de: bienvenida, nuevo lanzamiento, guía de cuidado,
+       "hace 3 meses compraste, ¿cómo está tu pieza?".
+     El email tiene el ROI más alto de cualquier canal de marketing.
+
+6.4  PROGRAMA DE REFERIDOS
+     "Comparte con una amiga y ambas ganan $20.000 en tu próxima compra."
+     Simple, manual al principio: la persona menciona en WA que viene referida.
+     Formalizable después con un sistema de códigos.
+
+6.5  COLECCIONES ESPECIALES / DROPS
+     En vez de solo un catálogo estático, lanzar colecciones con fecha:
+     "Colección Mompox · disponible 1 de julio". Genera expectativa y urgencia.
+     Página de "próximamente" con countdown y formulario de notificación.
+
+6.6  WHATSAPP BUSINESS API
+     Actualmente el checkout abre un link de wa.me. Con WhatsApp Business API:
+     - Mensajes automáticos de confirmación de pedido.
+     - Seguimiento de envío automático.
+     - Recordatorio de carrito abandonado.
+     - Templates pre-aprobados por Meta.
+     Tiene costo pero escala mucho mejor que la atención manual.
+
+6.7  PAUTA DIGITAL
+     Para crecer más allá de los seguidores orgánicos:
+     - Meta Pixel instalado (ver punto 2.5) es condición para poder hacer
+       retargeting de visitantes.
+     - Anuncios en Instagram Stories y Reels con video corto de las piezas.
+     - Google Shopping: requiere conectar el catálogo a Google Merchant Center.
+       Con estructura data JSON-LD de productos (punto 2.4) esto es más fácil.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. OPERACIONES Y BACKEND (FUTURO)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+7.1  PANEL DE ADMINISTRACIÓN
+     A medida que el catálogo crece necesitan un panel para:
+     - Agregar y editar productos (nombre, precio, fotos, descripción).
+     - Activar/desactivar piezas sin borrarlas.
+     - Ver qué productos se están consultando más.
+     El CMS headless (punto 2.2) resuelve esto sin construir un panel propio.
+
+7.2  GESTIÓN DE PEDIDOS
+     Hoy los pedidos llegan por WhatsApp sin ningún registro central.
+     Cuando el volumen crezca:
+     - Necesitan un lugar donde registrar cada pedido (mínimo un Google Sheet).
+     - Estado de cada pedido: pendiente, en producción, enviado, entregado.
+     - Historial de cliente: qué compró, cuándo, talla.
+     Herramientas simples: Notion, Airtable, Google Sheets. Más adelante:
+     un sistema propio o Shopify para gestión de inventario y pedidos.
+
+7.3  INTEGRACIÓN CON PASARELA DE PAGO
+     El modelo actual (WhatsApp → pago por transferencia/Nequi/Daviplata) es
+     funcional para volumen bajo pero no escala y genera fricción. Opciones:
+     - Wompi (Bancolombia): pasarela colombiana, fácil de integrar, acepta
+       tarjetas, PSE, Nequi, Daviplata. Comisión ~2.9% + $900 COP por transacción.
+     - Mercado Pago: más conocido, acepta muchos métodos de pago.
+     - PayU: opción corporativa, requiere más documentación.
+     La transición a pasarela de pago elimina el paso manual de WhatsApp y
+     permite compras a las 2am sin que nadie tenga que responder mensajes.
+
+7.4  LOGÍSTICA Y OPERADORES
+     Necesitan definir y publicar con quién envían:
+     - Servientrega: cobertura nacional, tienen punto de recogida o recogen
+       en dirección.
+     - Coordinadora: buena cobertura, rastreo en línea.
+     - Interrapidísimo: rápido en ciudades principales.
+     - Para Bogotá: Rappi o mensajero propio puede ser más ágil y barato.
+     Con volumen medio se puede negociar tarifa empresarial con el operador.
+
+7.5  FACTURACIÓN ELECTRÓNICA
+     En Colombia la DIAN exige factura electrónica para negocios que superan
+     ciertos umbrales. Si VETA va a crecer formalmente, necesitan:
+     - RUT activo con régimen simplificado o común.
+     - Software de facturación (Siigo, Alegra, Factura.com).
+     - Factura electrónica enviada por email al comprador.
+
+7.6  SISTEMA DE INVENTARIO
+     Cuando las piezas sean de edición limitada o artesanía de serie corta,
+     el stock importa. Necesitan saber cuántas unidades hay de cada referencia
+     y talla antes de hacer la publicidad de esa pieza.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  8. ACCESIBILIDAD Y CALIDAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8.1  NAVEGACIÓN MÓVIL (YA MENCIONADA, ES LA MÁS URGENTE)
+     Reitero: sin menú hamburger funcional en móvil, la tienda tiene un bug
+     crítico de usabilidad para el 75%+ de los usuarios.
+
+8.2  FOCUS TRAP EN MODALES Y DRAWER
+     Cuando el cart drawer está abierto, el foco del teclado puede escapar
+     al fondo. Para accesibilidad real (y usuarios con teclado) el foco debe
+     quedar atrapado dentro del drawer mientras esté abierto.
+
+8.3  PREFERS-REDUCED-MOTION
+     El sitio tiene muchas animaciones (SplitText, Reveal, carruseles, magnéticos).
+     Usuarios con epilepsia fotosensible o que configuraron su sistema para
+     reducir movimiento deben tener una versión sin animaciones. CSS:
+     @media (prefers-reduced-motion: reduce) { /* desactivar transiciones */ }
+
+8.4  CONTRASTE DE COLOR
+     La paleta Mediterranean usa tonos cálidos suaves. Verificar con WCAG AA
+     que el texto sobre el fondo tiene contraste mínimo de 4.5:1. Los textos
+     en --ink-soft y --ink-faint sobre --bg pueden estar cerca del límite.
+
+8.5  SKIP NAV LINK
+     Un link oculto al principio de la página "Saltar al contenido principal"
+     que se vuelve visible al tab. Estándar de accesibilidad para usuarios
+     de lector de pantalla.
+
+8.6  ALT TEXT EN IMÁGENES
+     Cuando lleguen las fotos reales, cada imagen de producto debe tener un
+     alt text descriptivo: "Anillo Vena en plata 925 sobre fondo crema, vista
+     frontal". El componente Placeholder actual tiene alt="" vacío.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  9. DETALLES PEQUEÑOS QUE MARCAN DIFERENCIA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+9.1  FAVICON Y APPLE TOUCH ICON
+     La pestaña del navegador muestra el icono genérico. VETA necesita su
+     favicon (ícono de 32×32 y 16×16) y apple-touch-icon (180×180) para que
+     al guardar como acceso directo en el celular se vea la marca.
+
+9.2  META DESCRIPTION REAL
+     El <title> actual es correcto pero la meta description que aparece en
+     Google debería ser algo como: "Joyería en plata ley 925 y oro laminado
+     18k, hecha a mano en Colombia. Anillos, collares, aretes y más. Envíos
+     a todo el país."
+
+9.3  PWA / MANIFEST
+     Un manifest.json permite que VETA se instale como app en el celular.
+     Con eso aparece en la pantalla de inicio, abre sin barra del navegador
+     y se ve como una app nativa. No requiere App Store.
+
+9.4  CURSOR PERSONALIZADO
+     Opcional pero alineado con la estética premium: un cursor custom (punto
+     pequeño que sigue al mouse) refuerza la experiencia de marca diferenciada.
+     El efecto magnético en los botones ya va en esa dirección.
+
+9.5  SONIDO (MICROINTERACCIONES)
+     Muy opcional, solo si es coherente con la marca: un sonido sutil al
+     agregar al carrito o al cambiar de tema. Marcas de lujo lo usan.
+     Se puede desactivar si el usuario tiene el sonido del sistema apagado.
+
+9.6  PÁGINA 404 PERSONALIZADA
+     Si alguien llega a una URL que no existe, mostrar una página 404 con
+     el estilo de VETA y un botón para volver al inicio o al catálogo.
+
+9.7  FOOTER CON REDES SOCIALES REALES
+     El footer tiene "Instagram" y "WhatsApp" como links vacíos (#). Necesitan
+     los handles reales: https://instagram.com/vetajoyeria (o el que sea) y
+     el link de WA directo del negocio.
+
+9.8  POLÍTICA DE PRIVACIDAD Y COOKIES
+     Con analíticas y pixels instalados, legalmente en Colombia y para
+     operar con tranquilidad, necesitan una política de privacidad básica
+     y un aviso de cookies. No tiene que ser compleja, pero debe existir.
+
+9.9  PRECIO TACHADO / DESCUENTOS
+     Mostrar "precio anterior" tachado cuando haya una promoción genera
+     la percepción de valor y urgencia que mueve compras. El sistema de
+     datos en data.js puede agregar un campo "priceOld" fácilmente.
+
+9.10 PACKAGING DIGITAL
+     Una imagen del unboxing de VETA en la página de checkout y en los
+     emails. El empaque es parte de la experiencia de compra de joyería
+     artesanal. Si el empaque es bonito, mostrarlo antes de comprar reduce
+     la ansiedad del comprador.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ORDEN DE PRIORIDAD SUGERIDO PARA ARRANCAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  SEMANA 1–2 (Para poder lanzar)
+  ────────────────────────────────
+  [ ] Fotografía de producto — mínimo 2 fotos por pieza, todas las 20 piezas
+  [ ] Número de WhatsApp real en app.jsx
+  [ ] Menú hamburger funcional en móvil
+  [ ] Publicar en Netlify/Vercel con dominio veta.com.co
+  [ ] Meta title, description y OG básicos en index.html
+  [ ] Favicon con el logo
+
+  SEMANA 3–4 (Para vender mejor)
+  ────────────────────────────────
+  [ ] Páginas de Garantía, Envíos y Devoluciones
+  [ ] Guía de tallas en PDP de anillos
+  [ ] Google Analytics instalado
+  [ ] Reseñas/testimonios curados (3–5 quotes reales de primeras clientas)
+  [ ] Footer con redes sociales reales
+  [ ] Wishlist básica con localStorage
+
+  MES 2 (Para escalar)
+  ────────────────────────────────
+  [ ] CMS headless para gestionar el catálogo sin código (Sanity)
+  [ ] Búsqueda de productos
+  [ ] Meta Pixel para retargeting
+  [ ] Email capture + secuencia de bienvenida
+  [ ] Blog con 3 artículos iniciales para SEO
+  [ ] Página "Nuestra historia"
+  [ ] Vista rápida en catálogo
+
+  MES 3+ (Para profesionalizar)
+  ────────────────────────────────
+  [ ] Migración a Next.js o Astro con SSR para SEO real
+  [ ] Pasarela de pago (Wompi)
+  [ ] Sistema de pedidos centralizado
+  [ ] Facturación electrónica
+  [ ] WhatsApp Business API
+  [ ] Programa de referidos
+  [ ] Drops/colecciones con fecha
+
+════════════════════════════════════════════════════════════════════════════════
+  Nota: Este análisis fue generado con base en el estado actual del código
+  (mayo 2026). Revisarlo en 3 meses para actualizar prioridades según lo que
+  haya cambiado en el negocio.
+════════════════════════════════════════════════════════════════════════════════

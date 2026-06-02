@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(head *)",
+      "Bash(Get-Content *)",
+      "PowerShell(\\(Get-Item \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\js\\\\admin.jsx\"\\).Length; \\(Select-String -Path \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\js\\\\admin.jsx\" -Pattern \"window.AdminPanel\"\\).Line)",
+      "Bash(Measure-Object -Line)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\css\\\\styles.css\" | Select-Object -Last 5\\) -join \"`n\")",
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\js\\\\screens.jsx\" | Select-Object -First 12\\) -join \"`n\")",
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\css\\\\styles.css\" | Select-Object -Last 3\\) -join \"`n\")",
+      "PowerShell(\\(Get-Content \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\js\\\\screens.jsx\" | Select-String \"filter, search\"\\).Line)",
+      "PowerShell(gh *)",
+      "PowerShell(winget install *)"
+    ]
+  }
+}
