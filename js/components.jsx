@@ -114,6 +114,8 @@ function Magnetic({ children, strength = 0.3, radius = 110, className = "", styl
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Solo activar en dispositivos con mouse real; en touch el CSS :active maneja la retroalimentación
+    if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) return;
     let raf = 0;
     let tx = 0, ty = 0, x = 0, y = 0;
 

@@ -1922,6 +1922,26 @@ img { max-width: 100%; display: block; }
 
   /* Section heads — reducir padding top */
   .section-head { padding-top: clamp(48px, 8vh, 80px); }
+
+  /* Botones — efecto presión para touch (reemplaza el magnético de desktop) */
+  .btn {
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 180ms ease,
+      background 400ms var(--ease-out),
+      color 400ms var(--ease-out),
+      border-color 400ms var(--ease-out);
+  }
+  .btn:active {
+    transform: scale(0.94);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+  .btn--ghost:active {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
 }
 
 /* ── 480px — pantallas pequeñas ── */
@@ -1973,7 +1993,7 @@ img { max-width: 100%; display: block; }
   .care-steps { padding: 24px var(--gutter) 72px; }
 
   /* Marquee compact */
-  .marquee--compact { margin-top: 48px; }
+  .marquee--compact { margin-top: 68px; }
 
   /* Numbers — padding reducido */
   .num-cell { padding: 28px clamp(16px, 3vw, 32px); }
