@@ -160,7 +160,25 @@ function useHidden() {
 }
 
 function useStock() {
-  const [stock, setStockRaw] = useState(() => rd(ADM.stock, {}));
+  const [stock, setStockRaw] = useState(() => {
+    // Preferir datos de Supabase si ya cargaron, si no localStorage
+    const sb = window.VETA_STOCK;
+    if (sb && Object.keys(sb).length > 0) return sb;
+    return rd(ADM.stock, {});
+  });
+
+  // Cuando Supabase termine de cargar, sincronizar el estado local
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.onReady(() => {
+      const sb = window.VETA_STOCK || {};
+      if (Object.keys(sb).length > 0) {
+        setStockRaw(sb);
+        wr(ADM.stock, sb);
+      }
+    });
+  }, []);
+
   const set = useCallback((pid, sz, qty) => {
     setStockRaw(prev => {
       const k = `${pid}::${sz}`;
@@ -180,7 +198,15 @@ function useStock() {
 function useCfg() {
   const [cfg, setCfgRaw] = useState(() => ({ wa_phone: "573246206702", ...rd(ADM.settings, {}) }));
   const save = useCallback((patch) => {
-    setCfgRaw(prev => { const next = { ...prev, ...patch }; wr(ADM.settings, next); return next; });
+    setCfgRaw(prev => {
+      const next = { ...prev, ...patch };
+      wr(ADM.settings, next);
+      // Sincronizar cada clave a la tabla settings de Supabase
+      Object.entries(patch).forEach(([k, v]) => {
+        window.VETA_DB?.saveSetting(k, String(v)).catch(e => console.warn("[Admin] saveSetting:", e));
+      });
+      return next;
+    });
   }, []);
   return { cfg, save };
 }
