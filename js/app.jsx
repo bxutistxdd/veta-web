@@ -77,7 +77,7 @@ function useCart() {
       const idx  = prev.findIndex((it) => it.key === key);
       const cur  = idx >= 0 ? prev[idx].qty : 0;
       const req  = opts.qty || 1;
-      const stock = window.VETA_ADMIN?.getStock(product.id, opts.size);
+      const stock = window.VETA_DB?.getStock(product.id, opts.size) ?? window.VETA_ADMIN?.getStock(product.id, opts.size);
       const cap  = (stock !== null && stock !== undefined) ? stock : Infinity;
       const newQty = Math.min(cur + req, cap);
       if (newQty <= 0) return prev;
@@ -95,7 +95,7 @@ function useCart() {
     if (qty <= 0) return prev.filter((it) => it.key !== key);
     const item = prev.find(it => it.key === key);
     if (!item) return prev;
-    const stock = window.VETA_ADMIN?.getStock(item.id, item.size);
+    const stock = window.VETA_DB?.getStock(item.id, item.size) ?? window.VETA_ADMIN?.getStock(item.id, item.size);
     const cap   = (stock !== null && stock !== undefined) ? stock : Infinity;
     return prev.map((it) => it.key === key ? { ...it, qty: Math.min(qty, cap) } : it);
   }), []);
