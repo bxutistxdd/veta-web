@@ -4,3 +4,4 @@ CLAUDE.md
 .DS_Store
 Thumbs.db
 js/config.local.js
+node_modules/
