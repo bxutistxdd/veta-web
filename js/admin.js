@@ -1136,10 +1136,366 @@ function TabConfig({
   }, /*#__PURE__*/React.createElement("strong", null, "Nota:"), " Stock, visibilidad, productos y configuraci\xF3n se guardan en Supabase y est\xE1n disponibles desde cualquier dispositivo en tiempo real."));
 }
 
+// ── Tab: Chats (buzón de WhatsApp estilo WhatsApp) ────────
+var CHAT_SEEN_KEY = "veta_chat_seen";
+function loadSeen() {
+  try {
+    return JSON.parse(localStorage.getItem(CHAT_SEEN_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+function saveSeen(m) {
+  try {
+    localStorage.setItem(CHAT_SEEN_KEY, JSON.stringify(m));
+  } catch {}
+}
+function chatTime(iso) {
+  try {
+    return new Date(iso).toLocaleTimeString("es-CO", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return "";
+  }
+}
+function chatDayLabel(iso) {
+  var d = new Date(iso);
+  var now = new Date();
+  var sameDay = (a, b) => a.toDateString() === b.toDateString();
+  if (sameDay(d, now)) return "Hoy";
+  var yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (sameDay(d, yest)) return "Ayer";
+  return d.toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  });
+}
+function chatListTime(iso) {
+  var d = new Date(iso);
+  var now = new Date();
+  if (d.toDateString() === now.toDateString()) return chatTime(iso);
+  var yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return "Ayer";
+  return d.toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "2-digit"
+  });
+}
+function chatInitial(name, phone) {
+  var s = (name || "").trim();
+  if (s) return s[0].toUpperCase();
+  return (phone || "?").slice(-2, -1) || "#";
+}
+function fmtPhone(phone) {
+  // 573001234567 → +57 300 123 4567 (aprox., solo presentación)
+  if (!phone) return "";
+  var p = phone.replace(/\D/g, "");
+  if (p.length === 12 && p.startsWith("57")) return `+57 ${p.slice(2, 5)} ${p.slice(5, 8)} ${p.slice(8)}`;
+  return "+" + p;
+}
+var ROLE_OUT = {
+  assistant: true,
+  agent: true
+}; // salientes (derecha)
+
+function useChatBadge() {
+  var [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    var alive = true;
+    var recompute = async () => {
+      try {
+        await window.VETA_DB.loadThreads();
+        var th = window.VETA_DB.getThreads();
+        var n = Object.values(th).filter(t => t.needs_human).length;
+        if (alive) setCount(n);
+      } catch {}
+    };
+    recompute();
+    var unsub = window.VETA_DB.subscribeChats(() => recompute());
+    return () => {
+      alive = false;
+      unsub();
+    };
+  }, []);
+  return count;
+}
+function ChatBubbleRow({
+  msg,
+  prev
+}) {
+  var out = ROLE_OUT[msg.role];
+  var tag = msg.role === "assistant" ? "IA" : msg.role === "agent" ? "Tú" : null;
+  var showDay = !prev || chatDayLabel(prev.created_at) !== chatDayLabel(msg.created_at);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, showDay && /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-daysep"
+  }, /*#__PURE__*/React.createElement("span", null, chatDayLabel(msg.created_at))), /*#__PURE__*/React.createElement("div", {
+    className: `adm-chat-msg ${out ? "adm-chat-msg--out" : "adm-chat-msg--in"} adm-chat-msg--${msg.role}`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-bubble"
+  }, tag && /*#__PURE__*/React.createElement("span", {
+    className: `adm-chat-tag adm-chat-tag--${msg.role}`
+  }, tag), /*#__PURE__*/React.createElement("span", {
+    className: "adm-chat-text"
+  }, msg.content), /*#__PURE__*/React.createElement("span", {
+    className: "adm-chat-meta"
+  }, chatTime(msg.created_at)))));
+}
+function TabChats() {
+  var [list, setList] = useState([]);
+  var [loading, setLoading] = useState(true);
+  var [active, setActive] = useState(null); // phone
+  var [messages, setMessages] = useState([]);
+  var [msgLoading, setMsgLoading] = useState(false);
+  var [filter, setFilter] = useState("todos"); // todos | atencion | pausa
+  var [q, setQ] = useState("");
+  var [seen, setSeen] = useState(loadSeen);
+  var [draft, setDraft] = useState("");
+  var [sending, setSending] = useState(false);
+  var [orders, setOrders] = useState([]);
+  var activeRef = useRef(active);
+  activeRef.current = active;
+  var endRef = useRef(null);
+  var reloadList = useCallback(async () => {
+    if (!window.VETA_DB) return;
+    await window.VETA_DB.loadThreads();
+    var l = await window.VETA_DB.getConversationList();
+    setList(l);
+    setLoading(false);
+  }, []);
+  var openThread = useCallback(async phone => {
+    setActive(phone);
+    setMsgLoading(true);
+    setOrders([]);
+    var msgs = await window.VETA_DB.getMessages(phone);
+    setMessages(msgs);
+    setMsgLoading(false);
+    setSeen(prev => {
+      var n = {
+        ...prev,
+        [phone]: new Date().toISOString()
+      };
+      saveSeen(n);
+      return n;
+    });
+    var th = window.VETA_DB.getThreads()[phone];
+    if (th?.needs_human) {
+      try {
+        await window.VETA_DB.clearNeedsHuman(phone);
+      } catch {}
+    }
+    try {
+      var {
+        data
+      } = await window.VETA_DB.sb.from("wa_orders").select("*").eq("phone", phone).order("created_at", {
+        ascending: false
+      });
+      setOrders(data || []);
+    } catch {
+      setOrders([]);
+    }
+  }, []);
+  useEffect(() => {
+    reloadList();
+    if (!window.VETA_DB) return;
+    var unsub = window.VETA_DB.subscribeChats(ev => {
+      if (ev.type === "message" && ev.row && ev.row.phone === activeRef.current) {
+        setMessages(prev => prev.some(m => m.id === ev.row.id) ? prev : [...prev, ev.row]);
+        setSeen(prev => {
+          var n = {
+            ...prev,
+            [ev.row.phone]: new Date().toISOString()
+          };
+          saveSeen(n);
+          return n;
+        });
+      }
+      reloadList();
+    });
+    return unsub;
+  }, []);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end"
+    });
+  }, [messages]);
+  var unreadOf = c => {
+    var s = seen[c.phone];
+    return c.last && (!s || new Date(c.last.created_at) > new Date(s)) && c.last.phone !== undefined && c.last.role === "user";
+  };
+  var filtered = list.filter(c => {
+    if (filter === "atencion" && !(c.thread && c.thread.needs_human)) return false;
+    if (filter === "pausa" && !(c.thread && c.thread.bot_paused)) return false;
+    if (q) {
+      var hay = (c.thread?.customer_name || "") + " " + c.phone;
+      if (!hay.toLowerCase().includes(q.toLowerCase())) return false;
+    }
+    return true;
+  });
+  var activeThread = list.find(c => c.phone === active)?.thread || active && window.VETA_DB.getThreads()[active] || null;
+  var activeName = activeThread?.customer_name || "";
+  var paused = !!activeThread?.bot_paused;
+  var atencionCount = list.filter(c => c.thread && c.thread.needs_human).length;
+  var toggleControl = async () => {
+    if (!active) return;
+    try {
+      await window.VETA_DB.setBotPaused(active, !paused);
+      adminToast(!paused ? "Tomaste el control. La IA quedó en pausa para este chat." : "La IA retoma este chat.");
+      reloadList();
+    } catch (e) {
+      adminToast("No se pudo cambiar: " + e.message, true);
+    }
+  };
+  var send = async () => {
+    var text = draft.trim();
+    if (!text || !active || sending) return;
+    setSending(true);
+    try {
+      await window.VETA_DB.sendAgentMessage(active, text);
+      setDraft("");
+      var msgs = await window.VETA_DB.getMessages(active);
+      setMessages(msgs);
+      reloadList();
+    } catch (e) {
+      adminToast(e.message || "No se pudo enviar.", true);
+    }
+    setSending(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: `adm-chat ${active ? "adm-chat--thread-open" : ""}`
+  }, /*#__PURE__*/React.createElement("aside", {
+    className: "adm-chat-list"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-list-top"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "adm-input adm-input--sm",
+    placeholder: "Buscar por nombre o n\xFAmero\u2026",
+    value: q,
+    onChange: e => setQ(e.target.value)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-filters"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: `adm-pill${filter === "todos" ? " adm-pill--on" : ""}`,
+    onClick: () => setFilter("todos")
+  }, "Todos"), /*#__PURE__*/React.createElement("button", {
+    className: `adm-pill${filter === "atencion" ? " adm-pill--on" : ""}`,
+    onClick: () => setFilter("atencion")
+  }, "Requieren atenci\xF3n", atencionCount > 0 ? ` · ${atencionCount}` : ""), /*#__PURE__*/React.createElement("button", {
+    className: `adm-pill${filter === "pausa" ? " adm-pill--on" : ""}`,
+    onClick: () => setFilter("pausa")
+  }, "En pausa"))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-list-scroll"
+  }, loading && /*#__PURE__*/React.createElement("p", {
+    className: "adm-empty"
+  }, "Cargando conversaciones\u2026"), !loading && filtered.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "adm-empty"
+  }, q || filter !== "todos" ? "Sin conversaciones que coincidan." : "Aún no hay conversaciones."), filtered.map(c => {
+    var needs = c.thread && c.thread.needs_human;
+    var isPaused = c.thread && c.thread.bot_paused;
+    var unread = unreadOf(c);
+    return /*#__PURE__*/React.createElement("button", {
+      key: c.phone,
+      className: `adm-chat-item${active === c.phone ? " adm-chat-item--on" : ""}${needs ? " adm-chat-item--alert" : ""}`,
+      onClick: () => openThread(c.phone)
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-avatar"
+    }, chatInitial(c.thread?.customer_name, c.phone)), /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-item-body"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-item-top"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-item-name"
+    }, c.thread?.customer_name || fmtPhone(c.phone)), /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-item-time"
+    }, chatListTime(c.last.created_at))), /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-item-bottom"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-item-prev"
+    }, c.last.role === "user" ? "" : c.last.role === "agent" ? "Tú: " : "IA: ", c.last.content), /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-item-badges"
+    }, needs && /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-dot adm-chat-dot--alert",
+      title: "Requiere asesor"
+    }, "!"), isPaused && /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-pill-mini",
+      title: "IA en pausa"
+    }, "\u23F8"), unread && !needs && /*#__PURE__*/React.createElement("span", {
+      className: "adm-chat-dot"
+    })))));
+  }))), /*#__PURE__*/React.createElement("section", {
+    className: "adm-chat-thread"
+  }, !active && /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-empty"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-empty-logo"
+  }, "VETA"), /*#__PURE__*/React.createElement("p", null, "Selecciona una conversaci\xF3n para ver y responder los mensajes."), /*#__PURE__*/React.createElement("p", {
+    className: "adm-hint"
+  }, "Las conversaciones llegan en tiempo real desde WhatsApp.")), active && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("header", {
+    className: "adm-chat-thread-hdr"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "adm-chat-back",
+    onClick: () => setActive(null),
+    title: "Volver"
+  }, "\u2190"), /*#__PURE__*/React.createElement("span", {
+    className: "adm-chat-avatar"
+  }, chatInitial(activeName, active)), /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-thread-id"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-chat-thread-name"
+  }, activeName || fmtPhone(active)), /*#__PURE__*/React.createElement("span", {
+    className: "adm-chat-thread-sub"
+  }, fmtPhone(active), paused ? " · IA en pausa" : " · IA activa", orders.length > 0 ? ` · ${orders.length} pedido${orders.length > 1 ? "s" : ""}` : "")), /*#__PURE__*/React.createElement("button", {
+    className: `adm-btn adm-btn--sm ${paused ? "adm-btn--primary" : "adm-btn--ghost"}`,
+    onClick: toggleControl
+  }, paused ? "Devolver a la IA" : "Tomar control")), paused && /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-banner"
+  }, "Est\xE1s atendiendo este chat \u2014 la IA no responder\xE1 hasta que lo devuelvas."), /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-scroll"
+  }, msgLoading && /*#__PURE__*/React.createElement("p", {
+    className: "adm-empty"
+  }, "Cargando mensajes\u2026"), !msgLoading && messages.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "adm-empty"
+  }, "Sin mensajes todav\xEDa."), messages.map((m, i) => /*#__PURE__*/React.createElement(ChatBubbleRow, {
+    key: m.id || i,
+    msg: m,
+    prev: messages[i - 1]
+  })), /*#__PURE__*/React.createElement("div", {
+    ref: endRef
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-composer"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    className: "adm-chat-input",
+    rows: 1,
+    placeholder: "Escribe un mensaje\u2026",
+    value: draft,
+    onChange: e => setDraft(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send();
+      }
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "adm-chat-send",
+    onClick: send,
+    disabled: sending || !draft.trim(),
+    title: "Enviar"
+  }, sending ? "…" : "➤")))));
+}
+
 // ── Shell con sidebar ─────────────────────────────────────
 var ADMIN_TABS = [{
   id: "inicio",
   label: "Inicio"
+}, {
+  id: "chats",
+  label: "Chats"
 }, {
   id: "productos",
   label: "Productos"
@@ -1171,6 +1527,7 @@ function AdminShell({
     cfg,
     save: saveCfg
   } = useCfg();
+  var chatBadge = useChatBadge();
   var toggleHidden = useCallback(async id => {
     var p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
     var currentlyVisible = p ? p.visible !== false : true;
@@ -1200,7 +1557,9 @@ function AdminShell({
     key: t.id,
     className: `adm-sb-btn${tab === t.id ? " adm-sb-btn--on" : ""}`,
     onClick: () => setTab(t.id)
-  }, t.label))), /*#__PURE__*/React.createElement("div", {
+  }, t.label, t.id === "chats" && chatBadge > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-sb-badge-count"
+  }, chatBadge)))), /*#__PURE__*/React.createElement("div", {
     className: "adm-sb-foot"
   }, /*#__PURE__*/React.createElement("a", {
     href: "#home",
@@ -1228,7 +1587,7 @@ function AdminShell({
   }, tab === "inicio" && /*#__PURE__*/React.createElement(TabInicio, {
     products: products,
     stock: stock
-  }), tab === "productos" && /*#__PURE__*/React.createElement(TabProductos, {
+  }), tab === "chats" && /*#__PURE__*/React.createElement(TabChats, null), tab === "productos" && /*#__PURE__*/React.createElement(TabProductos, {
     products: products,
     addProduct: add,
     updateProduct: update,
@@ -1250,7 +1609,9 @@ function AdminShell({
     key: t.id,
     className: `adm-mob-btn${tab === t.id ? " adm-mob-btn--on" : ""}`,
     onClick: () => setTab(t.id)
-  }, t.label))));
+  }, t.label, t.id === "chats" && chatBadge > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-badge"
+  }, chatBadge)))));
 }
 
 // ── Raíz ──────────────────────────────────────────────────

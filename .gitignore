@@ -5,3 +5,8 @@ CLAUDE.md
 Thumbs.db
 js/config.local.js
 node_modules/
+
+# Scripts de despliegue con credenciales (Supabase / Railway) — NO subir
+apply-chat-sql.js
+build-n8n-chat.js
+deploy-n8n-chat.js

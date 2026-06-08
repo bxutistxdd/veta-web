@@ -216,11 +216,134 @@ window.VETA_DB = (function () {
     _notify();
   }
 
+  /* ── buzón de WhatsApp (#admin → pestaña Chats) ──────────────
+     Lectura de wa_conversations / wa_threads (requiere sesión admin;
+     RLS authenticated). El envío de mensajes 'agent' va por un relay
+     en n8n para no exponer el token de Meta en el navegador.        */
+
+  // URL del webhook de n8n que envía por la Graph API y guarda el mensaje.
+  const RELAY_URL = "https://n8n-production-e7c0.up.railway.app/webhook/veta-agent-send";
+
+  let _threads = {};          // phone -> { phone, customer_name, bot_paused, needs_human, last_at }
+  let _chatSubs = [];         // listeners de la pestaña Chats
+  let _chatChannels = null;   // canales realtime (perezosos)
+
+  function _notifyChats(payload) { _chatSubs.forEach(fn => { try { fn(payload); } catch {} }); }
+
+  async function loadThreads() {
+    const { data, error } = await sb.from("wa_threads").select("*");
+    if (error) { console.warn("[VETA_DB] threads:", error.message); return _threads; }
+    _threads = {};
+    (data || []).forEach(t => { _threads[t.phone] = t; });
+    return _threads;
+  }
+  function getThreads() { return _threads; }
+
+  // Lista de conversaciones derivada de los últimos mensajes + estado del thread.
+  async function getConversationList(limit = 1000) {
+    const { data, error } = await sb.from("wa_conversations")
+      .select("phone,role,content,created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) { console.warn("[VETA_DB] conv list:", error.message); return []; }
+    const byPhone = {};
+    (data || []).forEach(m => {
+      if (!byPhone[m.phone]) byPhone[m.phone] = { phone: m.phone, last: m, count: 0 };
+      byPhone[m.phone].count++;
+    });
+    return Object.values(byPhone)
+      .map(c => ({ ...c, thread: _threads[c.phone] || null }))
+      .sort((a, b) => new Date(b.last.created_at) - new Date(a.last.created_at));
+  }
+
+  async function getMessages(phone) {
+    const { data, error } = await sb.from("wa_conversations")
+      .select("*").eq("phone", phone).order("created_at", { ascending: true });
+    if (error) { console.warn("[VETA_DB] messages:", error.message); return []; }
+    return data || [];
+  }
+
+  async function setBotPaused(phone, paused) {
+    const { error } = await sb.from("wa_threads")
+      .upsert({ phone, bot_paused: paused, updated_at: new Date().toISOString() }, { onConflict: "phone" });
+    if (error) throw error;
+    _threads[phone] = { ...(_threads[phone] || { phone }), bot_paused: paused };
+    _notifyChats({ type: "thread", row: _threads[phone] });
+  }
+
+  async function clearNeedsHuman(phone) {
+    const { error } = await sb.from("wa_threads")
+      .upsert({ phone, needs_human: false, updated_at: new Date().toISOString() }, { onConflict: "phone" });
+    if (error) throw error;
+    _threads[phone] = { ...(_threads[phone] || { phone }), needs_human: false };
+    _notifyChats({ type: "thread", row: _threads[phone] });
+  }
+
+  // Envía un mensaje como asesor humano vía el relay de n8n (valida el JWT).
+  async function sendAgentMessage(phone, text) {
+    const session = await getSession();
+    const jwt = session?.access_token;
+    if (!jwt) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+    const url = getSetting("agent_send_url", RELAY_URL);
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, message: text, jwt }),
+      });
+    } catch (e) { throw new Error("Sin conexión con el servidor de envío."); }
+    if (!res.ok) {
+      let msg = "No se pudo enviar (código " + res.status + ").";
+      try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
+      throw new Error(msg);
+    }
+    return await res.json().catch(() => ({ ok: true }));
+  }
+
+  function _ensureChatChannels() {
+    if (_chatChannels) return;
+    const conv = sb.channel("wa-conv-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "wa_conversations" },
+        (p) => _notifyChats({ type: "message", row: p.new }))
+      .subscribe();
+    const thr = sb.channel("wa-threads-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "wa_threads" }, (p) => {
+        const row = p.new || p.old;
+        if (row?.phone) {
+          if (p.eventType === "DELETE") delete _threads[row.phone];
+          else _threads[row.phone] = p.new;
+        }
+        _notifyChats({ type: "thread", row: p.new || null });
+      })
+      .subscribe();
+    _chatChannels = [conv, thr];
+  }
+  function _teardownChatChannels() {
+    if (!_chatChannels) return;
+    _chatChannels.forEach(ch => { try { sb.removeChannel(ch); } catch {} });
+    _chatChannels = null;
+  }
+
+  // Suscripción de la pestaña Chats: recibe {type:'message'|'thread', row}.
+  // Crea los canales realtime al primer suscriptor y los cierra al último.
+  function subscribeChats(fn) {
+    _chatSubs.push(fn);
+    _ensureChatChannels();
+    return () => {
+      _chatSubs = _chatSubs.filter(l => l !== fn);
+      if (_chatSubs.length === 0) _teardownChatChannels();
+    };
+  }
+
   return {
     init, onReady, subscribe,
     getProducts, getStock, getSetting, isHidden,
     signIn, signOut, getSession, onAuthChange, changePassword,
     setStock, clearStock, setVisible, upsertProduct, deleteProduct, saveSetting,
+    // buzón de chats
+    loadThreads, getThreads, getConversationList, getMessages,
+    setBotPaused, clearNeedsHuman, sendAgentMessage, subscribeChats,
     sb,
   };
 })();
