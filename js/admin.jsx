@@ -1,212 +1,147 @@
-/* VETA · Panel de administración — Prototipo localStorage
-   Para producción: migrar a Supabase u otro backend.      */
+/* VETA · Panel de administración
+   Backend: Supabase (datos en vivo). Escrituras protegidas por login
+   (Supabase Auth) + políticas RLS para el rol authenticated.            */
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-// ── Storage keys ──────────────────────────────────────────
-const ADM = {
-  hash:     "veta-admin-hash",
-  session:  "veta-admin-session",
-  stock:    "veta-stock",
-  hidden:   "veta-hidden",
-  settings: "veta-adm-cfg",
-  products: "veta-products",          // lista de productos (override del catálogo)
-};
-const DEFAULT_PW = "veta2026";
-
-// ── Helpers ───────────────────────────────────────────────
-async function sha256(msg) {
-  const buf = await crypto.subtle.digest(
-    "SHA-256", new TextEncoder().encode(msg)
-  );
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, "0")).join("");
+// ── Avisos (toast) del panel ──────────────────────────────
+const _toastSubs = [];
+function adminToast(text, isErr = false) {
+  _toastSubs.forEach(fn => fn({ text, isErr, id: Date.now() + Math.random() }));
 }
-function rd(key, fb = null) {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fb; }
-  catch { return fb; }
-}
-function wr(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
-// Seed inicial: agrega campo images a los productos de data.js
+// Seed de respaldo si Supabase aún no cargó
 function seedProducts() {
   return VETA_DATA.products.map(p => ({ ...p, images: p.images || {} }));
 }
 
-// ── API pública (utilizada por el sitio público) ──────────
+// ── API de compatibilidad para el sitio público ───────────
+// Antes leía de localStorage; ahora delega en VETA_DB (Supabase).
 window.VETA_ADMIN = {
-  getProducts() {
-    try {
-      const stored = localStorage.getItem(ADM.products);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return VETA_DATA.products;
-  },
-  getStock(pid, sz) {
-    const v = (rd(ADM.stock, {}))[`${pid}::${sz}`];
-    return v === undefined ? null : v;
-  },
-  isHidden(pid) { return rd(ADM.hidden, []).includes(pid); },
+  getProducts() { return window.VETA_DB ? window.VETA_DB.getProducts() : VETA_DATA.products; },
+  getStock(pid, sz) { return window.VETA_DB ? window.VETA_DB.getStock(pid, sz) : null; },
+  isHidden(pid) { return window.VETA_DB ? window.VETA_DB.isHidden(pid) : false; },
 };
 
-// ── Auth ──────────────────────────────────────────────────
-async function ensurePw() {
-  let stored = localStorage.getItem(ADM.hash);
-  if (stored && stored.startsWith('"')) {
-    stored = JSON.parse(stored);
-    localStorage.setItem(ADM.hash, stored);
-  }
-  if (!stored) localStorage.setItem(ADM.hash, await sha256(DEFAULT_PW));
-}
-
+// ── Auth (Supabase) ───────────────────────────────────────
 function useAuth() {
-  const [authed, setAuthed] = useState(() => !!sessionStorage.getItem(ADM.session));
+  const [authed, setAuthed]   = useState(false);
+  const [ready, setReady]     = useState(false);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr]         = useState("");
+
+  useEffect(() => {
+    if (!window.VETA_DB) { setReady(true); return; }
+    window.VETA_DB.getSession().then(s => { setAuthed(!!s); setReady(true); });
+    return window.VETA_DB.onAuthChange(s => setAuthed(!!s));
+  }, []);
 
   const login = useCallback(async (pw) => {
     setLoading(true); setErr("");
     try {
-      await ensurePw();
-      const hash = await sha256(pw);
-      if (hash === localStorage.getItem(ADM.hash)) {
-        sessionStorage.setItem(ADM.session,
-          typeof crypto.randomUUID === "function" ? crypto.randomUUID() : Date.now().toString(36)
-        );
-        setAuthed(true);
-      } else setErr("Contraseña incorrecta.");
-    } catch { setErr("Error de verificación. Intenta de nuevo."); }
+      const { ok, error } = await window.VETA_DB.signIn(pw);
+      if (!ok) setErr(/invalid|credential/i.test(error || "") ? "Contraseña incorrecta." : (error || "No se pudo iniciar sesión."));
+    } catch { setErr("Error de conexión. Intenta de nuevo."); }
     setLoading(false);
   }, []);
 
-  const logout = useCallback(() => {
-    sessionStorage.removeItem(ADM.session);
-    setAuthed(false);
-  }, []);
+  const logout = useCallback(async () => { try { await window.VETA_DB.signOut(); } catch {} }, []);
 
-  return { authed, loading, err, login, logout };
+  return { authed, ready, loading, err, login, logout };
 }
 
-// ── Data hooks ────────────────────────────────────────────
-function useProductCRUD() {
-  const [products, setProducts] = useState(() => {
-    // Supabase data si ya cargó, si no localStorage/seed
-    if (window.VETA_DB) {
-      const sp = window.VETA_DB.getProducts();
-      if (sp && sp.length) return sp;
-    }
-    try {
-      const stored = localStorage.getItem(ADM.products);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return seedProducts();
-  });
-
-  const persist = (list) => {
-    try {
-      localStorage.setItem(ADM.products, JSON.stringify(list));
-      setProducts(list);
-    } catch (e) {
-      if (e.name === "QuotaExceededError")
-        alert("Almacenamiento lleno. Usa URLs de imágenes en lugar de archivos locales.");
-    }
-  };
-
-  const add = useCallback((p) => {
-    persist([...products, p]);
-    window.VETA_DB?.upsertProduct(p).catch(e => console.warn("[Admin] upsertProduct:", e));
-  }, [products]);
-
-  const update = useCallback((id, data) => {
-    const updated = products.map(p => p.id === id ? { ...p, ...data } : p);
-    persist(updated);
-    const full = updated.find(p => p.id === id);
-    if (full) window.VETA_DB?.upsertProduct(full).catch(e => console.warn("[Admin] upsertProduct:", e));
-  }, [products]);
-
-  const remove = useCallback((id) => {
-    persist(products.filter(p => p.id !== id));
-    window.VETA_DB?.deleteProduct(id).catch(e => console.warn("[Admin] deleteProduct:", e));
-  }, [products]);
-
-  const generateId = useCallback((cat) => {
-    const pfx = { anillos:"an", collares:"co", aretes:"ar", pulseras:"pu", piercings:"pi" }[cat] || "prod";
-    const nums = products
-      .filter(p => p.id.startsWith(pfx + "-"))
-      .map(p => { const n = parseInt(p.id.split("-")[1], 10); return isNaN(n) ? 0 : n; });
-    const next = nums.length ? Math.max(...nums) + 1 : 1;
-    return `${pfx}-${String(next).padStart(2, "0")}`;
-  }, [products]);
-
-  const resetToSeed = useCallback(() => {
-    persist(seedProducts());
+// ── Toaster ───────────────────────────────────────────────
+function Toaster() {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    const fn = (t) => {
+      setItems(prev => [...prev, t]);
+      setTimeout(() => setItems(prev => prev.filter(x => x.id !== t.id)), 3500);
+    };
+    _toastSubs.push(fn);
+    return () => { const i = _toastSubs.indexOf(fn); if (i >= 0) _toastSubs.splice(i, 1); };
   }, []);
-
-  return { products, add, update, remove, generateId, resetToSeed };
+  if (!items.length) return null;
+  return (
+    <div style={{ position:"fixed", right:16, bottom:16, zIndex:9999, display:"flex", flexDirection:"column", gap:8 }}>
+      {items.map(t => (
+        <div key={t.id} style={{ padding:"12px 16px", borderRadius:10, maxWidth:320, fontSize:14,
+          color:"#fff", background: t.isErr ? "#b3261e" : "#1f7a4d", boxShadow:"0 6px 20px rgba(0,0,0,.25)" }}>
+          {t.text}
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function useHidden() {
-  const [hidden, setHiddenRaw] = useState(() => rd(ADM.hidden, []));
-  const toggle = useCallback((id) => {
-    setHiddenRaw(prev => {
-      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
-      wr(ADM.hidden, next);
-      const visible = !next.includes(id);
-      window.VETA_DB?.setVisible(id, visible).catch(e => console.warn("[Admin] setVisible:", e));
-      return next;
-    });
+// ── Data hooks (Supabase como fuente de verdad) ───────────
+const DEFAULT_WA_PHONE = "573243147031";
+
+function useProducts() {
+  const [products, setProducts] = useState(() => (window.VETA_DB && window.VETA_DB.getProducts()) || seedProducts());
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.subscribe(() => setProducts((window.VETA_DB.getProducts() || []).slice()));
   }, []);
-  return { hidden, toggle };
+
+  const add = useCallback(async (p) => {
+    try { await window.VETA_DB.upsertProduct(p); adminToast(`"${p.name}" creado.`); }
+    catch (e) { adminToast("No se pudo crear el producto: " + e.message, true); }
+  }, []);
+
+  const update = useCallback(async (id, data) => {
+    // Conservar visible/featured (el formulario no los toca)
+    const current = (window.VETA_DB.getProducts() || []).find(p => p.id === id) || {};
+    try { await window.VETA_DB.upsertProduct({ ...current, ...data, id }); adminToast("Cambios guardados."); }
+    catch (e) { adminToast("No se pudo guardar: " + e.message, true); }
+  }, []);
+
+  const remove = useCallback(async (id) => {
+    try { await window.VETA_DB.deleteProduct(id); adminToast("Producto eliminado."); }
+    catch (e) { adminToast("No se pudo eliminar: " + e.message, true); }
+  }, []);
+
+  const resetToSeed = useCallback(async () => {
+    try {
+      for (const p of seedProducts()) await window.VETA_DB.upsertProduct({ ...p, visible: true });
+      adminToast("Catálogo restablecido.");
+    } catch (e) { adminToast("No se pudo restablecer: " + e.message, true); }
+  }, []);
+
+  return { products, add, update, remove, resetToSeed };
 }
 
 function useStock() {
-  const [stock, setStockRaw] = useState(() => {
-    // Preferir datos de Supabase si ya cargaron, si no localStorage
-    const sb = window.VETA_STOCK;
-    if (sb && Object.keys(sb).length > 0) return sb;
-    return rd(ADM.stock, {});
-  });
-
-  // Cuando Supabase termine de cargar, sincronizar el estado local
+  const [stock, setStockState] = useState(() => window.VETA_STOCK || {});
   useEffect(() => {
     if (!window.VETA_DB) return;
-    return window.VETA_DB.onReady(() => {
-      const sb = window.VETA_STOCK || {};
-      if (Object.keys(sb).length > 0) {
-        setStockRaw(sb);
-        wr(ADM.stock, sb);
-      }
-    });
+    return window.VETA_DB.subscribe(() => setStockState({ ...(window.VETA_STOCK || {}) }));
   }, []);
 
-  const set = useCallback((pid, sz, qty) => {
-    setStockRaw(prev => {
-      const k = `${pid}::${sz}`;
-      const next = { ...prev };
-      const finalQty = Math.max(0, qty);
-      if (qty < 0) delete next[k]; else next[k] = finalQty;
-      wr(ADM.stock, next);
-      if (qty >= 0) window.VETA_DB?.setStock(pid, sz, finalQty).catch(e => console.warn("[Admin] setStock:", e));
-      return next;
-    });
+  const set = useCallback(async (pid, sz, qty) => {
+    try { await window.VETA_DB.setStock(pid, sz, qty); }
+    catch (e) { adminToast("No se pudo guardar el stock: " + e.message, true); }
   }, []);
   const get   = useCallback((pid, sz) => { const v = stock[`${pid}::${sz}`]; return v === undefined ? "" : v; }, [stock]);
-  const reset = useCallback(() => { wr(ADM.stock, {}); setStockRaw({}); }, []);
+  const reset = useCallback(async () => {
+    try { await window.VETA_DB.clearStock(); adminToast("Stock limpiado."); }
+    catch (e) { adminToast("No se pudo limpiar el stock: " + e.message, true); }
+  }, []);
   return { stock, set, get, reset };
 }
 
 function useCfg() {
-  const [cfg, setCfgRaw] = useState(() => ({ wa_phone: "573246206702", ...rd(ADM.settings, {}) }));
-  const save = useCallback((patch) => {
-    setCfgRaw(prev => {
-      const next = { ...prev, ...patch };
-      wr(ADM.settings, next);
-      // Sincronizar cada clave a la tabla settings de Supabase
-      Object.entries(patch).forEach(([k, v]) => {
-        window.VETA_DB?.saveSetting(k, String(v)).catch(e => console.warn("[Admin] saveSetting:", e));
-      });
-      return next;
-    });
+  const read = () => ({ wa_phone: (window.VETA_DB && window.VETA_DB.getSetting("wa_phone", DEFAULT_WA_PHONE)) || DEFAULT_WA_PHONE });
+  const [cfg, setCfg] = useState(read);
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.subscribe(() => setCfg(read()));
+  }, []);
+  const save = useCallback(async (patch) => {
+    try {
+      for (const [k, v] of Object.entries(patch)) await window.VETA_DB.saveSetting(k, String(v));
+      adminToast("Configuración guardada.");
+    } catch (e) { adminToast("No se pudo guardar: " + e.message, true); }
   }, []);
   return { cfg, save };
 }
@@ -272,7 +207,7 @@ function TabInicio({ products, stock }) {
         <div className="adm-alert">⚠ {agotados} talla(s) con stock en cero. Revisa la pestaña <strong>Stock</strong>.</div>
       )}
       <p className="adm-note">
-        <strong>Borrador:</strong> datos en este navegador (localStorage). Para producción migrar a Supabase.
+        <strong>En vivo:</strong> los datos se guardan en Supabase y se reflejan en la tienda al instante, desde cualquier dispositivo.
       </p>
     </div>
   );
@@ -732,9 +667,11 @@ function ChangePwForm() {
     if(nxt!==rep){setMsg({ok:false,t:"Las nuevas contraseñas no coinciden."});return;}
     if(nxt.length<6){setMsg({ok:false,t:"Mínimo 6 caracteres."});return;}
     setBusy(true);
-    const curHash=await sha256(cur);
-    if(curHash!==localStorage.getItem(ADM.hash)){setMsg({ok:false,t:"Contraseña actual incorrecta."});setBusy(false);return;}
-    localStorage.setItem(ADM.hash,await sha256(nxt));
+    // Verificar la contraseña actual reautenticando
+    const auth=await window.VETA_DB.signIn(cur);
+    if(!auth.ok){setMsg({ok:false,t:"Contraseña actual incorrecta."});setBusy(false);return;}
+    const res=await window.VETA_DB.changePassword(nxt);
+    if(!res.ok){setMsg({ok:false,t:res.error||"No se pudo cambiar la contraseña."});setBusy(false);return;}
     setMsg({ok:true,t:"Contraseña cambiada correctamente."});
     setCur("");setNxt("");setRep("");setBusy(false);
   };
@@ -754,6 +691,7 @@ function ChangePwForm() {
 function TabConfig({ cfg, save, onLogout, resetProducts }) {
   const [phone,setPhone]=useState(cfg.wa_phone);
   const [saved,setSaved]=useState(false);
+  useEffect(()=>{ setPhone(cfg.wa_phone); }, [cfg.wa_phone]);
   return(
     <div className="adm-page">
       <div className="adm-cfg-section">
@@ -788,8 +726,8 @@ function TabConfig({ cfg, save, onLogout, resetProducts }) {
       </div>
       <hr className="adm-hr"/>
       <p className="adm-note">
-        <strong>Nota:</strong> Stock, visibilidad, productos y configuración se almacenan en este navegador (localStorage).
-        Al migrar a Supabase, estos datos estarán disponibles desde cualquier dispositivo.
+        <strong>Nota:</strong> Stock, visibilidad, productos y configuración se guardan en Supabase
+        y están disponibles desde cualquier dispositivo en tiempo real.
       </p>
     </div>
   );
@@ -805,12 +743,18 @@ const ADMIN_TABS = [
 
 function AdminShell({ onLogout }) {
   const [tab, setTab] = useState("inicio");
-  const { products: crudProducts, add, update, remove, resetToSeed } = useProductCRUD();
-  const { hidden, toggle } = useHidden();
+  const { products: rawProducts, add, update, remove, resetToSeed } = useProducts();
   const { stock, set: setStock, get: getStock, reset: resetStock } = useStock();
   const { cfg, save: saveCfg } = useCfg();
 
-  const products = crudProducts.map(p => ({ ...p, hidden: hidden.includes(p.id) }));
+  const toggleHidden = useCallback(async (id) => {
+    const p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
+    const currentlyVisible = p ? p.visible !== false : true;
+    try { await window.VETA_DB.setVisible(id, !currentlyVisible); }
+    catch (e) { adminToast("No se pudo cambiar la visibilidad: " + e.message, true); }
+  }, []);
+
+  const products = rawProducts.map(p => ({ ...p, hidden: p.visible === false }));
 
   return (
     <div className="adm-shell">
@@ -838,13 +782,13 @@ function AdminShell({ onLogout }) {
       <div className="adm-body">
         <header className="adm-hdr">
           <h1 className="adm-hdr-title">{ADMIN_TABS.find(t=>t.id===tab)?.label}</h1>
-          <span className="adm-hdr-meta">VETA · Panel local</span>
+          <span className="adm-hdr-meta">VETA · Panel en la nube</span>
         </header>
         <div className="adm-content">
           {tab==="inicio"    && <TabInicio    products={products} stock={stock}/>}
           {tab==="productos" && <TabProductos products={products}
             addProduct={add} updateProduct={update} removeProduct={remove}
-            toggleHidden={toggle}/>}
+            toggleHidden={toggleHidden}/>}
           {tab==="stock"     && <TabStock     products={products} get={getStock} set={setStock} reset={resetStock}/>}
           {tab==="config"    && <TabConfig    cfg={cfg} save={saveCfg} onLogout={onLogout} resetProducts={resetToSeed}/>}
         </div>
@@ -863,9 +807,18 @@ function AdminShell({ onLogout }) {
 
 // ── Raíz ──────────────────────────────────────────────────
 function AdminPanel() {
-  const { authed, loading, err, login, logout } = useAuth();
-  if (!authed) return <AdminLogin onLogin={login} loading={loading} err={err} />;
-  return <AdminShell onLogout={logout} />;
+  const { authed, ready, loading, err, login, logout } = useAuth();
+  return (
+    <>
+      {!ready
+        ? <div className="adm-login-wrap"><div className="adm-login-card">
+            <div className="adm-login-logo">VETA</div>
+            <p className="adm-login-sub">Cargando…</p>
+          </div></div>
+        : (authed ? <AdminShell onLogout={logout} /> : <AdminLogin onLogin={login} loading={loading} err={err} />)}
+      <Toaster/>
+    </>
+  );
 }
 
 window.AdminPanel = AdminPanel;

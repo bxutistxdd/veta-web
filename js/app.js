@@ -11,7 +11,7 @@ var TWEAK_DEFAULTS = {
   "animation": 1,
   "density": "regular",
   "magnetic": true,
-  "wa_phone": "573246206702"
+  "wa_phone": "573243147031"
 };
 
 /* Paletas — todas comparten estructura */
@@ -576,7 +576,7 @@ function App() {
     open: cartOpen,
     onClose: () => setCartOpen(false),
     cart: cart,
-    waPhone: t.wa_phone
+    waPhone: window.VETA_DB && window.VETA_DB.getSetting("wa_phone", t.wa_phone) || t.wa_phone
   }), /*#__PURE__*/React.createElement(TweaksPanel, {
     title: "Tweaks \xB7 VETA"
   }, /*#__PURE__*/React.createElement(TweakSection, {
