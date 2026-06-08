@@ -1079,7 +1079,7 @@ function AdminShell({ onLogout }) {
         </div>
       </aside>
 
-      <div className="adm-body">
+      <div className={`adm-body${tab==="chats"?" adm-body--chat":""}`}>
         <header className="adm-hdr">
           <h1 className="adm-hdr-title">{ADMIN_TABS.find(t=>t.id===tab)?.label}</h1>
           <span className="adm-hdr-meta">VETA · Panel en la nube</span>

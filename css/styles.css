@@ -2159,6 +2159,7 @@ img { max-width: 100%; display: block; }
 .adm-body {
   margin-left: 220px;
   flex: 1;
+  min-width: 0; /* permite que el contenido (chat) se ajuste y no desborde a lo ancho */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -3352,7 +3353,9 @@ img { max-width: 100%; display: block; }
    ════════════════════════════════════════════════════════════ */
 .adm-chat {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  /* minmax(0, …) en lugar de 1fr: evita que el contenido sin saltos de línea
+     (botones nowrap, números) ensanche la columna más allá del viewport. */
+  grid-template-columns: 340px minmax(0, 1fr);
   height: calc(100dvh - 64px);
   background: var(--bg);
 }
@@ -3598,13 +3601,53 @@ img { max-width: 100%; display: block; }
 
 /* ── Responsive: una sola columna, lista ↔ hilo ── */
 @media (max-width: 720px) {
-  .adm-chat {
-    grid-template-columns: 1fr;
-    height: calc(100dvh - 51px - 62px);
+  /* El chat ocupa toda la pantalla. Ocultamos el header genérico del admin:
+     la lista y el hilo ya traen su propia cabecera estilo WhatsApp, y así
+     evitamos el doble encabezado y ganamos altura para los mensajes. */
+  .adm-body--chat .adm-hdr { display: none; }
+  .adm-body--chat .adm-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
+
+  /* Sin alturas con números mágicos: el chat llena el espacio disponible
+     (flex) y la barra de tabs inferior queda reservada por el padding del
+     .adm-body, así que el composer nunca queda tapado. */
+  .adm-chat {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .adm-chat-list,
+  .adm-chat-thread { min-width: 0; }
+  .adm-chat-list { border-right: none; }
   .adm-chat-thread { display: none; }
   .adm-chat--thread-open .adm-chat-list { display: none; }
   .adm-chat--thread-open .adm-chat-thread { display: flex; }
   .adm-chat-back { display: block; }
-  .adm-chat-bubble { max-width: 82%; }
+  .adm-chat-bubble { max-width: 85%; }
+
+  /* Inputs a 16px: evita el zoom automático de iOS al enfocar campos. */
+  .adm-chat-input,
+  .adm-chat-list-top .adm-input { font-size: 16px; }
+
+  /* Cabecera del hilo más compacta para que el botón nunca desborde. */
+  .adm-chat-thread-hdr { gap: 8px; padding: 10px 12px; }
+  .adm-chat-thread-hdr .adm-chat-avatar { width: 38px; height: 38px; font-size: 15px; }
+  .adm-chat-thread-hdr .adm-btn { padding: 7px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+  .adm-chat-back { padding-right: 2px; font-size: 24px; }
+
+  /* Toque cómodo en la lista de conversaciones. */
+  .adm-chat-item { padding: 12px 14px; }
+  .adm-chat-composer { padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* Pantallas muy estrechas: apretamos un poco más la cabecera del hilo. */
+@media (max-width: 380px) {
+  .adm-chat-thread-name { font-size: 14px; }
+  .adm-chat-thread-hdr { gap: 6px; padding: 10px 10px; }
+  .adm-chat-thread-hdr .adm-btn { padding: 7px 8px; font-size: 11.5px; }
+  .adm-chat-thread-hdr .adm-chat-avatar { width: 34px; height: 34px; }
 }

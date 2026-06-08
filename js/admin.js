@@ -1575,7 +1575,7 @@ function AdminShell({
       textAlign: "left"
     }
   }, "Cerrar sesi\xF3n"))), /*#__PURE__*/React.createElement("div", {
-    className: "adm-body"
+    className: `adm-body${tab === "chats" ? " adm-body--chat" : ""}`
   }, /*#__PURE__*/React.createElement("header", {
     className: "adm-hdr"
   }, /*#__PURE__*/React.createElement("h1", {
