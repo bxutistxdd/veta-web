@@ -598,7 +598,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "=[{\"phone\":\"{{ $json.from }}\",\"role\":\"user\",\"content\":{{ JSON.stringify($json.userMessage) }}},{\"phone\":\"{{ $json.from }}\",\"role\":\"assistant\",\"content\":{{ JSON.stringify($json.assistantMessage) }}}]",
+        "jsonBody": "=[{\"phone\":\"{{ $json.from }}\",\"role\":\"assistant\",\"content\":{{ JSON.stringify($json.assistantMessage) }}}]",
         "options": {}
       },
       "id": "1596fe4c-94cd-48ac-8ea5-12883a603074",
@@ -1017,45 +1017,6 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_conversations",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "=[{\"phone\":\"{{ $json.from }}\",\"role\":\"user\",\"content\":{{ JSON.stringify($json.textContent) }}}]",
-        "options": {}
-      },
-      "id": "c1000000-0000-0000-0000-000000000004",
-      "name": "Guardar Mensaje (Pausa)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        3600,
-        520
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
         "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_threads?on_conflict=phone",
         "sendHeaders": true,
         "headerParameters": {
@@ -1379,6 +1340,46 @@
         720,
         820
       ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_conversations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[{\"phone\":\"{{ $json.from }}\",\"role\":\"user\",\"content\":{{ JSON.stringify($json.textContent) }}}]",
+        "options": {}
+      },
+      "id": "d1000000-0000-0000-0000-000000000001",
+      "name": "Guardar Mensaje Entrante",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        380
+      ],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1503,6 +1504,11 @@
     "¿Cuántos mensajes hoy?": {
       "main": [
         [
+          {
+            "node": "Guardar Mensaje Entrante",
+            "type": "main",
+            "index": 0
+          },
           {
             "node": "¿Límite alcanzado?",
             "type": "main",
@@ -1703,7 +1709,7 @@
       "main": [
         [
           {
-            "node": "Guardar Mensaje (Pausa)",
+            "node": "Marcar Actividad (Pausa)",
             "type": "main",
             "index": 0
           }
@@ -1711,17 +1717,6 @@
         [
           {
             "node": "Cargar Catálogo",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Guardar Mensaje (Pausa)": {
-      "main": [
-        [
-          {
-            "node": "Marcar Actividad (Pausa)",
             "type": "main",
             "index": 0
           }
