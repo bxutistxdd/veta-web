@@ -220,7 +220,8 @@ function useStock() {
 }
 function useCfg() {
   var read = () => ({
-    wa_phone: window.VETA_DB && window.VETA_DB.getSetting("wa_phone", DEFAULT_WA_PHONE) || DEFAULT_WA_PHONE
+    wa_phone: window.VETA_DB && window.VETA_DB.getSetting("wa_phone", DEFAULT_WA_PHONE) || DEFAULT_WA_PHONE,
+    bot_daily_limit: parseInt(window.VETA_DB && window.VETA_DB.getSetting("bot_daily_limit", "10") || "10") || 10
   });
   var [cfg, setCfg] = useState(read);
   useEffect(() => {
@@ -1030,10 +1031,15 @@ function TabConfig({
   resetProducts
 }) {
   var [phone, setPhone] = useState(cfg.wa_phone);
-  var [saved, setSaved] = useState(false);
+  var [savedPhone, setSavedPhone] = useState(false);
+  var [limit, setLimit] = useState(cfg.bot_daily_limit);
+  var [savedLimit, setSavedLimit] = useState(false);
   useEffect(() => {
     setPhone(cfg.wa_phone);
   }, [cfg.wa_phone]);
+  useEffect(() => {
+    setLimit(cfg.bot_daily_limit);
+  }, [cfg.bot_daily_limit]);
   return /*#__PURE__*/React.createElement("div", {
     className: "adm-page"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1057,10 +1063,39 @@ function TabConfig({
       save({
         wa_phone: phone.replace(/\D/g, "")
       });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setSavedPhone(true);
+      setTimeout(() => setSavedPhone(false), 2000);
     }
-  }, saved ? "Guardado ✓" : "Guardar"))), /*#__PURE__*/React.createElement("hr", {
+  }, savedPhone ? "Guardado ✓" : "Guardar"))), /*#__PURE__*/React.createElement("hr", {
+    className: "adm-hr"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adm-cfg-section"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-cfg-h"
+  }, "L\xEDmite diario del bot IA"), /*#__PURE__*/React.createElement("p", {
+    className: "adm-hint"
+  }, "M\xE1ximo de mensajes que el bot responde por cliente cada d\xEDa. Al alcanzarlo, avisa que un asesor lo atender\xE1. Por defecto: 10."), /*#__PURE__*/React.createElement("div", {
+    className: "adm-row-inline"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    type: "number",
+    min: "1",
+    max: "200",
+    value: limit,
+    onChange: e => setLimit(Math.max(1, parseInt(e.target.value) || 1)),
+    style: {
+      maxWidth: 100
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--primary adm-btn--sm",
+    onClick: () => {
+      save({
+        bot_daily_limit: String(limit)
+      });
+      setSavedLimit(true);
+      setTimeout(() => setSavedLimit(false), 2000);
+    }
+  }, savedLimit ? "Guardado ✓" : "Guardar"))), /*#__PURE__*/React.createElement("hr", {
     className: "adm-hr"
   }), /*#__PURE__*/React.createElement("div", {
     className: "adm-cfg-section"
