@@ -3601,19 +3601,37 @@ img { max-width: 100%; display: block; }
 
 /* ── Responsive: una sola columna, lista ↔ hilo ── */
 @media (max-width: 720px) {
-  /* El chat ocupa toda la pantalla. Ocultamos el header genérico del admin:
-     la lista y el hilo ya traen su propia cabecera estilo WhatsApp, y así
-     evitamos el doble encabezado y ganamos altura para los mensajes. */
+  /* ── Encuadre estilo WhatsApp ──
+     Para que SOLO el historial de mensajes se desplace (cabecera del hilo y
+     caja de redacción siempre visibles, como en WhatsApp) hace falta que
+     ALGÚN ancestro tenga una altura REAL acotada. Toda la cadena del admin
+     usa `min-height: 100vh`, que es un mínimo sin tope: deja crecer el árbol
+     más que la pantalla y entonces lo que se desplaza es la página entera,
+     arrastrando la cabecera (y el botón "Tomar control") fuera de vista.
+     Aquí fijamos la carcasa a la altura DINÁMICA del viewport (100dvh, que
+     excluye la barra de URL del navegador móvil) y recortamos el desborde:
+     a partir de ahí el único scroll posible es el de .adm-chat-scroll. */
+  .adm-shell:has(.adm-body--chat) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .adm-body--chat { min-height: 0; }
+
+  /* Ocultamos el header genérico del admin: la lista y el hilo ya traen su
+     propia cabecera estilo WhatsApp, y así evitamos el doble encabezado y
+     ganamos altura para los mensajes. */
   .adm-body--chat .adm-hdr { display: none; }
   .adm-body--chat .adm-content {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;   /* el scroll vive dentro de .adm-chat-scroll, no aquí */
   }
 
-  /* Sin alturas con números mágicos: el chat llena el espacio disponible
-     (flex) y la barra de tabs inferior queda reservada por el padding del
-     .adm-body, así que el composer nunca queda tapado. */
+  /* El chat llena el espacio disponible (flex); la barra de tabs inferior
+     queda reservada por el padding-bottom del .adm-body, así que el composer
+     nunca queda tapado. */
   .adm-chat {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
