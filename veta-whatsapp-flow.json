@@ -708,6 +708,36 @@
         4560,
         224
       ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-00aa-00aa-00aa-0000000000aa",
+      "name": "Descargar Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ]
     }
   ],
   "connections": {
@@ -789,7 +819,7 @@
       "main": [
         [
           {
-            "node": "Transcribir Audio (Groq)",
+            "node": "Descargar Audio",
             "type": "main",
             "index": 0
           }
@@ -945,6 +975,17 @@
           }
         ]
       ]
+    },
+    "Descargar Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribir Audio (Groq)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -958,5 +999,5 @@
     }
   ],
   "pinData": {},
-  "versionId": "e08c3400-49e0-4f72-8843-8422b20d610d"
+  "versionId": "b65cecec-85b0-4e9b-9d94-43b6a18ca2e8"
 }
