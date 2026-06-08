@@ -11,7 +11,7 @@ const TWEAK_DEFAULTS = {
   "animation": 1,
   "density": "regular",
   "magnetic": true,
-  "wa_phone": "573246206702"
+  "wa_phone": "573243147031"
 };
 
 /* Paletas — todas comparten estructura */
@@ -398,7 +398,8 @@ function App() {
       <Footer onNavigate={navigate} />
 
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} onNavigate={navigate} />
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} waPhone={t.wa_phone} />
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart}
+        waPhone={(window.VETA_DB && window.VETA_DB.getSetting("wa_phone", t.wa_phone)) || t.wa_phone} />
 
       <TweaksPanel title="Tweaks · VETA">
         <TweakSection label="Aspecto" />
