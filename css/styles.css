@@ -3346,3 +3346,265 @@ img { max-width: 100%; display: block; }
   .hero-search { max-width: 100%; }
   .catalog-search-wrap { flex: 0 0 auto; width: 100%; margin-bottom: 0; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   BUZÓN DE CHATS (#admin → Chats) — estilo WhatsApp
+   ════════════════════════════════════════════════════════════ */
+.adm-chat {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: calc(100dvh - 64px);
+  background: var(--bg);
+}
+.adm-sb-badge-count,
+.adm-mob-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px; height: 17px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: #d9352c;
+  color: #fff;
+  font: 700 10px "Manrope", sans-serif;
+  vertical-align: middle;
+}
+.adm-mob-badge { position: relative; top: -6px; margin-left: 2px; }
+
+/* ── Columna de lista ── */
+.adm-chat-list {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-elev);
+}
+.adm-chat-list-top {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.adm-chat-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.adm-chat-filters .adm-pill { font-size: 11.5px; padding: 4px 10px; }
+.adm-chat-list-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+
+.adm-chat-item {
+  width: 100%;
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  padding: 11px 14px;
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s;
+}
+.adm-chat-item:hover { background: var(--bg-soft); }
+.adm-chat-item--on { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+.adm-chat-item--alert { background: color-mix(in oklab, #d9352c 8%, transparent); }
+.adm-chat-item--alert.adm-chat-item--on { background: color-mix(in oklab, #d9352c 16%, transparent); }
+
+.adm-chat-avatar {
+  flex-shrink: 0;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--bg);
+  font: 700 16px "Manrope", sans-serif;
+  text-transform: uppercase;
+}
+.adm-chat-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.adm-chat-item-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.adm-chat-item-name {
+  font: 600 14px "Manrope", sans-serif;
+  color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.adm-chat-item-time { font-size: 11px; color: var(--ink-faint); flex-shrink: 0; }
+.adm-chat-item-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.adm-chat-item-prev {
+  font-size: 13px; color: var(--ink-soft);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; min-width: 0;
+}
+.adm-chat-item-badges { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.adm-chat-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+}
+.adm-chat-dot--alert {
+  width: 18px; height: 18px;
+  background: #d9352c; color: #fff;
+  font: 700 11px "Manrope", sans-serif;
+  display: flex; align-items: center; justify-content: center;
+}
+.adm-chat-pill-mini { font-size: 12px; opacity: .65; }
+
+/* ── Columna del hilo ── */
+.adm-chat-thread {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    linear-gradient(color-mix(in oklab, var(--bg) 92%, transparent), color-mix(in oklab, var(--bg) 92%, transparent)),
+    var(--bg);
+}
+.adm-chat-empty {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; text-align: center; padding: 40px;
+  color: var(--ink-soft);
+}
+.adm-chat-empty p { margin: 0; max-width: 360px; }
+.adm-chat-empty-logo {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 46px; letter-spacing: .14em; color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+
+.adm-chat-thread-hdr {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elev);
+  flex-shrink: 0;
+}
+.adm-chat-back {
+  display: none;
+  background: transparent; border: none; cursor: pointer;
+  font-size: 22px; color: var(--ink-soft); padding: 0 4px 0 0; line-height: 1;
+}
+.adm-chat-thread-id { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.adm-chat-thread-name {
+  font: 600 15px "Manrope", sans-serif; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.adm-chat-thread-sub {
+  font-size: 11.5px; color: var(--ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.adm-chat-banner {
+  padding: 8px 18px;
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--ink);
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.adm-chat-scroll {
+  flex: 1; overflow-y: auto; min-height: 0;
+  padding: 18px 18px 8px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.adm-chat-daysep { text-align: center; margin: 12px 0 8px; }
+.adm-chat-daysep span {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 99px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  font-size: 11px; color: var(--ink-faint);
+  text-transform: capitalize;
+}
+.adm-chat-msg { display: flex; margin-top: 2px; }
+.adm-chat-msg--in  { justify-content: flex-start; }
+.adm-chat-msg--out { justify-content: flex-end; }
+.adm-chat-bubble {
+  position: relative;
+  max-width: min(74%, 520px);
+  padding: 8px 12px 6px;
+  border-radius: 12px;
+  font-size: 14px; line-height: 1.45;
+  color: var(--ink);
+  word-wrap: break-word; overflow-wrap: anywhere;
+  box-shadow: 0 1px 1px rgba(0,0,0,.06);
+}
+.adm-chat-msg--in  .adm-chat-bubble {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-top-left-radius: 4px;
+}
+.adm-chat-msg--assistant .adm-chat-bubble {
+  background: color-mix(in oklab, var(--accent) 14%, var(--bg-elev));
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+  border-top-right-radius: 4px;
+}
+.adm-chat-msg--agent .adm-chat-bubble {
+  background: color-mix(in oklab, var(--accent-2) 26%, var(--bg-elev));
+  border: 1px solid color-mix(in oklab, var(--accent-2) 40%, transparent);
+  border-top-right-radius: 4px;
+}
+.adm-chat-tag {
+  display: block;
+  font: 700 10px "Manrope", sans-serif;
+  letter-spacing: .05em; text-transform: uppercase;
+  margin-bottom: 2px;
+  opacity: .75;
+}
+.adm-chat-tag--assistant { color: var(--accent); }
+.adm-chat-tag--agent { color: color-mix(in oklab, var(--accent-2) 70%, var(--ink)); }
+.adm-chat-text { white-space: pre-wrap; }
+.adm-chat-meta {
+  display: inline-block;
+  float: right;
+  margin: 4px 0 -2px 10px;
+  font-size: 10px; color: var(--ink-faint);
+}
+
+/* ── Caja de redacción ── */
+.adm-chat-composer {
+  display: flex; align-items: flex-end; gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-elev);
+  flex-shrink: 0;
+}
+.adm-chat-input {
+  flex: 1;
+  resize: none;
+  max-height: 120px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px "Manrope", sans-serif;
+  outline: none;
+  transition: border-color .15s;
+}
+.adm-chat-input:focus { border-color: var(--accent); }
+.adm-chat-send {
+  flex-shrink: 0;
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 17px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity .15s, transform .1s;
+}
+.adm-chat-send:hover:not(:disabled) { transform: scale(1.05); }
+.adm-chat-send:disabled { opacity: .4; cursor: default; }
+
+/* ── Responsive: una sola columna, lista ↔ hilo ── */
+@media (max-width: 720px) {
+  .adm-chat {
+    grid-template-columns: 1fr;
+    height: calc(100dvh - 51px - 62px);
+  }
+  .adm-chat-thread { display: none; }
+  .adm-chat--thread-open .adm-chat-list { display: none; }
+  .adm-chat--thread-open .adm-chat-thread { display: flex; }
+  .adm-chat-back { display: block; }
+  .adm-chat-bubble { max-width: 82%; }
+}
