@@ -1876,23 +1876,33 @@ img { max-width: 100%; display: block; }
   .nav-right  { gap: 10px; }
   .nav-hamburger { display: inline-flex; }
 
-  /* Filtros — scroll horizontal sin saltos de línea.
-     overflow-y: hidden es obligatorio: sin él el navegador promueve
-     overflow-y: visible → auto (CSS spec), creando un contenedor de
-     scroll vertical que captura los eventos touch y bloquea el scroll
-     de la página. */
+  /* Filtros móvil: el buscador ocupa todo el ancho y cada grupo (Familia,
+     Material, Orden) va en su propia fila. Si los chips de un grupo no caben,
+     ese grupo se desplaza horizontalmente por sí solo — así los filtros se ven
+     y se usan bien, sin un scroll horizontal del contenedor que confunda.
+     overflow-y: hidden en cada grupo evita capturar el scroll vertical de la
+     página (sin él, el navegador promueve overflow-y a auto). */
   .filters-inner {
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 14px;
+    overflow: visible;
+  }
+  .catalog-search-wrap { flex: 0 0 auto; width: 100%; margin-bottom: 0; }
+  .filter-group {
+    flex-shrink: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    gap: 16px;
-    padding-bottom: 4px;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
-  .filters-inner::-webkit-scrollbar { display: none; }
-  .filter-group { flex-shrink: 0; }
-  .filter-group:last-child { margin-left: 0; }
+  .filter-group::-webkit-scrollbar { display: none; }
+  .filter-group-label { flex-shrink: 0; }
+  .chip { flex-shrink: 0; }
+  /* !important para ganarle al estilo inline marginLeft:auto del grupo "Orden" */
+  .filter-group:last-child { margin-left: 0 !important; }
 
   /* Hero */
   .hero { padding: 80px var(--gutter) 60px; }
@@ -3334,5 +3344,5 @@ img { max-width: 100%; display: block; }
   .search-results-panel { padding: 12px 16px 20px; }
   .search-hints-panel { padding: 16px 16px 20px; }
   .hero-search { max-width: 100%; }
-  .catalog-search-wrap { flex: 0 0 100%; }
+  .catalog-search-wrap { flex: 0 0 auto; width: 100%; margin-bottom: 0; }
 }
