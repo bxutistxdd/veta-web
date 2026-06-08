@@ -2,369 +2,961 @@
   "name": "VETA - Agente WhatsApp IA",
   "nodes": [
     {
-      "parameters": { "httpMethod": "GET", "path": "whatsapp", "responseMode": "responseNode", "options": {} },
-      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "parameters": {
+        "path": "whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "eee22b52-e177-4e7d-a24b-cf0efc428c91",
       "name": "Webhook - Verificación Meta",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, -200],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "veta-wa-verify"
     },
     {
-      "parameters": { "respondWith": "text", "responseBody": "={{ $json.query['hub.challenge'] }}", "options": { "responseCode": 200 } },
-      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "d3bc5719-a55f-40ae-b3b8-d72d293fe589",
       "name": "Responder Verificación",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [240, -200]
+      "position": [
+        240,
+        0
+      ]
     },
     {
-      "parameters": { "httpMethod": "POST", "path": "whatsapp", "responseMode": "responseNode", "options": {} },
-      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "8bf7a12e-7d26-4f95-9ae6-99a3dc224d07",
       "name": "Webhook - Mensajes WhatsApp",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        0,
+        208
+      ],
       "webhookId": "veta-wa-messages"
     },
     {
-      "parameters": { "respondWith": "json", "responseBody": "={\"status\":\"ok\"}", "options": { "responseCode": 200 } },
-      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\":\"ok\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "af8d6942-4237-4555-a692-52ebe97fed4c",
       "name": "Responder 200 OK a Meta",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [240, 0]
+      "position": [
+        240,
+        208
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = null;\n  if (type === 'text') {\n    textContent = message.text.body;\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n  } else {\n    textContent = '[Archivo no soportado]';\n  }\n  return [{ json: { from, type, textContent, mediaId, mediaType, phoneNumberId, skip: false } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
+        "jsCode": "const body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = 'text';\n  if (type === 'text') {\n    textContent = message.text.body;\n    mediaType = 'text';\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n    mediaType = 'text';\n  } else {\n    textContent = '[Archivo no soportado]';\n    mediaType = 'text';\n  }\n  return [{ json: { from, type, textContent, mediaId, mediaType, phoneNumberId, skip: false } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
       },
-      "id": "a1b2c3d4-0005-0005-0005-000000000005",
+      "id": "1ae7bd57-6afd-482b-8659-02fa96b397a2",
       "name": "Parsear Mensaje WA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 0]
+      "position": [
+        480,
+        208
+      ]
     },
     {
       "parameters": {
-        "conditions": { "options": {}, "conditions": [{ "id": "c1", "leftValue": "={{ $json.skip }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }], "combinator": "and" },
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
-      "id": "a1b2c3d4-0006-0006-0006-000000000006",
+      "id": "183b53e9-dc04-477f-92a2-5ae889df475c",
       "name": "¿Saltar?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [720, 0]
+      "position": [
+        720,
+        208
+      ]
     },
     {
       "parameters": {
         "rules": {
           "values": [
-            { "conditions": { "options": {}, "conditions": [{ "leftValue": "={{ $json.mediaType }}", "rightValue": "audio", "operator": { "type": "string", "operation": "equals" } }], "combinator": "and" }, "renameOutput": true, "outputKey": "audio" },
-            { "conditions": { "options": {}, "conditions": [{ "leftValue": "={{ $json.mediaType }}", "rightValue": "audio", "operator": { "type": "string", "operation": "notEquals" } }], "combinator": "and" }, "renameOutput": true, "outputKey": "texto" }
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "texto"
+            }
           ]
         },
         "options": {}
       },
-      "id": "a1b2c3d4-0007-0007-0007-000000000007",
+      "id": "6c8ceb0f-3566-44c9-a9ec-ed7c66f5f03e",
       "name": "¿Audio o Texto?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [960, -80]
+      "position": [
+        960,
+        128
+      ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "=https://graph.facebook.com/v21.0/{{ $json.mediaId }}",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.WA_TOKEN}}" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "a1b2c3d4-0008-0008-0008-000000000008",
+      "id": "10d1b325-2262-42ca-ae96-90e655c1baf1",
       "name": "Obtener URL del Audio",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, -200]
+      "position": [
+        1200,
+        0
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://api.groq.com/openai/v1/audio/transcriptions",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.GROQ_API_KEY}}" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.GROQ_API_KEY}}"
+            }
+          ]
+        },
         "sendBody": true,
         "contentType": "multipart-form-data",
-        "bodyParameters": { "parameters": [{ "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "data" }, { "name": "model", "value": "whisper-large-v3" }, { "name": "language", "value": "es" }, { "name": "response_format", "value": "json" }] },
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "whisper-large-v3"
+            },
+            {
+              "name": "language",
+              "value": "es"
+            },
+            {
+              "name": "response_format",
+              "value": "json"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "a1b2c3d4-0009-0009-0009-000000000009",
+      "id": "83bf56c3-1849-404d-9d1b-b059e512b902",
       "name": "Transcribir Audio (Groq)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1440, -200]
+      "position": [
+        1440,
+        0
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const transcription = $input.first().json.text || '';\nconst prevData = $('¿Audio o Texto?').first().json;\nreturn [{ json: { ...prevData, textContent: transcription, mediaType: null } }];"
+        "jsCode": "const inputData = $input.first().json;\nconst baseData = $('Parsear Mensaje WA').first().json;\n\n// Audio llega con .text (respuesta de Groq Whisper)\n// Texto llega con .textContent ya seteado\nconst textContent = inputData.text || inputData.textContent || '';\n\nreturn [{ json: { ...baseData, textContent } }];"
       },
-      "id": "a1b2c3d4-0010-0010-0010-000000000010",
+      "id": "fe8a5fea-b74f-4da8-910a-42f1379e9892",
       "name": "Unificar Transcripción",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1680, -200]
+      "position": [
+        1680,
+        0
+      ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_conversations",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_KEY}}" },
-            { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}" },
-            { "name": "Prefer", "value": "count=exact" },
-            { "name": "Range", "value": "0-0" }
-          ]
-        },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "phone", "value": "=eq.{{ $json.from }}" },
-            { "name": "role", "value": "eq.user" },
-            { "name": "created_at", "value": "=gte.{{ new Date(Date.now() - 24*60*60*1000).toISOString() }}" },
-            { "name": "select", "value": "id" }
+            {
+              "name": "phone",
+              "value": "=eq.{{ $json.from }}"
+            },
+            {
+              "name": "role",
+              "value": "eq.user"
+            },
+            {
+              "name": "created_at",
+              "value": "=gte.{{ new Date(Date.now() - 24*60*60*1000).toISOString() }}"
+            },
+            {
+              "name": "select",
+              "value": "id"
+            }
           ]
         },
-        "options": {}
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Prefer",
+              "value": "count=exact"
+            },
+            {
+              "name": "Range",
+              "value": "0-0"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
       },
-      "id": "a1b2c3d4-0021-0021-0021-000000000021",
+      "id": "3c07f88b-d31f-4e78-b3cb-4c51237ea3be",
       "name": "Contar Mensajes Hoy",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1920, 0]
+      "position": [
+        2160,
+        208
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Cuenta del header Content-Range de Supabase\nconst headers = $input.first().json.headers || {};\nconst contentRange = headers['content-range'] || '';\nconst match = contentRange.match(/\\/(\\d+)$/);\nconst count = match ? parseInt(match[1]) : 0;\n\n// Datos del mensaje: prioriza transcripción de audio si existe\nconst baseData = $('Parsear Mensaje WA').first().json;\nlet textContent = baseData.textContent;\ntry {\n  const audio = $('Unificar Transcripción').first().json;\n  if (audio && audio.textContent) textContent = audio.textContent;\n} catch(e) {}\n\nreturn [{ json: { ...baseData, textContent, mensajesHoy: count, limitAlcanzado: count >= 10 } }];"
+        "jsCode": "const headers = $input.first().json.headers || {};\nconst contentRange = headers['content-range'] || '';\nconst match = contentRange.match(/\\/(\\d+)$/);\nconst count = match ? parseInt(match[1]) : 0;\n\n// Obtener datos del mensaje: audio usa Unificar Transcripción, texto usa Parsear Mensaje WA\nlet msgData;\ntry {\n  msgData = $('Unificar Transcripción').first().json;\n} catch(e) {\n  msgData = $('Parsear Mensaje WA').first().json;\n}\n\nreturn [{ json: { ...msgData, mensajesHoy: count, limitAlcanzado: count >= 10 } }];"
       },
-      "id": "a1b2c3d4-0022-0022-0022-000000000022",
+      "id": "254c6b51-c12a-457c-9bbd-25a2a402b396",
       "name": "¿Cuántos mensajes hoy?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2160, 0]
+      "position": [
+        2400,
+        208
+      ]
     },
     {
       "parameters": {
-        "conditions": { "options": {}, "conditions": [{ "id": "c2", "leftValue": "={{ $json.limitAlcanzado }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }], "combinator": "and" },
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "limit-check",
+              "leftValue": "={{ $json.limitAlcanzado }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
-      "id": "a1b2c3d4-0023-0023-0023-000000000023",
+      "id": "5d5b1e19-8b5a-45e0-a496-8e293641a895",
       "name": "¿Límite alcanzado?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2400, 0]
+      "position": [
+        2640,
+        208
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $json.phoneNumberId }}/messages",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.WA_TOKEN}}" }, { "name": "Content-Type", "value": "application/json" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{ $json.from }}\",\"type\":\"text\",\"text\":{\"body\":\"En los pr\\u00f3ximos minutos, te atender\\u00e1 directamente un asesor para continuar con tu proceso. Agradecemos tu espera \\ud83e\\udd0d\"}}",
         "options": {}
       },
-      "id": "a1b2c3d4-0024-0024-0024-000000000024",
+      "id": "944a5a9c-edb8-4905-bbb3-b30ff82141d5",
       "name": "Enviar Mensaje Límite al Cliente",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2640, -160]
+      "position": [
+        2880,
+        48
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $json.phoneNumberId }}/messages",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.WA_TOKEN}}" }, { "name": "Content-Type", "value": "application/json" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"\\ud83d\\udc64 *Cliente listo para asesor*\\n\\nN\\u00famero: +{{ $json.from }}\\nMensajes hoy: {{ $json.mensajesHoy }}/10\\n\\nYa le avisamos que lo atender\\u00e1s en unos minutos.\"}}",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"\\ud83d\\udc64 *Cliente listo para asesor*\\n\\nN\\u00famero: +{{ $json.from }}\\nMensajes usados hoy: {{ $json.mensajesHoy }}/10\\n\\nEl cliente ya recibi\\u00f3 aviso de que lo atender\\u00e1s en los pr\\u00f3ximos minutos.\"}}",
         "options": {}
       },
-      "id": "a1b2c3d4-0025-0025-0025-000000000025",
+      "id": "c5850f81-6e36-495c-a21d-20fb46a13ffa",
       "name": "Notificar a Sebastian (límite)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2880, -160]
+      "position": [
+        3120,
+        48
+      ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_conversations",
-        "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_KEY}}" }, { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}" }, { "name": "Range", "value": "0-19" }] },
         "sendQuery": true,
-        "queryParameters": { "parameters": [{ "name": "phone", "value": "=eq.{{ $json.from }}" }, { "name": "order", "value": "created_at.desc" }, { "name": "select", "value": "role,content" }] },
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "=eq.{{ $json.from }}"
+            },
+            {
+              "name": "order",
+              "value": "created_at.desc"
+            },
+            {
+              "name": "select",
+              "value": "role,content"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Range",
+              "value": "0-19"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "a1b2c3d4-0012-0012-0012-000000000012",
+      "id": "838c0647-bf58-46a2-9511-aca6263748e0",
       "name": "Historial de Conversación",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2640, 120]
+      "position": [
+        2880,
+        320
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "const msgData = $('¿Límite alcanzado?').first().json;\nconst historyRaw = $input.first().json;\nlet historyArray = Array.isArray(historyRaw) ? historyRaw : [];\nhistoryArray = historyArray.reverse();\n\nconst SYSTEM_PROMPT = `Eres la asesora de ventas virtual de VETA, una marca colombiana de joyería minimalista de autor. Tu nombre es Veta.\n\nPERSONALIDAD:\n- Cálida pero elegante, nunca efusiva\n- Hablas en español colombiano\n- Conoces cada pieza como si la hubieras creado\n- Nunca presionas al cliente\n- Usas emojis con moderación (máximo 1 por mensaje)\n- Respuestas cortas: máximo 4 líneas salvo que estés mostrando el catálogo\n\nCATÁLOGO COMPLETO:\n\nANILLOS:\n• Anillo Vena (an-01) | Plata 925 | Pulido | $180.000 | Tallas: 5, 6, 7, 8, 9\n  Una línea sobre la piel, fina y precisa.\n• Anillo Oráculo (an-02) | Oro laminado 18k | Mate | $280.000 | Tallas: 6, 7, 8\n  Sello discreto, presencia firme. Grabado interior personalizable.\n• Anillo Doble Río (an-03) | Plata 925 | Pulido | $220.000 | Tallas: 5, 6, 7, 8\n  Dos líneas paralelas, un solo cuerpo.\n• Anillo Soldado (an-04) | Plata 925 | Texturizado | $250.000 | Tallas: 6, 7, 8, 9\n  Marca del fuego sobre el metal. Cada pieza única.\n\nCOLLARES:\n• Collar Caligrafía (co-01) | Plata 925 | Pulido | $290.000 | Largo: 40, 45, 50 cm\n  Un trazo sobre el cuello.\n• Collar Luna Hueca (co-02) | Oro laminado 18k | Pulido | $380.000 | Largo: 42, 45 cm\n  Volumen sin peso.\n• Collar Hebra (co-03) | Plata 925 | Satinado | $210.000 | Largo: 40, 45 cm\n  Una hebra que se cierra sin nudo. Broche imantado.\n• Collar Mompox (co-04) | Plata 925 | Pulido | $420.000 | Largo: 50 cm\n  Filigrana, herencia viva.\n\nARETES:\n• Aretes Espiga (ar-01) | Plata 925 | Pulido | $150.000 | Tallas: S, M, L\n• Aretes Sol (ar-02) | Oro laminado 18k | Pulido | $190.000 | Diámetro: 10, 14, 18 mm\n• Aretes Punto (ar-03) | Plata 925 | Pulido | $80.000 | Diámetro: 3, 4, 5 mm\n• Aretes Cascada (ar-04) | Plata 925 | Satinado | $220.000 | Talla única\n\nPULSERAS:\n• Pulsera Cordel (pu-01) | Plata 925 | Pulido | $170.000 | Tamaños: 16, 18, 20 cm\n• Pulsera Eslabón (pu-02) | Oro laminado 18k | Pulido | $290.000 | Tamaños: 17, 19 cm\n• Pulsera Hilo (pu-03) | Plata 925 | Pulido | $110.000 | Talla única\n• Pulsera Banda (pu-04) | Plata 925 | Mate | $230.000 | Tallas: S, M, L\n\nPIERCINGS:\n• Piercing Punto (pi-01) | Plata 925 | Pulido | $65.000 | Grosor: 1.2, 1.6 mm\n• Piercing Aro Mini (pi-02) | Oro laminado 18k | Pulido | $95.000 | Diámetro: 6, 8, 10 mm\n• Piercing Línea (pi-03) | Plata 925 | Pulido | $80.000 | Largo: 6, 8 mm\n• Piercing Gota (pi-04) | Oro laminado 18k | Pulido | $130.000 | Talla única\n\nINFORMACIÓN:\n- Envíos a todo Colombia, 3-5 días hábiles\n- Plata 925 genuina, Oro laminado 18k sobre plata 925\n- Piercings grado quirúrgico\n- Atención humana: 9am–6pm lunes a sábado\n\nCÓMO TOMAR UN PEDIDO:\nCuando el cliente quiera comprar confirma: pieza y talla, nombre completo, ciudad de envío, si es regalo.\nCuando tengas TODOS los datos incluye al final:\n[PEDIDO_CONFIRMADO: nombre=NOMBRE | ciudad=CIUDAD | items=PIEZA(talla)xCANT | notas=NOTA]\n\nREGLAS:\n- No inventes políticas que no conozcas\n- Si no sabes algo, di que lo consultas\n- Solo responde sobre VETA y joyería\n- No saludes en cada mensaje, solo al inicio`;\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...historyArray.map(r => ({ role: r.role, content: r.content })),\n  { role: 'user', content: msgData.textContent }\n];\n\nreturn [{ json: { from: msgData.from, phoneNumberId: msgData.phoneNumberId, userMessage: msgData.textContent, messages } }];"
+        "jsCode": "const msgData = $('¿Límite alcanzado?').first().json;\n\n// Obtener todo el historial (no solo el primer item)\nconst historyItems = $input.all();\nlet historyArray = historyItems\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content)\n  .reverse();\n\nconst SYSTEM_PROMPT = `Eres la asesora de ventas virtual de VETA, una marca colombiana de joyería minimalista de autor. Tu nombre es Veta.\n\nPERSONALIDAD:\n- Cálida pero elegante, nunca efusiva\n- Hablas en español colombiano natural\n- Conoces cada pieza como si la hubieras creado\n- Nunca presionas al cliente\n- Usas emojis con moderación (máximo 1 por mensaje)\n- Respuestas cortas: máximo 4 líneas salvo que estés mostrando el catálogo\n\nCATÁLOGO COMPLETO:\n\nANILLOS:\n• Anillo Vena (an-01) | Plata 925 | Pulido | $180.000 | Tallas: 5, 6, 7, 8, 9\n• Anillo Oráculo (an-02) | Oro laminado 18k | Mate | $280.000 | Tallas: 6, 7, 8. Grabado interior personalizable.\n• Anillo Doble Río (an-03) | Plata 925 | Pulido | $220.000 | Tallas: 5, 6, 7, 8\n• Anillo Soldado (an-04) | Plata 925 | Texturizado | $250.000 | Tallas: 6, 7, 8, 9\n\nCOLLARES:\n• Collar Caligrafía (co-01) | Plata 925 | Pulido | $290.000 | Largo: 40, 45, 50 cm\n• Collar Luna Hueca (co-02) | Oro laminado 18k | Pulido | $380.000 | Largo: 42, 45 cm\n• Collar Hebra (co-03) | Plata 925 | Satinado | $210.000 | Largo: 40, 45 cm. Broche imantado.\n• Collar Mompox (co-04) | Plata 925 | Pulido | $420.000 | Largo: 50 cm. Filigrana momposina.\n\nARETES:\n• Aretes Espiga (ar-01) | Plata 925 | Pulido | $150.000 | Tallas: S, M, L\n• Aretes Sol (ar-02) | Oro laminado 18k | Pulido | $190.000 | Diámetro: 10, 14, 18 mm\n• Aretes Punto (ar-03) | Plata 925 | Pulido | $80.000 | Diámetro: 3, 4, 5 mm\n• Aretes Cascada (ar-04) | Plata 925 | Satinado | $220.000 | Talla única\n\nPULSERAS:\n• Pulsera Cordel (pu-01) | Plata 925 | Pulido | $170.000 | Tamaños: 16, 18, 20 cm\n• Pulsera Eslabón (pu-02) | Oro laminado 18k | Pulido | $290.000 | Tamaños: 17, 19 cm\n• Pulsera Hilo (pu-03) | Plata 925 | Pulido | $110.000 | Talla única\n• Pulsera Banda (pu-04) | Plata 925 | Mate | $230.000 | Tallas: S, M, L\n\nPIERCINGS:\n• Piercing Punto (pi-01) | Plata 925 | Pulido | $65.000 | Grosor: 1.2, 1.6 mm\n• Piercing Aro Mini (pi-02) | Oro laminado 18k | Pulido | $95.000 | Diámetro: 6, 8, 10 mm\n• Piercing Línea (pi-03) | Plata 925 | Pulido | $80.000 | Largo: 6, 8 mm\n• Piercing Gota (pi-04) | Oro laminado 18k | Pulido | $130.000 | Talla única\n\nINFORMACIÓN:\n- Envíos a todo Colombia, 3-5 días hábiles\n- Plata 925 genuina, Oro laminado 18k sobre plata 925\n- Piercings grado quirúrgico\n- Atención humana: 9am–6pm lunes a sábado\n\nCÓMO TOMAR UN PEDIDO:\nCuando el cliente quiera comprar, confirma: pieza y talla, nombre completo, ciudad de envío, si es regalo.\nCuando tengas TODOS los datos incluye al final (sin modificar el formato):\n[PEDIDO_CONFIRMADO: nombre=NOMBRE | ciudad=CIUDAD | items=PIEZA(talla)xCANT | notas=NOTA]\n\nREGLAS:\n- No inventes políticas que no conozcas\n- Si no sabes algo, di que lo consultas\n- Solo responde sobre VETA y joyería\n- No saludes en cada mensaje, solo al inicio`;\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...historyArray.map(row => ({ role: row.role, content: row.content })),\n  { role: 'user', content: msgData.textContent }\n];\n\nreturn [{ json: { from: msgData.from, phoneNumberId: msgData.phoneNumberId, userMessage: msgData.textContent, messages } }];"
       },
-      "id": "a1b2c3d4-0013-0013-0013-000000000013",
+      "id": "ddddbd28-5822-401b-9c2b-1fbac6b7ca81",
       "name": "Preparar Contexto",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2880, 120]
+      "position": [
+        3120,
+        320
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "https://api.groq.com/openai/v1/chat/completions",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.GROQ_API_KEY}}" }, { "name": "Content-Type", "value": "application/json" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.GROQ_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\"model\":\"llama-3.3-70b-versatile\",\"max_tokens\":1024,\"messages\":{{ JSON.stringify($json.messages) }}}",
         "options": {}
       },
-      "id": "a1b2c3d4-0014-0014-0014-000000000014",
+      "id": "e6baee0a-b1b5-4f04-ace2-19607f635612",
       "name": "Groq - Asesora VETA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3120, 120]
+      "position": [
+        3360,
+        320
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const groqResponse = $input.first().json;\nconst contextData = $('Preparar Contexto').first().json;\nconst assistantMessage = groqResponse.choices?.[0]?.message?.content || 'Hubo un error, intenta de nuevo.';\n\nconst orderMatch = assistantMessage.match(/\\[PEDIDO_CONFIRMADO:([^\\]]+)\\]/);\nlet orderData = null;\nlet cleanMessage = assistantMessage;\nif (orderMatch) {\n  const parts = {};\n  orderMatch[1].split('|').forEach(p => {\n    const [k, v] = p.split('=').map(s => s.trim());\n    if (k && v) parts[k] = v;\n  });\n  orderData = parts;\n  cleanMessage = assistantMessage.replace(/\\[PEDIDO_CONFIRMADO:[^\\]]+\\]/, '').trim();\n}\n\nreturn [{ json: { from: contextData.from, phoneNumberId: contextData.phoneNumberId, userMessage: contextData.userMessage, assistantMessage: cleanMessage, hasOrder: !!orderData, orderData } }];"
+        "jsCode": "const groqResponse = $input.first().json;\nconst contextData = $('Preparar Contexto').first().json;\n\nconst assistantMessage = groqResponse.choices?.[0]?.message?.content || 'Hubo un error, intenta de nuevo.';\n\nconst orderMatch = assistantMessage.match(/\\[PEDIDO_CONFIRMADO:([^\\]]+)\\]/);\nlet orderData = null;\nlet cleanMessage = assistantMessage;\n\nif (orderMatch) {\n  const orderStr = orderMatch[1];\n  const parts = {};\n  orderStr.split('|').forEach(p => {\n    const [key, val] = p.split('=').map(s => s.trim());\n    if (key && val) parts[key] = val;\n  });\n  orderData = parts;\n  cleanMessage = assistantMessage.replace(/\\[PEDIDO_CONFIRMADO:[^\\]]+\\]/, '').trim();\n}\n\nreturn [{ json: { from: contextData.from, phoneNumberId: contextData.phoneNumberId, userMessage: contextData.userMessage, assistantMessage: cleanMessage, hasOrder: !!orderData, orderData } }];"
       },
-      "id": "a1b2c3d4-0015-0015-0015-000000000015",
+      "id": "75f0ee87-2e0c-46be-883f-3837bd900c2d",
       "name": "Procesar Respuesta",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3360, 120]
+      "position": [
+        3600,
+        320
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $json.phoneNumberId }}/messages",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.WA_TOKEN}}" }, { "name": "Content-Type", "value": "application/json" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{ $json.from }}\",\"type\":\"text\",\"text\":{\"body\":{{ JSON.stringify($json.assistantMessage) }}}}",
         "options": {}
       },
-      "id": "a1b2c3d4-0016-0016-0016-000000000016",
+      "id": "3c32b165-ec9a-4049-bb96-a3e78a1d2bb4",
       "name": "Enviar Respuesta por WA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3600, 20]
+      "position": [
+        3840,
+        224
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_conversations",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_KEY}}" }, { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}" }, { "name": "Content-Type", "value": "application/json" }, { "name": "Prefer", "value": "return=minimal" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "=[{\"phone\":\"{{ $json.from }}\",\"role\":\"user\",\"content\":{{ JSON.stringify($json.userMessage) }}},{\"phone\":\"{{ $json.from }}\",\"role\":\"assistant\",\"content\":{{ JSON.stringify($json.assistantMessage) }}}]",
         "options": {}
       },
-      "id": "a1b2c3d4-0017-0017-0017-000000000017",
+      "id": "1596fe4c-94cd-48ac-8ea5-12883a603074",
       "name": "Guardar Conversación",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3600, 220]
+      "position": [
+        3840,
+        432
+      ]
     },
     {
       "parameters": {
-        "conditions": { "options": {}, "conditions": [{ "id": "c3", "leftValue": "={{ $json.hasOrder }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }], "combinator": "and" },
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "order-check",
+              "leftValue": "={{ $json.hasOrder }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
-      "id": "a1b2c3d4-0018-0018-0018-000000000018",
+      "id": "1f6ce79f-77d4-436a-ae1d-f08f25e296cf",
       "name": "¿Hay un Pedido?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3840, 120]
+      "position": [
+        4080,
+        320
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_orders",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "apikey", "value": "={{$env.SUPABASE_SERVICE_KEY}}" }, { "name": "Authorization", "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}" }, { "name": "Content-Type", "value": "application/json" }, { "name": "Prefer", "value": "return=representation" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"phone\":\"{{ $json.from }}\",\"customer_name\":\"{{ $json.orderData.nombre }}\",\"city\":\"{{ $json.orderData.ciudad }}\",\"items\":{{ JSON.stringify($json.orderData.items) }},\"notes\":\"{{ $json.orderData.notas }}\",\"status\":\"pending\"}",
+        "jsonBody": "={\"phone\":\"{{ $json.from }}\",\"customer_name\":\"{{ $json.orderData.nombre }}\",\"city\":\"{{ $json.orderData.ciudad }}\",\"items\":\"{{ $json.orderData.items }}\",\"notes\":\"{{ $json.orderData.notas }}\",\"status\":\"pending\"}",
         "options": {}
       },
-      "id": "a1b2c3d4-0019-0019-0019-000000000019",
+      "id": "ab6e5542-6715-4d30-8cfb-dd856b5163d1",
       "name": "Guardar Pedido",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4080, 20]
+      "position": [
+        4320,
+        224
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $('Procesar Respuesta').first().json.phoneNumberId }}/messages",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Authorization", "value": "=Bearer {{$env.WA_TOKEN}}" }, { "name": "Content-Type", "value": "application/json" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"\\ud83d\\uded2 *Nuevo pedido VETA*\\n\\nCliente: {{ $json.body?.[0]?.customer_name }}\\nTel: +{{ $('Procesar Respuesta').first().json.from }}\\nCiudad: {{ $json.body?.[0]?.city }}\\nProductos: {{ $json.body?.[0]?.items }}\\nNotas: {{ $json.body?.[0]?.notes }}\"}}",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"\\ud83d\\uded2 *Nuevo pedido VETA*\\n\\nCliente: {{ $json.body?.[0]?.customer_name }}\\nTel\\u00e9fono: +{{ $('Procesar Respuesta').first().json.from }}\\nCiudad: {{ $json.body?.[0]?.city }}\\nProductos: {{ $json.body?.[0]?.items }}\\nNotas: {{ $json.body?.[0]?.notes }}\"}}",
         "options": {}
       },
-      "id": "a1b2c3d4-0020-0020-0020-000000000020",
+      "id": "1048274f-413c-4ce4-9d88-d8fe874b3a02",
       "name": "Notificar Pedido al Equipo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4320, 20]
+      "position": [
+        4560,
+        224
+      ]
     }
   ],
   "connections": {
-    "Webhook - Verificación Meta": { "main": [[{ "node": "Responder Verificación", "type": "main", "index": 0 }]] },
-    "Webhook - Mensajes WhatsApp": { "main": [[{ "node": "Responder 200 OK a Meta", "type": "main", "index": 0 }]] },
-    "Responder 200 OK a Meta": { "main": [[{ "node": "Parsear Mensaje WA", "type": "main", "index": 0 }]] },
-    "Parsear Mensaje WA": { "main": [[{ "node": "¿Saltar?", "type": "main", "index": 0 }]] },
-    "¿Saltar?": { "main": [[], [{ "node": "¿Audio o Texto?", "type": "main", "index": 0 }]] },
+    "Webhook - Verificación Meta": {
+      "main": [
+        [
+          {
+            "node": "Responder Verificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Mensajes WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 OK a Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder 200 OK a Meta": {
+      "main": [
+        [
+          {
+            "node": "Parsear Mensaje WA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Mensaje WA": {
+      "main": [
+        [
+          {
+            "node": "¿Saltar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Saltar?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "¿Audio o Texto?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "¿Audio o Texto?": {
       "main": [
-        [{ "node": "Obtener URL del Audio", "type": "main", "index": 0 }],
-        [{ "node": "Contar Mensajes Hoy", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Obtener URL del Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Contar Mensajes Hoy",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Obtener URL del Audio": { "main": [[{ "node": "Transcribir Audio (Groq)", "type": "main", "index": 0 }]] },
-    "Transcribir Audio (Groq)": { "main": [[{ "node": "Unificar Transcripción", "type": "main", "index": 0 }]] },
-    "Unificar Transcripción": { "main": [[{ "node": "Contar Mensajes Hoy", "type": "main", "index": 0 }]] },
-    "Contar Mensajes Hoy": { "main": [[{ "node": "¿Cuántos mensajes hoy?", "type": "main", "index": 0 }]] },
-    "¿Cuántos mensajes hoy?": { "main": [[{ "node": "¿Límite alcanzado?", "type": "main", "index": 0 }]] },
+    "Obtener URL del Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribir Audio (Groq)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribir Audio (Groq)": {
+      "main": [
+        [
+          {
+            "node": "Unificar Transcripción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unificar Transcripción": {
+      "main": [
+        [
+          {
+            "node": "Contar Mensajes Hoy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contar Mensajes Hoy": {
+      "main": [
+        [
+          {
+            "node": "¿Cuántos mensajes hoy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cuántos mensajes hoy?": {
+      "main": [
+        [
+          {
+            "node": "¿Límite alcanzado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "¿Límite alcanzado?": {
       "main": [
-        [{ "node": "Enviar Mensaje Límite al Cliente", "type": "main", "index": 0 }],
-        [{ "node": "Historial de Conversación", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Enviar Mensaje Límite al Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Historial de Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Enviar Mensaje Límite al Cliente": { "main": [[{ "node": "Notificar a Sebastian (límite)", "type": "main", "index": 0 }]] },
-    "Historial de Conversación": { "main": [[{ "node": "Preparar Contexto", "type": "main", "index": 0 }]] },
-    "Preparar Contexto": { "main": [[{ "node": "Groq - Asesora VETA", "type": "main", "index": 0 }]] },
-    "Groq - Asesora VETA": { "main": [[{ "node": "Procesar Respuesta", "type": "main", "index": 0 }]] },
-    "Procesar Respuesta": { "main": [[{ "node": "Enviar Respuesta por WA", "type": "main", "index": 0 }, { "node": "Guardar Conversación", "type": "main", "index": 0 }, { "node": "¿Hay un Pedido?", "type": "main", "index": 0 }]] },
-    "¿Hay un Pedido?": { "main": [[{ "node": "Guardar Pedido", "type": "main", "index": 0 }], []] },
-    "Guardar Pedido": { "main": [[{ "node": "Notificar Pedido al Equipo", "type": "main", "index": 0 }]] }
+    "Enviar Mensaje Límite al Cliente": {
+      "main": [
+        [
+          {
+            "node": "Notificar a Sebastian (límite)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Historial de Conversación": {
+      "main": [
+        [
+          {
+            "node": "Preparar Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Contexto": {
+      "main": [
+        [
+          {
+            "node": "Groq - Asesora VETA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - Asesora VETA": {
+      "main": [
+        [
+          {
+            "node": "Procesar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Respuesta": {
+      "main": [
+        [
+          {
+            "node": "Enviar Respuesta por WA",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Guardar Conversación",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Hay un Pedido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Hay un Pedido?": {
+      "main": [
+        [
+          {
+            "node": "Guardar Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Guardar Pedido": {
+      "main": [
+        [
+          {
+            "node": "Notificar Pedido al Equipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1", "saveManualExecutions": true },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
   "staticData": null,
-  "tags": [{ "name": "VETA" }],
+  "tags": [
+    {
+      "name": "VETA"
+    }
+  ],
   "pinData": {},
-  "versionId": "a1b2c3d4-ffff-ffff-ffff-000000000003"
+  "versionId": "e08c3400-49e0-4f72-8843-8422b20d610d"
 }
