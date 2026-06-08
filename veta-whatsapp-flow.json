@@ -324,7 +324,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const headers = $input.first().json.headers || {};\nconst contentRange = headers['content-range'] || '';\nconst match = contentRange.match(/\\/(\\d+)$/);\nconst count = match ? parseInt(match[1]) : 0;\n\n// Obtener datos del mensaje: audio usa Unificar Transcripción, texto usa Parsear Mensaje WA\nlet msgData;\ntry {\n  msgData = $('Unificar Transcripción').first().json;\n} catch(e) {\n  msgData = $('Parsear Mensaje WA').first().json;\n}\n\nreturn [{ json: { ...msgData, mensajesHoy: count, limitAlcanzado: count >= 10 } }];"
+        "jsCode": "// Obtener conteo de mensajes hoy (desde nodo anterior)\nconst countHeaders = $('Contar Mensajes Hoy').first().json.headers || {};\nconst contentRange = countHeaders['content-range'] || '';\nconst match = contentRange.match(/\\/(\\d+)$/);\nconst count = match ? parseInt(match[1]) : 0;\n\n// Leer límite dinámico desde Supabase settings\nlet dailyLimit = 10;\ntry {\n  const limitRows = $input.all();\n  if (limitRows.length > 0 && limitRows[0].json && limitRows[0].json.value) {\n    dailyLimit = parseInt(limitRows[0].json.value) || 10;\n  }\n} catch(e) { /* usar default 10 */ }\n\n// Obtener datos del mensaje: audio usa Unificar Transcripción, texto usa Parsear Mensaje WA\nlet msgData;\ntry {\n  msgData = $('Unificar Transcripción').first().json;\n} catch(e) {\n  msgData = $('Parsear Mensaje WA').first().json;\n}\n\nreturn [{ json: { ...msgData, mensajesHoy: count, limitAlcanzado: count >= dailyLimit, dailyLimit } }];"
       },
       "id": "254c6b51-c12a-457c-9bbd-25a2a402b396",
       "name": "¿Cuántos mensajes hoy?",
@@ -885,6 +885,47 @@
         460
       ],
       "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/settings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "value"
+            },
+            {
+              "name": "key",
+              "value": "eq.bot_daily_limit"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a9f3e201-cc11-4a2b-b800-limit0000001",
+      "name": "Leer Límite Bot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2280,
+        208
+      ],
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -999,7 +1040,7 @@
       "main": [
         [
           {
-            "node": "¿Cuántos mensajes hoy?",
+            "node": "Leer Límite Bot",
             "type": "main",
             "index": 0
           }
@@ -1161,6 +1202,17 @@
         [
           {
             "node": "Historial de Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Límite Bot": {
+      "main": [
+        [
+          {
+            "node": "¿Cuántos mensajes hoy?",
             "type": "main",
             "index": 0
           }

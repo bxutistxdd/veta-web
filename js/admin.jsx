@@ -131,7 +131,10 @@ function useStock() {
 }
 
 function useCfg() {
-  const read = () => ({ wa_phone: (window.VETA_DB && window.VETA_DB.getSetting("wa_phone", DEFAULT_WA_PHONE)) || DEFAULT_WA_PHONE });
+  const read = () => ({
+    wa_phone: (window.VETA_DB && window.VETA_DB.getSetting("wa_phone", DEFAULT_WA_PHONE)) || DEFAULT_WA_PHONE,
+    bot_daily_limit: parseInt((window.VETA_DB && window.VETA_DB.getSetting("bot_daily_limit", "10")) || "10") || 10,
+  });
   const [cfg, setCfg] = useState(read);
   useEffect(() => {
     if (!window.VETA_DB) return;
@@ -690,8 +693,11 @@ function ChangePwForm() {
 
 function TabConfig({ cfg, save, onLogout, resetProducts }) {
   const [phone,setPhone]=useState(cfg.wa_phone);
-  const [saved,setSaved]=useState(false);
+  const [savedPhone,setSavedPhone]=useState(false);
+  const [limit,setLimit]=useState(cfg.bot_daily_limit);
+  const [savedLimit,setSavedLimit]=useState(false);
   useEffect(()=>{ setPhone(cfg.wa_phone); }, [cfg.wa_phone]);
+  useEffect(()=>{ setLimit(cfg.bot_daily_limit); }, [cfg.bot_daily_limit]);
   return(
     <div className="adm-page">
       <div className="adm-cfg-section">
@@ -700,8 +706,20 @@ function TabConfig({ cfg, save, onLogout, resetProducts }) {
         <div className="adm-row-inline">
           <input className="adm-input" value={phone} onChange={e=>setPhone(e.target.value)} style={{maxWidth:260}}/>
           <button className="adm-btn adm-btn--primary adm-btn--sm" onClick={()=>{
-            save({wa_phone:phone.replace(/\D/g,"")});setSaved(true);setTimeout(()=>setSaved(false),2000);
-          }}>{saved?"Guardado ✓":"Guardar"}</button>
+            save({wa_phone:phone.replace(/\D/g,"")});setSavedPhone(true);setTimeout(()=>setSavedPhone(false),2000);
+          }}>{savedPhone?"Guardado ✓":"Guardar"}</button>
+        </div>
+      </div>
+      <hr className="adm-hr"/>
+      <div className="adm-cfg-section">
+        <h3 className="adm-cfg-h">Límite diario del bot IA</h3>
+        <p className="adm-hint">Máximo de mensajes que el bot responde por cliente cada día. Al alcanzarlo, avisa que un asesor lo atenderá. Por defecto: 10.</p>
+        <div className="adm-row-inline">
+          <input className="adm-input" type="number" min="1" max="200" value={limit}
+            onChange={e=>setLimit(Math.max(1,parseInt(e.target.value)||1))} style={{maxWidth:100}}/>
+          <button className="adm-btn adm-btn--primary adm-btn--sm" onClick={()=>{
+            save({bot_daily_limit:String(limit)});setSavedLimit(true);setTimeout(()=>setSavedLimit(false),2000);
+          }}>{savedLimit?"Guardado ✓":"Guardar"}</button>
         </div>
       </div>
       <hr className="adm-hr"/>
