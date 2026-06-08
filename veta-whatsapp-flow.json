@@ -438,7 +438,7 @@
           "parameters": [
             {
               "name": "phone",
-              "value": "=eq.{{ $json.from }}"
+              "value": "=eq.{{ $('¿Límite alcanzado?').first().json.from }}"
             },
             {
               "name": "order",
@@ -481,7 +481,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const msgData = $('¿Límite alcanzado?').first().json;\n\n// Obtener todo el historial (no solo el primer item)\nconst historyItems = $input.all();\nlet historyArray = historyItems\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content)\n  .reverse();\n\nconst SYSTEM_PROMPT = `Eres la asesora de ventas virtual de VETA, una marca colombiana de joyería minimalista de autor. Tu nombre es Veta.\n\nPERSONALIDAD:\n- Cálida pero elegante, nunca efusiva\n- Hablas en español colombiano natural\n- Conoces cada pieza como si la hubieras creado\n- Nunca presionas al cliente\n- Usas emojis con moderación (máximo 1 por mensaje)\n- Respuestas cortas: máximo 4 líneas salvo que estés mostrando el catálogo\n\nCATÁLOGO COMPLETO:\n\nANILLOS:\n• Anillo Vena (an-01) | Plata 925 | Pulido | $180.000 | Tallas: 5, 6, 7, 8, 9\n• Anillo Oráculo (an-02) | Oro laminado 18k | Mate | $280.000 | Tallas: 6, 7, 8. Grabado interior personalizable.\n• Anillo Doble Río (an-03) | Plata 925 | Pulido | $220.000 | Tallas: 5, 6, 7, 8\n• Anillo Soldado (an-04) | Plata 925 | Texturizado | $250.000 | Tallas: 6, 7, 8, 9\n\nCOLLARES:\n• Collar Caligrafía (co-01) | Plata 925 | Pulido | $290.000 | Largo: 40, 45, 50 cm\n• Collar Luna Hueca (co-02) | Oro laminado 18k | Pulido | $380.000 | Largo: 42, 45 cm\n• Collar Hebra (co-03) | Plata 925 | Satinado | $210.000 | Largo: 40, 45 cm. Broche imantado.\n• Collar Mompox (co-04) | Plata 925 | Pulido | $420.000 | Largo: 50 cm. Filigrana momposina.\n\nARETES:\n• Aretes Espiga (ar-01) | Plata 925 | Pulido | $150.000 | Tallas: S, M, L\n• Aretes Sol (ar-02) | Oro laminado 18k | Pulido | $190.000 | Diámetro: 10, 14, 18 mm\n• Aretes Punto (ar-03) | Plata 925 | Pulido | $80.000 | Diámetro: 3, 4, 5 mm\n• Aretes Cascada (ar-04) | Plata 925 | Satinado | $220.000 | Talla única\n\nPULSERAS:\n• Pulsera Cordel (pu-01) | Plata 925 | Pulido | $170.000 | Tamaños: 16, 18, 20 cm\n• Pulsera Eslabón (pu-02) | Oro laminado 18k | Pulido | $290.000 | Tamaños: 17, 19 cm\n• Pulsera Hilo (pu-03) | Plata 925 | Pulido | $110.000 | Talla única\n• Pulsera Banda (pu-04) | Plata 925 | Mate | $230.000 | Tallas: S, M, L\n\nPIERCINGS:\n• Piercing Punto (pi-01) | Plata 925 | Pulido | $65.000 | Grosor: 1.2, 1.6 mm\n• Piercing Aro Mini (pi-02) | Oro laminado 18k | Pulido | $95.000 | Diámetro: 6, 8, 10 mm\n• Piercing Línea (pi-03) | Plata 925 | Pulido | $80.000 | Largo: 6, 8 mm\n• Piercing Gota (pi-04) | Oro laminado 18k | Pulido | $130.000 | Talla única\n\nINFORMACIÓN:\n- Envíos a todo Colombia, 3-5 días hábiles\n- Plata 925 genuina, Oro laminado 18k sobre plata 925\n- Piercings grado quirúrgico\n- Atención humana: 9am–6pm lunes a sábado\n\nCÓMO TOMAR UN PEDIDO:\nCuando el cliente quiera comprar, confirma: pieza y talla, nombre completo, ciudad de envío, si es regalo.\nCuando tengas TODOS los datos incluye al final (sin modificar el formato):\n[PEDIDO_CONFIRMADO: nombre=NOMBRE | ciudad=CIUDAD | items=PIEZA(talla)xCANT | notas=NOTA]\n\nREGLAS:\n- No inventes políticas que no conozcas\n- Si no sabes algo, di que lo consultas\n- Solo responde sobre VETA y joyería\n- No saludes en cada mensaje, solo al inicio`;\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...historyArray.map(row => ({ role: row.role, content: row.content })),\n  { role: 'user', content: msgData.textContent }\n];\n\nreturn [{ json: { from: msgData.from, phoneNumberId: msgData.phoneNumberId, userMessage: msgData.textContent, messages } }];"
+        "jsCode": "const msgData = $('¿Límite alcanzado?').first().json;\n\n// Historial (alwaysOutputData en el nodo Historial)\nlet historyArray = $('Historial de Conversación').all()\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content)\n  .reverse();\n\n// Catálogo + stock en vivo desde Supabase\nconst products  = ($('Cargar Catálogo').first().json.body) || [];\nconst stockRows = ($('Cargar Stock').first().json.body) || [];\nconst stockMap = {};\nstockRows.forEach(r => { stockMap[r.product_id + '::' + r.size] = r.qty; });\n\nconst CAT_LABELS = { anillos:'ANILLOS', collares:'COLLARES', aretes:'ARETES', pulseras:'PULSERAS', piercings:'PIERCINGS' };\nconst byCat = {};\nproducts.forEach(p => { (byCat[p.cat] = byCat[p.cat] || []).push(p); });\n\nlet catalogo = '';\nfor (const cat of Object.keys(CAT_LABELS)) {\n  const list = byCat[cat];\n  if (!list || !list.length) continue;\n  catalogo += '\\n' + CAT_LABELS[cat] + ':\\n';\n  for (const p of list) {\n    const precio = '$' + Number(p.price).toLocaleString('es-CO');\n    const sizes = Array.isArray(p.sizes) ? p.sizes : [];\n    const dispo = sizes.map(sz => {\n      const q = stockMap[p.id + '::' + sz];\n      return (q !== undefined && q <= 0) ? sz + ' (agotada)' : sz;\n    });\n    const hayAlgo = sizes.length === 0 || sizes.some(sz => { const q = stockMap[p.id + '::' + sz]; return q === undefined || q > 0; });\n    const tallas = dispo.length ? dispo.join(', ') : 'única';\n    catalogo += '• ' + p.name + ' (' + p.id + ') | ' + p.material + ' | ' + p.finish + ' | ' + precio + ' | Tallas: ' + tallas + (hayAlgo ? '' : ' — AGOTADA') + '\\n';\n    if (p.blurb) catalogo += '  ' + p.blurb + '\\n';\n  }\n}\n\nconst SYSTEM_PROMPT = `Eres Veta, la asesora de ventas de VETA, una marca colombiana de joyería minimalista de autor. Atiendes por WhatsApp.\n\nTONO Y ATENCIÓN:\n- Cálida, cercana y atenta, como una asesora de boutique que de verdad quiere ayudar.\n- Español colombiano natural. Usa expresiones de buen servicio: \"con gusto\", \"claro que sí\", \"quedo atenta\".\n- Emojis con gracia: de 1 a 3 según el momento, sin saturar (ej: \"¡Gracias por tu compra! ¿Te ayudo con algo más? ✨\", \"Tu envío va en camino 💨\").\n- Agradece y reconoce al cliente. Nunca presiones.\n- Sé proactiva: sugiere piezas que combinen y recuerda la garantía de por vida y los envíos cuando venga al caso.\n- Cierra con un siguiente paso útil (\"¿Quieres que te muestre opciones?\", \"¿Coordinamos el envío?\").\n- Respuestas cortas y claras (máx ~4 líneas), salvo cuando muestres varias piezas.\n- Saluda solo al inicio de la conversación, no en cada mensaje.\n\nCATÁLOGO DISPONIBLE (inventario REAL en tiempo real):\n${catalogo}\nSolo ofrece piezas que aparezcan arriba. Si una talla dice \"(agotada)\" o la pieza dice \"AGOTADA\", no la vendas: ofrece otra talla o una pieza similar. Si preguntan por algo que no está, dilo con amabilidad.\n\nINFORMACIÓN:\n- Envíos a todo Colombia, 3-5 días hábiles.\n- Plata 925 genuina; Oro laminado 18k sobre plata 925.\n- Piercings grado quirúrgico.\n- Garantía de por vida en la estructura de la pieza.\n- Atención humana: 9am-6pm, lunes a sábado.\n\nCÓMO TOMAR UN PEDIDO:\nCuando el cliente quiera comprar, confirma con amabilidad: pieza y talla, nombre completo, ciudad de envío, y si es para regalo.\nCuando tengas TODOS los datos, incluye al final (sin cambiar el formato):\n[PEDIDO_CONFIRMADO: nombre=NOMBRE | ciudad=CIUDAD | items=PIEZA(talla)xCANT | notas=NOTA]\n\nREGLAS:\n- No inventes políticas ni precios; usa solo lo de arriba.\n- Solo hablas de VETA y joyería.\n- Si no estás segura de algo, ofrece consultarlo con el equipo.`;\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...historyArray.map(row => ({ role: row.role, content: row.content })),\n  { role: 'user', content: msgData.textContent }\n];\n\nreturn [{ json: { from: msgData.from, phoneNumberId: msgData.phoneNumberId, userMessage: msgData.textContent, messages } }];"
       },
       "id": "ddddbd28-5822-401b-9c2b-1fbac6b7ca81",
       "name": "Preparar Contexto",
@@ -697,7 +697,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"\\ud83d\\uded2 *Nuevo pedido VETA*\\n\\nCliente: {{ $json.body?.[0]?.customer_name }}\\nTel\\u00e9fono: +{{ $('Procesar Respuesta').first().json.from }}\\nCiudad: {{ $json.body?.[0]?.city }}\\nProductos: {{ $json.body?.[0]?.items }}\\nNotas: {{ $json.body?.[0]?.notes }}\"}}",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"\\ud83d\\uded2 *Nueva venta VETA*\\n\\nCliente: {{ $json.customer_name }}\\nTel\\u00e9fono: +{{ $('Procesar Respuesta').first().json.from }}\\nCiudad: {{ $json.city }}\\nProductos: {{ $json.items }}\\nNotas: {{ $json.notes }}\\n\\nGest\\u00f3nalo en el panel para el despacho.\"}}",
         "options": {}
       },
       "id": "1048274f-413c-4ce4-9d88-d8fe874b3a02",
@@ -737,6 +737,98 @@
       "position": [
         1320,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/products",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "visible",
+              "value": "eq.true"
+            },
+            {
+              "name": "select",
+              "value": "id,name,cat,material,finish,price,sizes,blurb"
+            },
+            {
+              "name": "order",
+              "value": "cat"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-00bb-00bb-00bb-0000000000bb",
+      "name": "Cargar Catálogo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/stock",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "product_id,size,qty"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-00cc-00cc-00cc-0000000000cc",
+      "name": "Cargar Stock",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        460
       ]
     }
   ],
@@ -881,7 +973,7 @@
         ],
         [
           {
-            "node": "Historial de Conversación",
+            "node": "Cargar Catálogo",
             "type": "main",
             "index": 0
           }
@@ -986,6 +1078,28 @@
           }
         ]
       ]
+    },
+    "Cargar Catálogo": {
+      "main": [
+        [
+          {
+            "node": "Cargar Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cargar Stock": {
+      "main": [
+        [
+          {
+            "node": "Historial de Conversación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -999,5 +1113,5 @@
     }
   ],
   "pinData": {},
-  "versionId": "b65cecec-85b0-4e9b-9d94-43b6a18ca2e8"
+  "versionId": "35876ff4-df3d-4d32-94f5-3d0122ecb535"
 }
