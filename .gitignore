@@ -8,5 +8,7 @@ node_modules/
 
 # Scripts de despliegue con credenciales (Supabase / Railway) — NO subir
 apply-chat-sql.js
+apply-chat-upgrades.js
 build-n8n-chat.js
 deploy-n8n-chat.js
+upgrade-flow.js

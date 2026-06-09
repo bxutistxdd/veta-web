@@ -1203,6 +1203,24 @@ var ROLE_OUT = {
   agent: true
 }; // salientes (derecha)
 
+// En móvil (táctil) Enter = salto de línea; se envía solo con el botón.
+var CHAT_IS_TOUCH = typeof window !== "undefined" && ("ontouchstart" in window || window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+
+// Inserta un mensaje manteniendo el orden por created_at, para que un mensaje
+// que llega por realtime no quede fuera de lugar respecto a su par.
+function insertSortedMsg(list, row) {
+  if (list.some(m => m.id === row.id)) return list;
+  var next = [...list, row];
+  next.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  return next;
+}
+
+// Texto resumido de un mensaje (cita / preview de la lista).
+function msgPreview(m) {
+  if (!m) return "";
+  if (m.msg_type === "image") return "📷 " + (m.content && m.content !== "[imagen]" ? m.content : "Imagen");
+  return m.content || "";
+}
 function useChatBadge() {
   var [count, setCount] = useState(0);
   useEffect(() => {
@@ -1227,11 +1245,15 @@ function useChatBadge() {
 }
 function ChatBubbleRow({
   msg,
-  prev
+  prev,
+  byMid
 }) {
   var out = ROLE_OUT[msg.role];
   var tag = msg.role === "assistant" ? "IA" : msg.role === "agent" ? "Tú" : null;
   var showDay = !prev || chatDayLabel(prev.created_at) !== chatDayLabel(msg.created_at);
+  var quoted = msg.reply_to ? byMid && byMid[msg.reply_to] : null;
+  var isImg = msg.msg_type === "image" && msg.media_url;
+  var caption = isImg && msg.content && msg.content !== "[imagen]" ? msg.content : "";
   return /*#__PURE__*/React.createElement(React.Fragment, null, showDay && /*#__PURE__*/React.createElement("div", {
     className: "adm-chat-daysep"
   }, /*#__PURE__*/React.createElement("span", null, chatDayLabel(msg.created_at))), /*#__PURE__*/React.createElement("div", {
@@ -1240,9 +1262,23 @@ function ChatBubbleRow({
     className: "adm-chat-bubble"
   }, tag && /*#__PURE__*/React.createElement("span", {
     className: `adm-chat-tag adm-chat-tag--${msg.role}`
-  }, tag), /*#__PURE__*/React.createElement("span", {
+  }, tag), msg.reply_to && /*#__PURE__*/React.createElement("span", {
+    className: `adm-chat-quote${quoted ? ` adm-chat-quote--${quoted.role}` : ""}`
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-chat-quote-text"
+  }, quoted ? msgPreview(quoted) : "Mensaje citado")), isImg && /*#__PURE__*/React.createElement("a", {
+    className: "adm-chat-img-wrap",
+    href: msg.media_url,
+    target: "_blank",
+    rel: "noopener noreferrer"
+  }, /*#__PURE__*/React.createElement("img", {
+    className: "adm-chat-img",
+    src: msg.media_url,
+    alt: "Imagen",
+    loading: "lazy"
+  })), (!isImg || caption) && /*#__PURE__*/React.createElement("span", {
     className: "adm-chat-text"
-  }, msg.content), /*#__PURE__*/React.createElement("span", {
+  }, isImg ? caption : msg.content), /*#__PURE__*/React.createElement("span", {
     className: "adm-chat-meta"
   }, chatTime(msg.created_at)))));
 }
@@ -1258,9 +1294,21 @@ function TabChats() {
   var [draft, setDraft] = useState("");
   var [sending, setSending] = useState(false);
   var [orders, setOrders] = useState([]);
+  var [pendingImg, setPendingImg] = useState(null); // { file, url } imagen a enviar
+
   var activeRef = useRef(active);
   activeRef.current = active;
   var endRef = useRef(null);
+  var fileRef = useRef(null);
+
+  // Mapa wa_mid -> mensaje, para resolver las citas (reply/quote).
+  var byMid = useMemo(() => {
+    var m = {};
+    messages.forEach(x => {
+      if (x.wa_mid) m[x.wa_mid] = x;
+    });
+    return m;
+  }, [messages]);
   var reloadList = useCallback(async () => {
     if (!window.VETA_DB) return;
     await window.VETA_DB.loadThreads();
@@ -1305,7 +1353,7 @@ function TabChats() {
     if (!window.VETA_DB) return;
     var unsub = window.VETA_DB.subscribeChats(ev => {
       if (ev.type === "message" && ev.row && ev.row.phone === activeRef.current) {
-        setMessages(prev => prev.some(m => m.id === ev.row.id) ? prev : [...prev, ev.row]);
+        setMessages(prev => insertSortedMsg(prev, ev.row));
         setSeen(prev => {
           var n = {
             ...prev,
@@ -1352,13 +1400,49 @@ function TabChats() {
       adminToast("No se pudo cambiar: " + e.message, true);
     }
   };
+  var clearPendingImg = () => {
+    setPendingImg(prev => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    if (fileRef.current) fileRef.current.value = "";
+  };
+  var onPickImage = e => {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!/^image\//.test(file.type || "")) {
+      adminToast("Selecciona un archivo de imagen.", true);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      adminToast("La imagen supera 5 MB.", true);
+      return;
+    }
+    setPendingImg(prev => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return {
+        file,
+        url: URL.createObjectURL(file)
+      };
+    });
+  };
   var send = async () => {
     var text = draft.trim();
-    if (!text || !active || sending) return;
+    if (!text && !pendingImg || !active || sending) return;
     setSending(true);
     try {
-      await window.VETA_DB.sendAgentMessage(active, text);
+      if (pendingImg) {
+        var mediaUrl = await window.VETA_DB.uploadChatImage(active, pendingImg.file);
+        await window.VETA_DB.sendAgentMessage(active, {
+          text,
+          type: "image",
+          mediaUrl
+        });
+      } else {
+        await window.VETA_DB.sendAgentMessage(active, text);
+      }
       setDraft("");
+      clearPendingImg();
       var msgs = await window.VETA_DB.getMessages(active);
       setMessages(msgs);
       reloadList();
@@ -1417,7 +1501,7 @@ function TabChats() {
       className: "adm-chat-item-bottom"
     }, /*#__PURE__*/React.createElement("span", {
       className: "adm-chat-item-prev"
-    }, c.last.role === "user" ? "" : c.last.role === "agent" ? "Tú: " : "IA: ", c.last.content), /*#__PURE__*/React.createElement("span", {
+    }, c.last.role === "user" ? "" : c.last.role === "agent" ? "Tú: " : "IA: ", msgPreview(c.last)), /*#__PURE__*/React.createElement("span", {
       className: "adm-chat-item-badges"
     }, needs && /*#__PURE__*/React.createElement("span", {
       className: "adm-chat-dot adm-chat-dot--alert",
@@ -1464,19 +1548,43 @@ function TabChats() {
   }, "Sin mensajes todav\xEDa."), messages.map((m, i) => /*#__PURE__*/React.createElement(ChatBubbleRow, {
     key: m.id || i,
     msg: m,
-    prev: messages[i - 1]
+    prev: messages[i - 1],
+    byMid: byMid
   })), /*#__PURE__*/React.createElement("div", {
     ref: endRef
   })), /*#__PURE__*/React.createElement("div", {
     className: "adm-chat-composer"
-  }, /*#__PURE__*/React.createElement("textarea", {
+  }, pendingImg && /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-attach"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: pendingImg.url,
+    alt: "Adjunto",
+    className: "adm-chat-attach-thumb"
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "adm-chat-attach-x",
+    onClick: clearPendingImg,
+    title: "Quitar imagen"
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-composer-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/*",
+    hidden: true,
+    onChange: onPickImage
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "adm-chat-attach-btn",
+    onClick: () => fileRef.current && fileRef.current.click(),
+    disabled: sending,
+    title: "Adjuntar imagen"
+  }, "\uD83D\uDCCE"), /*#__PURE__*/React.createElement("textarea", {
     className: "adm-chat-input",
     rows: 1,
     placeholder: "Escribe un mensaje\u2026",
     value: draft,
     onChange: e => setDraft(e.target.value),
     onKeyDown: e => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey && !CHAT_IS_TOUCH) {
         e.preventDefault();
         send();
       }
@@ -1484,9 +1592,9 @@ function TabChats() {
   }), /*#__PURE__*/React.createElement("button", {
     className: "adm-chat-send",
     onClick: send,
-    disabled: sending || !draft.trim(),
+    disabled: sending || !draft.trim() && !pendingImg,
     title: "Enviar"
-  }, sending ? "…" : "➤")))));
+  }, sending ? "…" : "➤"))))));
 }
 
 // ── Shell con sidebar ─────────────────────────────────────
