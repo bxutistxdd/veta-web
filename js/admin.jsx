@@ -789,6 +789,26 @@ function fmtPhone(phone) {
 }
 const ROLE_OUT = { assistant: true, agent: true }; // salientes (derecha)
 
+// En móvil (táctil) Enter = salto de línea; se envía solo con el botón.
+const CHAT_IS_TOUCH = typeof window !== "undefined" &&
+  (("ontouchstart" in window) || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches));
+
+// Inserta un mensaje manteniendo el orden por created_at, para que un mensaje
+// que llega por realtime no quede fuera de lugar respecto a su par.
+function insertSortedMsg(list, row) {
+  if (list.some(m => m.id === row.id)) return list;
+  const next = [...list, row];
+  next.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  return next;
+}
+
+// Texto resumido de un mensaje (cita / preview de la lista).
+function msgPreview(m) {
+  if (!m) return "";
+  if (m.msg_type === "image") return "📷 " + (m.content && m.content !== "[imagen]" ? m.content : "Imagen");
+  return m.content || "";
+}
+
 function useChatBadge() {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -809,17 +829,30 @@ function useChatBadge() {
   return count;
 }
 
-function ChatBubbleRow({ msg, prev }) {
+function ChatBubbleRow({ msg, prev, byMid }) {
   const out = ROLE_OUT[msg.role];
   const tag = msg.role === "assistant" ? "IA" : msg.role === "agent" ? "Tú" : null;
   const showDay = !prev || chatDayLabel(prev.created_at) !== chatDayLabel(msg.created_at);
+  const quoted = msg.reply_to ? (byMid && byMid[msg.reply_to]) : null;
+  const isImg = msg.msg_type === "image" && msg.media_url;
+  const caption = isImg && msg.content && msg.content !== "[imagen]" ? msg.content : "";
   return (
     <>
       {showDay && <div className="adm-chat-daysep"><span>{chatDayLabel(msg.created_at)}</span></div>}
       <div className={`adm-chat-msg ${out ? "adm-chat-msg--out" : "adm-chat-msg--in"} adm-chat-msg--${msg.role}`}>
         <div className="adm-chat-bubble">
           {tag && <span className={`adm-chat-tag adm-chat-tag--${msg.role}`}>{tag}</span>}
-          <span className="adm-chat-text">{msg.content}</span>
+          {msg.reply_to && (
+            <span className={`adm-chat-quote${quoted ? ` adm-chat-quote--${quoted.role}` : ""}`}>
+              <span className="adm-chat-quote-text">{quoted ? msgPreview(quoted) : "Mensaje citado"}</span>
+            </span>
+          )}
+          {isImg && (
+            <a className="adm-chat-img-wrap" href={msg.media_url} target="_blank" rel="noopener noreferrer">
+              <img className="adm-chat-img" src={msg.media_url} alt="Imagen" loading="lazy" />
+            </a>
+          )}
+          {(!isImg || caption) && <span className="adm-chat-text">{isImg ? caption : msg.content}</span>}
           <span className="adm-chat-meta">{chatTime(msg.created_at)}</span>
         </div>
       </div>
@@ -839,9 +872,18 @@ function TabChats() {
   const [draft, setDraft]       = useState("");
   const [sending, setSending]   = useState(false);
   const [orders, setOrders]     = useState([]);
+  const [pendingImg, setPendingImg] = useState(null); // { file, url } imagen a enviar
 
   const activeRef = useRef(active); activeRef.current = active;
   const endRef = useRef(null);
+  const fileRef = useRef(null);
+
+  // Mapa wa_mid -> mensaje, para resolver las citas (reply/quote).
+  const byMid = useMemo(() => {
+    const m = {};
+    messages.forEach(x => { if (x.wa_mid) m[x.wa_mid] = x; });
+    return m;
+  }, [messages]);
 
   const reloadList = useCallback(async () => {
     if (!window.VETA_DB) return;
@@ -868,7 +910,7 @@ function TabChats() {
     if (!window.VETA_DB) return;
     const unsub = window.VETA_DB.subscribeChats((ev) => {
       if (ev.type === "message" && ev.row && ev.row.phone === activeRef.current) {
-        setMessages(prev => prev.some(m => m.id === ev.row.id) ? prev : [...prev, ev.row]);
+        setMessages(prev => insertSortedMsg(prev, ev.row));
         setSeen(prev => { const n = { ...prev, [ev.row.phone]: new Date().toISOString() }; saveSeen(n); return n; });
       }
       reloadList();
@@ -907,13 +949,32 @@ function TabChats() {
     } catch (e) { adminToast("No se pudo cambiar: " + e.message, true); }
   };
 
+  const clearPendingImg = () => {
+    setPendingImg(prev => { if (prev?.url) URL.revokeObjectURL(prev.url); return null; });
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const onPickImage = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!/^image\//.test(file.type || "")) { adminToast("Selecciona un archivo de imagen.", true); return; }
+    if (file.size > 5 * 1024 * 1024) { adminToast("La imagen supera 5 MB.", true); return; }
+    setPendingImg(prev => { if (prev?.url) URL.revokeObjectURL(prev.url); return { file, url: URL.createObjectURL(file) }; });
+  };
+
   const send = async () => {
     const text = draft.trim();
-    if (!text || !active || sending) return;
+    if ((!text && !pendingImg) || !active || sending) return;
     setSending(true);
     try {
-      await window.VETA_DB.sendAgentMessage(active, text);
+      if (pendingImg) {
+        const mediaUrl = await window.VETA_DB.uploadChatImage(active, pendingImg.file);
+        await window.VETA_DB.sendAgentMessage(active, { text, type: "image", mediaUrl });
+      } else {
+        await window.VETA_DB.sendAgentMessage(active, text);
+      }
       setDraft("");
+      clearPendingImg();
       const msgs = await window.VETA_DB.getMessages(active);
       setMessages(msgs);
       reloadList();
@@ -959,7 +1020,7 @@ function TabChats() {
                   <span className="adm-chat-item-bottom">
                     <span className="adm-chat-item-prev">
                       {c.last.role === "user" ? "" : c.last.role === "agent" ? "Tú: " : "IA: "}
-                      {c.last.content}
+                      {msgPreview(c.last)}
                     </span>
                     <span className="adm-chat-item-badges">
                       {needs && <span className="adm-chat-dot adm-chat-dot--alert" title="Requiere asesor">!</span>}
@@ -1009,17 +1070,28 @@ function TabChats() {
             <div className="adm-chat-scroll">
               {msgLoading && <p className="adm-empty">Cargando mensajes…</p>}
               {!msgLoading && messages.length === 0 && <p className="adm-empty">Sin mensajes todavía.</p>}
-              {messages.map((m, i) => <ChatBubbleRow key={m.id || i} msg={m} prev={messages[i-1]} />)}
+              {messages.map((m, i) => <ChatBubbleRow key={m.id || i} msg={m} prev={messages[i-1]} byMid={byMid} />)}
               <div ref={endRef} />
             </div>
 
             <div className="adm-chat-composer">
-              <textarea className="adm-chat-input" rows={1} placeholder="Escribe un mensaje…"
-                value={draft} onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
-              <button className="adm-chat-send" onClick={send} disabled={sending || !draft.trim()} title="Enviar">
-                {sending ? "…" : "➤"}
-              </button>
+              {pendingImg && (
+                <div className="adm-chat-attach">
+                  <img src={pendingImg.url} alt="Adjunto" className="adm-chat-attach-thumb" />
+                  <button className="adm-chat-attach-x" onClick={clearPendingImg} title="Quitar imagen">×</button>
+                </div>
+              )}
+              <div className="adm-chat-composer-row">
+                <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickImage} />
+                <button className="adm-chat-attach-btn" onClick={() => fileRef.current && fileRef.current.click()}
+                  disabled={sending} title="Adjuntar imagen">📎</button>
+                <textarea className="adm-chat-input" rows={1} placeholder="Escribe un mensaje…"
+                  value={draft} onChange={e => setDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey && !CHAT_IS_TOUCH) { e.preventDefault(); send(); } }} />
+                <button className="adm-chat-send" onClick={send} disabled={sending || (!draft.trim() && !pendingImg)} title="Enviar">
+                  {sending ? "…" : "➤"}
+                </button>
+              </div>
             </div>
           </>
         )}

@@ -70,7 +70,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = 'text';\n  if (type === 'text') {\n    textContent = message.text.body;\n    mediaType = 'text';\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n    mediaType = 'text';\n  } else {\n    textContent = '[Archivo no soportado]';\n    mediaType = 'text';\n  }\n  const RESET_KEYWORDS = ['nuevo chat', 'nueva sesion', 'nueva sesión', 'reiniciar'];\n  const normalized = textContent.toLowerCase().trim().replace(/[¡!¿?.,]/g, '');\n  const isReset = type === 'text' && RESET_KEYWORDS.some(k => normalized === k || normalized.includes(k));\n  const finalText = isReset ? 'Quiero iniciar una nueva sesión' : textContent;\n  return [{ json: { from, type, textContent: finalText, mediaId, mediaType, phoneNumberId, skip: false, isReset } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
+        "jsCode": "const body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  const waMessageId = message.id || null;\n  const replyTo = message.context?.id || null;\n  const waTimestamp = message.timestamp || null;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = 'text';   // ruta del switch: 'audio' | 'image' | 'text'\n  let msgType = 'text';     // tipo guardado en BD: 'image' | 'text'\n  if (type === 'text') {\n    textContent = message.text.body;\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n    mediaType = 'image';\n    msgType = 'image';\n  } else {\n    textContent = '[Archivo no soportado]';\n  }\n  const RESET_KEYWORDS = ['nuevo chat', 'nueva sesion', 'nueva sesión', 'reiniciar'];\n  const normalized = textContent.toLowerCase().trim().replace(/[¡!¿?.,]/g, '');\n  const isReset = type === 'text' && RESET_KEYWORDS.some(k => normalized === k || normalized.includes(k));\n  const finalText = isReset ? 'Quiero iniciar una nueva sesión' : textContent;\n  return [{ json: { from, type, textContent: finalText, mediaId, mediaType, msgType, waMessageId, replyTo, waTimestamp, phoneNumberId, skip: false, isReset } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
       },
       "id": "1ae7bd57-6afd-482b-8659-02fa96b397a2",
       "name": "Parsear Mensaje WA",
@@ -152,10 +152,33 @@
                 "conditions": [
                   {
                     "leftValue": "={{ $json.mediaType }}",
-                    "rightValue": "audio",
+                    "rightValue": "image",
                     "operator": {
                       "type": "string",
-                      "operation": "notEquals"
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.mediaType }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
                     }
                   }
                 ],
@@ -324,7 +347,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Obtener conteo de mensajes hoy (desde nodo anterior)\nconst countHeaders = $('Contar Mensajes Hoy').first().json.headers || {};\nconst contentRange = countHeaders['content-range'] || '';\nconst match = contentRange.match(/\\/(\\d+)$/);\nconst count = match ? parseInt(match[1]) : 0;\n\n// Leer límite dinámico desde Supabase settings\nlet dailyLimit = 10;\ntry {\n  const limitRows = $input.all();\n  if (limitRows.length > 0 && limitRows[0].json && limitRows[0].json.value) {\n    dailyLimit = parseInt(limitRows[0].json.value) || 10;\n  }\n} catch(e) { /* usar default 10 */ }\n\n// Obtener datos del mensaje: audio usa Unificar Transcripción, texto usa Parsear Mensaje WA\nlet msgData;\ntry {\n  msgData = $('Unificar Transcripción').first().json;\n} catch(e) {\n  msgData = $('Parsear Mensaje WA').first().json;\n}\n\nreturn [{ json: { ...msgData, mensajesHoy: count, limitAlcanzado: count >= dailyLimit, dailyLimit } }];"
+        "jsCode": "// Obtener conteo de mensajes hoy (desde nodo anterior)\nconst countHeaders = $('Contar Mensajes Hoy').first().json.headers || {};\nconst contentRange = countHeaders['content-range'] || '';\nconst match = contentRange.match(/\\/(\\d+)$/);\nconst count = match ? parseInt(match[1]) : 0;\n\n// Leer límite dinámico desde Supabase settings\nlet dailyLimit = 10;\ntry {\n  const limitRows = $input.all();\n  if (limitRows.length > 0 && limitRows[0].json && limitRows[0].json.value) {\n    dailyLimit = parseInt(limitRows[0].json.value) || 10;\n  }\n} catch(e) { /* usar default 10 */ }\n\n// Datos del mensaje según la rama que corrió: imagen, audio o texto\nlet msgData;\ntry {\n  msgData = $('Preparar Imagen').first().json;\n} catch(e1) {\n  try {\n    msgData = $('Unificar Transcripción').first().json;\n  } catch(e2) {\n    msgData = $('Parsear Mensaje WA').first().json;\n  }\n}\n\nreturn [{ json: { ...msgData, mensajesHoy: count, limitAlcanzado: count >= dailyLimit, dailyLimit } }];"
       },
       "id": "254c6b51-c12a-457c-9bbd-25a2a402b396",
       "name": "¿Cuántos mensajes hoy?",
@@ -569,7 +592,9 @@
       "position": [
         3840,
         224
-      ]
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -598,7 +623,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "=[{\"phone\":\"{{ $json.from }}\",\"role\":\"assistant\",\"content\":{{ JSON.stringify($json.assistantMessage) }}}]",
+        "jsonBody": "=[{\"phone\":{{ JSON.stringify($('Procesar Respuesta').first().json.from) }},\"role\":\"assistant\",\"content\":{{ JSON.stringify($('Procesar Respuesta').first().json.assistantMessage) }},\"wa_mid\":{{ JSON.stringify($json.messages && $json.messages[0] ? $json.messages[0].id : null) }},\"msg_type\":\"text\"}]",
         "options": {}
       },
       "id": "1596fe4c-94cd-48ac-8ea5-12883a603074",
@@ -1256,7 +1281,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{ $('Recibir Envío Asesor').first().json.body.phone }}\",\"type\":\"text\",\"text\":{\"body\":{{ JSON.stringify($('Recibir Envío Asesor').first().json.body.message) }}}}",
+        "jsonBody": "={{ JSON.stringify($('Recibir Envío Asesor').first().json.body.type === 'image' ? { messaging_product: 'whatsapp', to: $('Recibir Envío Asesor').first().json.body.phone, type: 'image', image: { link: $('Recibir Envío Asesor').first().json.body.mediaUrl, caption: $('Recibir Envío Asesor').first().json.body.message || '' } } : { messaging_product: 'whatsapp', to: $('Recibir Envío Asesor').first().json.body.phone, type: 'text', text: { body: $('Recibir Envío Asesor').first().json.body.message } }) }}",
         "options": {}
       },
       "id": "b1000000-0000-0000-0000-000000000004",
@@ -1295,7 +1320,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "=[{\"phone\":\"{{ $('Recibir Envío Asesor').first().json.body.phone }}\",\"role\":\"agent\",\"content\":{{ JSON.stringify($('Recibir Envío Asesor').first().json.body.message) }}}]",
+        "jsonBody": "=[{\"phone\":{{ JSON.stringify($('Recibir Envío Asesor').first().json.body.phone) }},\"role\":\"agent\",\"content\":{{ JSON.stringify($('Recibir Envío Asesor').first().json.body.type === 'image' ? ($('Recibir Envío Asesor').first().json.body.message || '[imagen]') : $('Recibir Envío Asesor').first().json.body.message) }},\"wa_mid\":{{ JSON.stringify($json.messages && $json.messages[0] ? $json.messages[0].id : null) }},\"msg_type\":{{ JSON.stringify($('Recibir Envío Asesor').first().json.body.type || 'text') }},\"media_url\":{{ JSON.stringify($('Recibir Envío Asesor').first().json.body.mediaUrl || null) }}}]",
         "options": {}
       },
       "id": "b1000000-0000-0000-0000-000000000005",
@@ -1368,7 +1393,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "=[{\"phone\":\"{{ $json.from }}\",\"role\":\"user\",\"content\":{{ JSON.stringify($json.textContent) }}}]",
+        "jsonBody": "=[{\"phone\":{{ JSON.stringify($json.from) }},\"role\":\"user\",\"content\":{{ JSON.stringify($json.textContent) }},\"wa_mid\":{{ JSON.stringify($json.waMessageId || null) }},\"reply_to\":{{ JSON.stringify($json.replyTo || null) }},\"msg_type\":{{ JSON.stringify($json.msgType || 'text') }},\"media_url\":{{ JSON.stringify($json.mediaUrl || null) }},\"created_at\":{{ JSON.stringify($json.waTimestamp ? new Date(parseInt($json.waTimestamp) * 1000).toISOString() : new Date().toISOString()) }}}]",
         "options": {}
       },
       "id": "d1000000-0000-0000-0000-000000000001",
@@ -1380,6 +1405,111 @@
         380
       ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://graph.facebook.com/v21.0/{{ $json.mediaId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1000000-0000-0000-0000-000000000001",
+      "name": "Obtener URL Imagen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "e1000000-0000-0000-0000-000000000002",
+      "name": "Descargar Imagen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/storage/v1/object/wa-media/inbound/{{ $('Parsear Mensaje WA').first().json.from }}-{{ $('Parsear Mensaje WA').first().json.mediaId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "={{ $('Obtener URL Imagen').first().json.mime_type || 'image/jpeg' }}"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "e1000000-0000-0000-0000-000000000003",
+      "name": "Subir Imagen a Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Parsear Mensaje WA').first().json;\nlet supaUrl = '';\ntry { supaUrl = $env.SUPABASE_URL; } catch (e) {}\nconst mediaUrl = supaUrl + '/storage/v1/object/public/wa-media/inbound/' + base.from + '-' + base.mediaId;\nreturn [{ json: { ...base, mediaUrl, msgType: 'image' } }];"
+      },
+      "id": "e1000000-0000-0000-0000-000000000004",
+      "name": "Preparar Imagen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -200
+      ]
     }
   ],
   "connections": {
@@ -1444,6 +1574,13 @@
         [
           {
             "node": "Obtener URL del Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Obtener URL Imagen",
             "type": "main",
             "index": 0
           }
@@ -1584,11 +1721,6 @@
         [
           {
             "node": "Enviar Respuesta por WA",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Guardar Conversación",
             "type": "main",
             "index": 0
           },
@@ -1802,6 +1934,61 @@
         [
           {
             "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener URL Imagen": {
+      "main": [
+        [
+          {
+            "node": "Descargar Imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Imagen": {
+      "main": [
+        [
+          {
+            "node": "Subir Imagen a Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir Imagen a Storage": {
+      "main": [
+        [
+          {
+            "node": "Preparar Imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Imagen": {
+      "main": [
+        [
+          {
+            "node": "Contar Mensajes Hoy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Respuesta por WA": {
+      "main": [
+        [
+          {
+            "node": "Guardar Conversación",
             "type": "main",
             "index": 0
           }

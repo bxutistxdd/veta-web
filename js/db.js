@@ -242,7 +242,7 @@ window.VETA_DB = (function () {
   // Lista de conversaciones derivada de los últimos mensajes + estado del thread.
   async function getConversationList(limit = 1000) {
     const { data, error } = await sb.from("wa_conversations")
-      .select("phone,role,content,created_at")
+      .select("phone,role,content,created_at,msg_type")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) { console.warn("[VETA_DB] conv list:", error.message); return []; }
@@ -279,8 +279,27 @@ window.VETA_DB = (function () {
     _notifyChats({ type: "thread", row: _threads[phone] });
   }
 
+  // Sube una imagen del asesor a Supabase Storage (bucket wa-media, lectura
+  // pública) y devuelve su URL pública. El relay de n8n la reenvía a WhatsApp
+  // como image.link (el token de Meta nunca llega al navegador).
+  async function uploadChatImage(phone, file) {
+    const session = await getSession();
+    if (!session) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+    if (!file) throw new Error("No hay imagen para subir.");
+    if (!/^image\//.test(file.type || "")) throw new Error("El archivo no es una imagen.");
+    const ext = ((file.name || "").split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `outbound/${phone}-${Date.now()}.${ext}`;
+    const { error } = await sb.storage.from("wa-media")
+      .upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
+    if (error) throw new Error("No se pudo subir la imagen: " + error.message);
+    const { data } = sb.storage.from("wa-media").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
   // Envía un mensaje como asesor humano vía el relay de n8n (valida el JWT).
-  async function sendAgentMessage(phone, text) {
+  // `payload` puede ser un string (texto) o { text, type:'image', mediaUrl }.
+  async function sendAgentMessage(phone, payload) {
+    const body = typeof payload === "string" ? { text: payload } : (payload || {});
     const session = await getSession();
     const jwt = session?.access_token;
     if (!jwt) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
@@ -290,7 +309,13 @@ window.VETA_DB = (function () {
       res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, message: text, jwt }),
+        body: JSON.stringify({
+          phone,
+          message: body.text || "",
+          type: body.type || "text",
+          mediaUrl: body.mediaUrl || null,
+          jwt,
+        }),
       });
     } catch (e) { throw new Error("Sin conexión con el servidor de envío."); }
     if (!res.ok) {
@@ -343,7 +368,7 @@ window.VETA_DB = (function () {
     setStock, clearStock, setVisible, upsertProduct, deleteProduct, saveSetting,
     // buzón de chats
     loadThreads, getThreads, getConversationList, getMessages,
-    setBotPaused, clearNeedsHuman, sendAgentMessage, subscribeChats,
+    setBotPaused, clearNeedsHuman, sendAgentMessage, uploadChatImage, subscribeChats,
     sb,
   };
 })();
