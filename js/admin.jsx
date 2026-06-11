@@ -1305,7 +1305,7 @@ function TabDespachos() {
         <div className="adm-desp-toolbar-right">
           <input className="adm-input adm-desp-search" placeholder="Buscar…"
             value={q} onChange={e => setQ(e.target.value)} />
-          <button className="adm-btn" onClick={load} disabled={loading} title="Actualizar">↺</button>
+          <button className="adm-desp-reload" onClick={load} disabled={loading} title="Actualizar">↺</button>
         </div>
       </div>
 

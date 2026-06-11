@@ -1819,7 +1819,7 @@ function TabDespachos() {
     value: q,
     onChange: e => setQ(e.target.value)
   }), /*#__PURE__*/React.createElement("button", {
-    className: "adm-btn",
+    className: "adm-desp-reload",
     onClick: load,
     disabled: loading,
     title: "Actualizar"
