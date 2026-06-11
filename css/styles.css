@@ -3725,3 +3725,94 @@ img { max-width: 100%; display: block; }
   .adm-chat-thread-hdr .adm-btn { padding: 7px 8px; font-size: 11.5px; }
   .adm-chat-thread-hdr .adm-chat-avatar { width: 34px; height: 34px; }
 }
+
+/* ── DESPACHOS ─────────────────────────────────────────── */
+.adm-desp-wrap { display: flex; flex-direction: column; gap: 20px; }
+
+.adm-desp-toolbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.adm-desp-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.adm-desp-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 13px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: transparent;
+  color: var(--ink-soft); font-size: 13px; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.adm-desp-chip:hover { border-color: var(--accent); color: var(--ink); }
+.adm-desp-chip--on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.adm-desp-chip-count {
+  font-size: 11px; font-weight: 600;
+  background: rgba(0,0,0,.12); border-radius: 8px;
+  padding: 1px 5px; min-width: 18px; text-align: center;
+}
+.adm-desp-chip--on .adm-desp-chip-count { background: rgba(255,255,255,.25); }
+
+.adm-desp-toolbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.adm-desp-search { width: 180px; }
+
+.adm-desp-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.adm-desp-card {
+  border: 1.5px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg); transition: box-shadow .15s;
+}
+.adm-desp-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.09); }
+
+.adm-desp-card-top {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 8px;
+}
+
+.adm-desp-pill {
+  font-size: 11px; font-weight: 700; padding: 3px 9px;
+  border-radius: 20px; letter-spacing: .04em; text-transform: uppercase;
+}
+.adm-desp-pill--pending    { background: #fef3c7; color: #92400e; }
+.adm-desp-pill--dispatched { background: #dbeafe; color: #1e40af; }
+.adm-desp-pill--delivered  { background: #d1fae5; color: #065f46; }
+
+.adm-desp-date { font-size: 12px; color: var(--ink-faint); }
+
+.adm-desp-customer {
+  display: flex; align-items: baseline;
+  justify-content: space-between; gap: 8px;
+}
+.adm-desp-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.adm-desp-phone { font-size: 12px; color: var(--accent); text-decoration: none; flex-shrink: 0; }
+.adm-desp-phone:hover { text-decoration: underline; }
+
+.adm-desp-field {
+  display: flex; gap: 6px; font-size: 13px;
+  color: var(--ink-soft); line-height: 1.45;
+}
+.adm-desp-lbl {
+  flex-shrink: 0; font-weight: 600;
+  color: var(--ink-faint); width: 62px;
+}
+.adm-desp-items { font-weight: 500; color: var(--ink); }
+
+.adm-desp-actions {
+  margin-top: 2px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.adm-desp-advance { width: 100%; justify-content: center; }
+
+.adm-desp-empty {
+  color: var(--ink-faint); text-align: center;
+  padding: 48px 0; font-size: 14px; margin: 0;
+}
+
+@media (max-width: 600px) {
+  .adm-desp-search { width: 120px; }
+  .adm-desp-list { grid-template-columns: 1fr; }
+  .adm-desp-toolbar { gap: 8px; }
+}
