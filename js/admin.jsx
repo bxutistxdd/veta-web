@@ -1143,6 +1143,7 @@ function OrderCard({ order, onStatusChange, onNotesSave, onDelete }) {
   const aptRef       = order.apt_ref      || "";
   const payment      = order.payment_method || legacyPayment;
   const recipient    = order.recipient_name || "";
+  const clientNotes  = order.client_notes  || "";
 
   const date = new Date(order.created_at).toLocaleDateString("es-CO",
     { day:"2-digit", month:"short", year:"numeric" });
@@ -1188,7 +1189,12 @@ function OrderCard({ order, onStatusChange, onNotesSave, onDelete }) {
         <span className={`adm-desp-pill adm-desp-pill--${order.status}`}>
           {DESP_LABELS[order.status] || order.status}
         </span>
-        <span className="adm-desp-date">{date}</span>
+        <div className="adm-desp-card-top-right">
+          {order.order_number && (
+            <span className="adm-desp-order-num">#{order.order_number}</span>
+          )}
+          <span className="adm-desp-date">{date}</span>
+        </div>
       </div>
 
       <div className="adm-desp-customer">
@@ -1214,7 +1220,13 @@ function OrderCard({ order, onStatusChange, onNotesSave, onDelete }) {
         {address && (
           <div className="adm-desp-field">
             <span className="adm-desp-lbl">Dirección</span>
-            <span>{address}{aptRef ? ` — ${aptRef}` : ""}</span>
+            <span>{address}</span>
+          </div>
+        )}
+        {aptRef && (
+          <div className="adm-desp-field">
+            <span className="adm-desp-lbl">Ref/Entrega</span>
+            <span>{aptRef}</span>
           </div>
         )}
         {payment && (
@@ -1231,13 +1243,20 @@ function OrderCard({ order, onStatusChange, onNotesSave, onDelete }) {
         )}
       </div>
 
+      {clientNotes && (
+        <div className="adm-desp-client-notes">
+          <span className="adm-desp-client-notes-lbl">Info del cliente</span>
+          <span>{clientNotes}</span>
+        </div>
+      )}
+
       <div className="adm-desp-notes-wrap">
         {editingNotes ? (
           <>
             <textarea className="adm-input adm-desp-notes-ta"
               value={notesVal}
               onChange={e => setNotesVal(e.target.value)}
-              placeholder="Guía, transportadora, observaciones…"
+              placeholder="Guía de envío, transportadora, observaciones del admin…"
               rows={2} />
             <div className="adm-desp-notes-actions">
               <button className="adm-btn adm-btn--sm" onClick={cancelNotes}>Cancelar</button>
@@ -1250,7 +1269,7 @@ function OrderCard({ order, onStatusChange, onNotesSave, onDelete }) {
         ) : (
           <button className="adm-desp-notes-btn" onClick={() => setEditingNotes(true)}>
             <span className="adm-desp-notes-icon">{order.admin_notes ? "📋" : "＋"}</span>
-            <span>{order.admin_notes || "Agregar nota de despacho"}</span>
+            <span>{order.admin_notes || "Nota de despacho (admin)"}</span>
           </button>
         )}
       </div>

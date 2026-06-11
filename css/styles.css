@@ -3818,11 +3818,18 @@ img { max-width: 100%; display: block; }
 .adm-desp-card--delivered  { border-left-color: #10b981; }
 .adm-desp-card--problem    { border-left-color: #ef4444; }
 
-/* — Top: pill + date — */
+/* — Top: pill + date + order number — */
 .adm-desp-card-top {
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
   margin-bottom: 16px;
+}
+.adm-desp-card-top-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+}
+.adm-desp-order-num {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  letter-spacing: .04em; font-family: "Manrope", monospace;
 }
 
 .adm-desp-pill {
@@ -3949,6 +3956,20 @@ img { max-width: 100%; display: block; }
 .adm-desp-pill--cancelled { background: #eee; color: #888; }
 .adm-desp-card--cancelled { opacity: .7; }
 .adm-desp-field--gift .adm-desp-lbl { color: #9b59b6; }
+
+/* — Info adicional del cliente (read-only) — */
+.adm-desp-client-notes {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 10px; margin-bottom: 10px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+}
+.adm-desp-client-notes-lbl {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--accent); opacity: .8;
+}
 
 .adm-desp-empty {
   color: var(--ink-faint); text-align: center;
