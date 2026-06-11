@@ -678,12 +678,16 @@ function Footer({
   }, "Env\xEDos")), /*#__PURE__*/React.createElement("div", {
     className: "footer-col"
   }, /*#__PURE__*/React.createElement("h4", null, "Contacto"), /*#__PURE__*/React.createElement("a", {
-    href: "#"
+    href: "https://wa.me/573243147031",
+    target: "_blank",
+    rel: "noopener"
   }, "WhatsApp"), /*#__PURE__*/React.createElement("a", {
-    href: "#"
+    href: "https://www.instagram.com/vetajoyeria.co/",
+    target: "_blank",
+    rel: "noopener"
   }, "Instagram"), /*#__PURE__*/React.createElement("a", {
-    href: "#"
-  }, "hola@veta.com.co"))), /*#__PURE__*/React.createElement("div", {
+    href: "mailto:veyajoyeria.coloficial@gmail.com"
+  }, "veyajoyeria.coloficial@gmail.com"))), /*#__PURE__*/React.createElement("div", {
     className: "footer-bottom"
   }, /*#__PURE__*/React.createElement("span", null, "\xA9 2026 VETA"), /*#__PURE__*/React.createElement("span", null, "Hecho con tiempo, no con prisa.")));
 }

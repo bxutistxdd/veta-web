@@ -418,9 +418,9 @@ function Footer({ onNavigate }) {
         </div>
         <div className="footer-col">
           <h4>Contacto</h4>
-          <a href="#">WhatsApp</a>
-          <a href="#">Instagram</a>
-          <a href="#">hola@veta.com.co</a>
+          <a href="https://wa.me/573243147031" target="_blank" rel="noopener">WhatsApp</a>
+          <a href="https://www.instagram.com/vetajoyeria.co/" target="_blank" rel="noopener">Instagram</a>
+          <a href="mailto:veyajoyeria.coloficial@gmail.com">veyajoyeria.coloficial@gmail.com</a>
         </div>
       </div>
       <div className="footer-bottom">

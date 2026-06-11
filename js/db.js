@@ -240,6 +240,16 @@ window.VETA_DB = (function () {
     if (error) throw error;
   }
 
+  async function updateOrderDeliveryNotes(id, delivery_notes) {
+    const { error } = await sb.from("wa_orders").update({ delivery_notes }).eq("id", id);
+    if (error) throw error;
+  }
+
+  async function toggleOrderHidden(id, hidden) {
+    const { error } = await sb.from("wa_orders").update({ hidden }).eq("id", id);
+    if (error) throw error;
+  }
+
   /* ── buzón de WhatsApp (#admin → pestaña Chats) ──────────────
      Lectura de wa_conversations / wa_threads (requiere sesión admin;
      RLS authenticated). El envío de mensajes 'agent' va por un relay
@@ -395,6 +405,7 @@ window.VETA_DB = (function () {
     setBotPaused, clearNeedsHuman, sendAgentMessage, uploadChatImage, subscribeChats,
     // despachos
     getOrders, updateOrderStatus, updateOrderNotes, deleteOrder,
+    updateOrderDeliveryNotes, toggleOrderHidden,
     sb,
   };
 })();
