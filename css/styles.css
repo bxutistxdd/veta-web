@@ -3727,7 +3727,7 @@ img { max-width: 100%; display: block; }
 }
 
 /* ── DESPACHOS ─────────────────────────────────────────── */
-.adm-desp-wrap { display: flex; flex-direction: column; gap: 20px; }
+.adm-desp-wrap { display: flex; flex-direction: column; gap: 24px; padding: 4px 2px; }
 
 .adm-desp-toolbar {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -3759,78 +3759,110 @@ img { max-width: 100%; display: block; }
 
 .adm-desp-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
 }
 
 .adm-desp-card {
   border: 1px solid var(--line);
   border-left-width: 4px;
   border-left-color: var(--line);
-  border-radius: 12px;
-  padding: 14px 16px;
+  border-radius: 14px;
+  padding: 22px 22px 18px;
   display: flex; flex-direction: column; gap: 0;
-  background: var(--bg-elev); transition: box-shadow .15s;
+  background: var(--bg-elev);
+  transition: box-shadow .2s, transform .2s;
 }
-.adm-desp-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+.adm-desp-card:hover {
+  box-shadow: 0 6px 28px rgba(0,0,0,.18);
+  transform: translateY(-2px);
+}
 
 .adm-desp-card--pending    { border-left-color: #f59e0b; }
 .adm-desp-card--dispatched { border-left-color: #3b82f6; }
 .adm-desp-card--delivered  { border-left-color: #10b981; }
 .adm-desp-card--problem    { border-left-color: #ef4444; }
 
+/* — Top: pill + date — */
 .adm-desp-card-top {
   display: flex; align-items: center;
   justify-content: space-between; gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
 .adm-desp-pill {
-  font-size: 11px; font-weight: 700; padding: 3px 9px;
-  border-radius: 20px; letter-spacing: .04em; text-transform: uppercase;
+  font-size: 10px; font-weight: 700; padding: 4px 10px;
+  border-radius: 20px; letter-spacing: .06em; text-transform: uppercase;
 }
-.adm-desp-pill--pending    { background: #fef3c7; color: #92400e; }
-.adm-desp-pill--dispatched { background: #dbeafe; color: #1e40af; }
-.adm-desp-pill--delivered  { background: #d1fae5; color: #065f46; }
-.adm-desp-pill--problem    { background: #fee2e2; color: #991b1b; }
+.adm-desp-pill--pending    { background: rgba(245,158,11,.15); color: #f59e0b; }
+.adm-desp-pill--dispatched { background: rgba(59,130,246,.15); color: #60a5fa; }
+.adm-desp-pill--delivered  { background: rgba(16,185,129,.15); color: #34d399; }
+.adm-desp-pill--problem    { background: rgba(239,68,68,.15);  color: #f87171; }
 
-.adm-desp-date { font-size: 12px; color: var(--ink-faint); }
+.adm-desp-date { font-size: 11px; color: var(--ink-faint); letter-spacing: .02em; }
 
+/* — Cliente — */
 .adm-desp-customer {
-  display: flex; align-items: baseline;
-  justify-content: space-between; gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
 }
-.adm-desp-name { font-size: 15px; font-weight: 600; color: var(--ink); }
-.adm-desp-phone { font-size: 12px; color: var(--accent); text-decoration: none; flex-shrink: 0; }
+.adm-desp-name {
+  font-size: 17px; font-weight: 700;
+  color: var(--ink); line-height: 1.2;
+  margin-bottom: 5px;
+}
+.adm-desp-phone {
+  font-size: 12px; color: var(--accent);
+  text-decoration: none; letter-spacing: .01em;
+}
 .adm-desp-phone:hover { text-decoration: underline; }
 
+/* — Piezas destacadas — */
+.adm-desp-items-block {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13px; font-weight: 600;
+  color: var(--ink); line-height: 1.5;
+}
+.adm-desp-items-lbl {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-faint); display: block;
+  margin-bottom: 4px;
+}
+
+/* — Campos secundarios — */
 .adm-desp-fields {
-  display: flex; flex-direction: column; gap: 6px;
-  padding-bottom: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 .adm-desp-field {
-  display: flex; gap: 6px; font-size: 13px;
+  display: flex; gap: 10px; font-size: 12.5px;
   color: var(--ink-soft); line-height: 1.45;
+  align-items: baseline;
 }
 .adm-desp-lbl {
-  flex-shrink: 0; font-weight: 600;
-  color: var(--ink-faint); width: 62px;
+  flex-shrink: 0; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-faint); width: 58px; padding-top: 1px;
 }
 .adm-desp-items { font-weight: 500; color: var(--ink); }
 
+/* — Notas — */
 .adm-desp-notes-wrap {
-  padding-bottom: 10px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 .adm-desp-notes-btn {
-  background: none; border: none; padding: 3px 0;
+  background: none; border: none; padding: 4px 0;
   font-size: 12px; color: var(--ink-faint);
   cursor: pointer; text-align: left; width: 100%;
-  display: flex; align-items: flex-start; gap: 5px;
+  display: flex; align-items: flex-start; gap: 6px;
   line-height: 1.4; font-family: inherit;
 }
 .adm-desp-notes-btn:hover { color: var(--accent); }
@@ -3844,10 +3876,11 @@ img { max-width: 100%; display: block; }
   display: flex; gap: 6px; justify-content: flex-end;
 }
 
+/* — Selector de estado — */
 .adm-desp-status-wrap { }
 .adm-desp-status-select {
-  width: 100%; padding: 8px 12px;
-  border: 1.5px solid var(--line); border-radius: 8px;
+  width: 100%; padding: 9px 14px;
+  border: 1.5px solid var(--line); border-radius: 10px;
   background: var(--bg); color: var(--ink);
   font: 13px "Manrope", sans-serif;
   cursor: pointer; outline: none;
