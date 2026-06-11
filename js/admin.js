@@ -1676,7 +1676,7 @@ function OrderCard({
     className: "adm-desp-date"
   }, date)), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-customer"
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-name"
   }, order.customer_name || "Cliente"), /*#__PURE__*/React.createElement("a", {
     className: "adm-desp-phone",
@@ -1684,14 +1684,12 @@ function OrderCard({
     target: "_blank",
     rel: "noopener"
   }, "+", order.phone)), /*#__PURE__*/React.createElement("div", {
-    className: "adm-desp-fields"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "adm-desp-field"
+    className: "adm-desp-items-block"
   }, /*#__PURE__*/React.createElement("span", {
-    className: "adm-desp-lbl"
-  }, "Piezas"), /*#__PURE__*/React.createElement("span", {
-    className: "adm-desp-items"
-  }, order.items)), order.city && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-items-lbl"
+  }, "Piezas"), order.items), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-fields"
+  }, order.city && /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"

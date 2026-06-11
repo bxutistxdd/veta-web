@@ -1167,18 +1167,19 @@ function OrderCard({ order, onStatusChange, onNotesSave }) {
       </div>
 
       <div className="adm-desp-customer">
-        <span className="adm-desp-name">{order.customer_name || "Cliente"}</span>
+        <div className="adm-desp-name">{order.customer_name || "Cliente"}</div>
         <a className="adm-desp-phone"
           href={"https://wa.me/" + order.phone} target="_blank" rel="noopener">
           +{order.phone}
         </a>
       </div>
 
+      <div className="adm-desp-items-block">
+        <span className="adm-desp-items-lbl">Piezas</span>
+        {order.items}
+      </div>
+
       <div className="adm-desp-fields">
-        <div className="adm-desp-field">
-          <span className="adm-desp-lbl">Piezas</span>
-          <span className="adm-desp-items">{order.items}</span>
-        </div>
         {order.city && (
           <div className="adm-desp-field">
             <span className="adm-desp-lbl">Ciudad</span>
