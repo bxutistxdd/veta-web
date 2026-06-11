@@ -508,7 +508,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const msgData = $('¿Límite alcanzado?').first().json;\nconst isReset = $('Parsear Mensaje WA').first().json.isReset === true;\n\nlet historyArray = $('Historial de Conversación').all()\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content)\n  .reverse();\n\nif (isReset) historyArray = [];\n\nconst esPrimerMensaje = historyArray.length === 0;\n\nconst products  = ($('Cargar Catálogo').first().json.body) || [];\nconst stockRows = ($('Cargar Stock').first().json.body) || [];\nconst stockMap = {};\nstockRows.forEach(r => { stockMap[r.product_id + '::' + r.size] = r.qty; });\n\nconst CAT_LABELS = { anillos:'ANILLOS', collares:'COLLARES', aretes:'ARETES', pulseras:'PULSERAS', piercings:'PIERCINGS' };\nconst byCat = {};\nproducts.forEach(p => { (byCat[p.cat] = byCat[p.cat] || []).push(p); });\n\nlet catalogo = '';\nfor (const cat of Object.keys(CAT_LABELS)) {\n  const list = byCat[cat];\n  if (!list || !list.length) continue;\n  catalogo += '\\n' + CAT_LABELS[cat] + ':\\n';\n  for (const p of list) {\n    const precio = '$' + Number(p.price).toLocaleString('es-CO');\n    const sizes = Array.isArray(p.sizes) ? p.sizes : [];\n    const dispo = sizes.map(sz => {\n      const q = stockMap[p.id + '::' + sz];\n      return (q !== undefined && q <= 0) ? sz + ' (agotada)' : sz;\n    });\n    const hayAlgo = sizes.length === 0 || sizes.some(sz => { const q = stockMap[p.id + '::' + sz]; return q === undefined || q > 0; });\n    const tallas = dispo.length ? dispo.join(', ') : 'única';\n    catalogo += '• ' + p.name + ' (' + p.id + ') | ' + p.material + ' | ' + p.finish + ' | ' + precio + ' | Tallas: ' + tallas + (hayAlgo ? '' : ' — AGOTADA') + '\\n';\n    if (p.blurb) catalogo += '  ' + p.blurb + '\\n';\n  }\n}\n\nlet pedidosRows = [];\ntry { pedidosRows = $('Cargar Pedidos Cliente').first().json.body || []; } catch(e) {}\n\nlet pedidosResumen = '';\nif (!isReset && pedidosRows.length > 0) {\n  pedidosResumen = '\\nPEDIDOS PREVIOS DEL CLIENTE:\\n';\n  const estados = { pending:'Pendiente ⏳', dispatched:'Despachado 🚚', delivered:'Entregado ✅' };\n  pedidosRows.forEach((p, i) => {\n    const fecha = new Date(p.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short' });\n    const est = estados[p.status] || p.status;\n    pedidosResumen += (i+1) + '. ' + p.items + ' | ' + p.city + ' | ' + est + ' | ' + fecha + '\\n';\n    if (p.notes) pedidosResumen += '   ' + p.notes + '\\n';\n  });\n}\n\nlet siteUrl;\ntry { siteUrl = $env.SITE_URL || 'vetajoyeria.co'; } catch(e) { siteUrl = 'vetajoyeria.co'; }\n\nlet saludoInstruccion;\nif (isReset) {\n  saludoInstruccion = `NUEVA SESIÓN: el cliente pidió iniciar una nueva sesión. Tu respuesta DEBE:\n1. Acusar recibo con calidez (ej: \"¡Claro, con gusto! 🌙 Empezamos desde cero.\")\n2. Presentarte EXPLÍCITAMENTE: \"Soy Luna, asesora de VETA.\"\n3. Preguntar: \"¿Con quién tengo el gusto?\"\nNo saltes ninguno de estos tres pasos.`;\n} else if (esPrimerMensaje) {\n  saludoInstruccion = 'PRIMER CONTACTO: saluda con calidez. Preséntate EXPLÍCITAMENTE como \"Luna, asesora de VETA 🌙\" y pregunta con quién tienes el gusto.';\n} else {\n  saludoInstruccion = 'CLIENTE RECURRENTE: ' + (pedidosRows.length > 0\n    ? 'tiene ' + pedidosRows.length + ' pedido(s) previo(s). Salúdalo por su nombre con calidez, sin presentarte de nuevo. Ofrécele de forma natural (no lista rígida): seguimiento al pedido más reciente (' + pedidosRows[0].items + ', estado: ' + pedidosRows[0].status + '), nuevo pedido, catálogo, o resolver dudas.'\n    : 'sin pedidos previos. Salúdalo por su nombre con calidez, sin presentarte de nuevo. Ofrécele de forma natural: hacer un pedido, explorar el catálogo, o resolver dudas.');\n}\n\nconst SYSTEM_PROMPT = `Eres Luna, asesora de ventas de VETA, una marca colombiana de joyería minimalista de autor. Atiendes por WhatsApp.\n\n${saludoInstruccion}\n\nIDENTIDAD:\n- Tu nombre es Luna. Si alguien pregunta \"¿con quién tengo el gusto?\", \"¿cómo te llamas?\" o similar, responde siempre: \"Soy Luna, asesora de VETA 🌙\".\n- \"Luna\" es tu nombre propio, no confundas con nombres de clientes.\n- NO te vuelvas a presentar si ya hay historial activo (salvo que el cliente pida nueva sesión).\n\nTONO Y ATENCIÓN:\n- Cálida, cercana y atenta. Como una asesora de boutique que de verdad quiere ayudar.\n- Español colombiano natural: \"con gusto\", \"claro que sí\", \"quedo pendiente\", \"con mucho gusto\".\n- Usa el nombre del cliente con naturalidad cuando ya lo conozcas — cálido, no mecánico.\n- Emojis con gracia: 1 a 3 por mensaje, sin saturar.\n- Nunca presiones. Cierra siempre con un paso útil o una pregunta que avance el proceso.\n- Respuestas cortas y cálidas (máx ~4 líneas), salvo al mostrar catálogo.\n\nCATÁLOGO Y TALLAS:\n- Si preguntan por productos o quieren ver el catálogo: \"Puedes explorar todo en nuestra página ${siteUrl} ✨ o directamente en nuestro perfil de WhatsApp.\"\n- Si no conocen su talla: \"Puedes ver nuestra guía de tallas en ${siteUrl}#care — también te puedo ayudar a medirte.\"\n\nFLUJO DE COMPRA — síguelo ESTRICTAMENTE en este orden:\n1. Confirma qué pieza(s) y en qué talla(s).\n2. Si no sabe la talla, envíalo a la guía antes de continuar.\n3. Muestra un resumen claro: pieza, talla, acabado y precio.\n4. Pide nombre completo (si aún no lo tienes).\n5. Pregunta de forma natural: \"¿Me das la ciudad y la dirección de entrega? Puede ser calle y número, nombre del conjunto/portal/urbanización, barrio — cualquier referencia que sirva para el envío.\"\n6. Pregunta el método de pago: \"¿Prefieres pagar por transferencia/Nequi o con pago contraentrega?\"\n7. Pregunta brevemente: \"¿El pedido es para ti o es un regalo?\" Si es regalo, pide el nombre del destinatario.\n8. Con todos los datos, haz un RESUMEN COMPLETO y pregunta: \"¿Confirmas este pedido?\"\n9. Solo cuando el cliente confirme explícitamente (sí / confirmo / listo / ok / dale), genera el tag.\n\nREGLA CRÍTICA — CONFIRMACIÓN AL CLIENTE: cuando confirmes el pedido SIEMPRE escribe primero un mensaje cálido visible para el cliente (ej: \"\u00a1Listo [nombre]! \uD83C\uDF19 Tu pedido está confirmado. En breve te escribimos con los detalles del pago. \u00a1Gracias por elegir VETA!\"). Luego, en una línea aparte al final, incluye el tag [PEDIDO_CONFIRMADO: ...]. Nunca emitas el tag sin texto de confirmación — el cliente DEBE recibir un mensaje cálido siempre.\n\nCAMPOS OBLIGATORIOS — si falta CUALQUIERA, sigue preguntando:\n✗ nombre completo  ✗ ciudad  ✗ dirección de entrega (cualquier formato)  ✗ método de pago\n\nCAMPOS OPCIONALES (no bloquean el flujo, inclúyelos vacíos si no aplican):\n• Barrio o sector específico → barrio (si el cliente lo menciona)\n• Apartamento / piso / torre / referencia adicional → ref\n• Nombre del destinatario si es regalo → destinatario\n\nIMPORTANTE sobre direcciones colombianas: acepta CUALQUIER formato válido — conjunto residencial, portal, urbanización, barrio, etapa, calle+número. NO insistas en pedir calle y número si el cliente ya dio un lugar identificable. Úsalo tal cual en el campo dir.\n\nREGLA CRÍTICA sobre dir vs ref:\n• dir = SOLO la dirección base: calle+número, OR nombre del conjunto/portal/urbanización. NADA MÁS.\n• ref = TODO complemento de entrega: número de apto, casa, piso, torre, O instrucción de entrega (portería, recepción, vigilancia, buzón). Si el cliente dice \"dejar en portería\" → ref=Portería. Si dice \"Casa 13\" → ref=Casa 13. Si dice \"Apto 302\" → ref=Apto 302.\n• notes_cliente = cualquier observación adicional que no encaje en los campos anteriores (instrucciones especiales, horario, etc.).\n\nCuando tengas TODO, incluye al final con EXACTAMENTE este formato (con corchetes):\n[PEDIDO_CONFIRMADO: nombre=NOMBRE | ciudad=CIUDAD | items=PIEZA(talla)xCANT | pago=METODO | dir=DIRECCION_BASE | barrio=BARRIO_O_VACIO | ref=APTO_CASA_PISO_O_PORTERIA | destinatario=NOMBRE_O_VACIO | notes_cliente=OBSERVACIONES_O_VACIO]\n\nEjemplos de dir y ref:\n• dir=Calle 59sur #93c 46, ref=Casa 13  → dirección con número de casa\n• dir=Calle 59sur #93c 46, ref=Portería  → mismo cliente dice \"dejar en portería\" (Casa 13 se reemplaza por Portería si el cliente lo indica)\n• dir=Calle 59sur #93c 46, ref=Casa 13 portería  → ambos datos mencionados\n• dir=Portal de Porvenir Etapa 1, ref=  → conjunto sin info adicional\n• dir=Carrera 45 #80-20, ref=Apto 302 Torre B  → apartamento\n• barrio=Los Álamos → si el cliente menciona un barrio distinto\n• barrio= → si la dirección ya lo incluye\n• destinatario=María López → si es regalo\n• destinatario= → para el mismo cliente\n• notes_cliente=Llamar antes de llegar → instrucción especial\n• notes_cliente= → sin observaciones\n\nPREGUNTAS FRECUENTES:\n- ¿Cuánto tarda el envío? 3-5 días hábiles a todo Colombia.\n- ¿Métodos de pago? Transferencia bancaria, Nequi, Daviplata o contraentrega.\n- ¿Costo del envío? Se confirma al tomar el pedido según ciudad.\n- ¿Envíos internacionales? Por ahora solo Colombia.\n- ¿Materiales genuinos? Sí — plata 925, oro laminado 18k sobre plata 925, piercings acero quirúrgico.\n- ¿Garantía? De por vida en la estructura de cada pieza.\n- ¿Personalización? Consultar disponibilidad con el equipo.\n- ¿Cómo sé mi talla? Guía en ${siteUrl}#care o te ayudamos a medirte.\n${pedidosResumen}\nCATÁLOGO DISPONIBLE (inventario REAL en tiempo real):\n${catalogo}\nSolo ofrece piezas visibles arriba. Talla \"(agotada)\" o pieza \"AGOTADA\" → no la ofrezcas, propón alternativa. Si piden algo que no está, dilo con amabilidad.\n\nINFORMACIÓN CLAVE:\n- Envíos a todo Colombia, 3-5 días hábiles.\n- Plata 925 genuina. Oro laminado 18k sobre plata 925. Piercings: acero grado quirúrgico.\n- Garantía de por vida en la estructura de cada pieza.\n- Atención humana: 9am-6pm, lunes a sábado.\n\nESCALAMIENTO A UN ASESOR HUMANO:\n- Tu prioridad es ayudar y cerrar la venta tu misma. Escala SOLO cuando de verdad se necesita un humano: el cliente lo pide explicitamente (\"quiero hablar con una persona/asesor\"), una queja o reclamo, un problema con un pedido existente, una personalizacion que no puedes resolver, o si el cliente esta molesto.\n- Cuando debas escalar, responde con calidez avisando que un asesor lo atendera pronto y añade al final, en una linea aparte, EXACTAMENTE el token: [ESCALAR]\n- El token [ESCALAR] es interno: nunca lo expliques ni lo menciones. No lo uses si puedes resolverlo tu misma.\n\nREGLAS:\n- No inventes políticas ni precios.\n- Solo hablas de VETA y joyería.\n- Si no estás segura de algo, ofrece consultarlo con el equipo.`;\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...historyArray.map(row => ({ role: row.role === 'user' ? 'user' : 'assistant', content: row.content })),\n  { role: 'user', content: msgData.textContent }\n];\n\nreturn [{ json: { from: msgData.from, phoneNumberId: msgData.phoneNumberId, userMessage: msgData.textContent, messages } }];"
+        "jsCode": "const msgData  = $('\\u00bfL\\u00edmite alcanzado?').first().json;\nconst isReset  = $('Parsear Mensaje WA').first().json.isReset === true;\nconst intent   = $('Detectar Intenci\\u00f3n').first().json;\n\n// ── Historial ────────────────────────────────────────────────\nlet historyArray = $('Historial de Conversaci\\u00f3n').all()\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content)\n  .reverse();  // Supabase devuelve desc, necesitamos asc\nif (isReset) historyArray = [];\nconst esPrimerMensaje = historyArray.length === 0;\n\n// ── Catálogo filtrado ────────────────────────────────────────\nconst products  = ($('Cargar Cat\\u00e1logo').first().json.body) || [];\nconst stockRows = ($('Cargar Stock').first().json.body) || [];\nconst stockMap  = {};\nstockRows.forEach(r => { stockMap[r.product_id + '::' + r.size] = r.qty; });\n\nconst CAT_LABELS = {\n  anillos:'ANILLOS', collares:'COLLARES', aretes:'ARETES',\n  pulseras:'PULSERAS', piercings:'PIERCINGS'\n};\n\nlet siteUrl; try { siteUrl = $env.SITE_URL || 'vetajoyeria.co'; } catch(e) { siteUrl = 'vetajoyeria.co'; }\n\nlet catalogSection = '';\nif (intent.catalogMode === 'full_catalog') {\n  catalogSection = 'CAT\\u00c1LOGO: El cliente quiere ver el cat\\u00e1logo completo. ' +\n    'Resp\\u00f3ndele envi\\u00e1ndole el link del sitio: ' + siteUrl +\n    ' \\u2014 ah\\u00ed puede explorar todo con stock en tiempo real. No listes productos en el chat.';\n} else if (intent.catalogMode !== 'none' && products.length > 0) {\n  const byCat = {};\n  products.forEach(p => { (byCat[p.cat] = byCat[p.cat] || []).push(p); });\n  let catText = '';\n  for (const cat of Object.keys(CAT_LABELS)) {\n    const list = byCat[cat];\n    if (!list || !list.length) continue;\n    catText += '\\n' + CAT_LABELS[cat] + ':\\n';\n    for (const p of list) {\n      const precio = '$' + Number(p.price).toLocaleString('es-CO');\n      const sizes  = Array.isArray(p.sizes) ? p.sizes : [];\n      const dispo  = sizes.map(sz => {\n        const q = stockMap[p.id + '::' + sz];\n        return (q !== undefined && q <= 0) ? sz + ' (agotada)' : sz;\n      });\n      const hayAlgo = sizes.length === 0 ||\n        sizes.some(sz => { const q = stockMap[p.id + '::' + sz]; return q === undefined || q > 0; });\n      const tallas = dispo.length ? dispo.join(', ') : '\\u00fanica';\n      catText += '\\u2022 ' + p.name + ' (' + p.id + ') | ' + p.material + ' | ' +\n        p.finish + ' | ' + precio + ' | Tallas: ' + tallas +\n        (hayAlgo ? '' : ' \\u2014 AGOTADA') + '\\n';\n      if (p.blurb) catText += '  ' + p.blurb + '\\n';\n    }\n  }\n  if (catText) {\n    catalogSection = 'CAT\\u00c1LOGO DISPONIBLE (stock real):\\n' + catText +\n      '\\nSolo ofrece lo que aparece arriba. Talla \"(agotada)\" o \"AGOTADA\" \\u2192 no la ofrezcas, prop\\u00f3n alternativa.';\n  }\n}\n\n// ── Pedidos previos ──────────────────────────────────────────\nlet pedidosRows = [];\ntry { pedidosRows = $('Cargar Pedidos Cliente').first().json.body || []; } catch(e) {}\nlet pedidosResumen = '';\nif (!isReset && pedidosRows.length > 0) {\n  pedidosResumen = '\\nPEDIDOS PREVIOS DEL CLIENTE:\\n';\n  const estados = { pending:'Pendiente \\u23f3', dispatched:'Despachado \\ud83d\\ude9a', delivered:'Entregado \\u2705' };\n  pedidosRows.forEach((p, i) => {\n    const fecha = new Date(p.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short' });\n    const est   = estados[p.status] || p.status;\n    pedidosResumen += (i+1) + '. ' + p.items + ' | ' + p.city + ' | ' + est + ' | ' + fecha + '\\n';\n    if (p.notes) pedidosResumen += '   ' + p.notes + '\\n';\n  });\n}\n\n// ── Instrucción de saludo ────────────────────────────────────\nlet saludoInstruccion;\nif (isReset) {\n  saludoInstruccion = 'NUEVA SESI\\u00d3N: el cliente pidi\\u00f3 iniciar desde cero. Debes: (1) acusar recibo con calidez, (2) presentarte EXPL\\u00cdCITAMENTE: \"Soy Luna, asesora de VETA \\ud83c\\udf19\", (3) preguntar \"\\u00bfCon qui\\u00e9n tengo el gusto?\"';\n} else if (esPrimerMensaje) {\n  saludoInstruccion = 'PRIMER CONTACTO: saluda con calidez. Pres\\u00e9ntate EXPL\\u00cdCITAMENTE como \"Luna, asesora de VETA \\ud83c\\udf19\" y pregunta con qui\\u00e9n tienes el gusto.';\n} else {\n  saludoInstruccion = 'CLIENTE RECURRENTE: ' + (pedidosRows.length > 0\n    ? 'tiene ' + pedidosRows.length + ' pedido(s) previo(s). Sal\\u00fadalo por nombre, sin presentarte de nuevo. Ofrece naturalmente: seguimiento al pedido m\\u00e1s reciente (' + pedidosRows[0].items + ', ' + pedidosRows[0].status + '), nuevo pedido, cat\\u00e1logo o dudas.'\n    : 'sin pedidos previos. Sal\\u00fadalo por nombre, sin presentarte de nuevo.');\n}\n\n// ── System prompt ────────────────────────────────────────────\nconst SYSTEM_PROMPT =\n`Eres Luna, asesora de ventas de VETA, marca colombiana de joyer\\u00eda minimalista de autor. Atiendes por WhatsApp.\n\n${saludoInstruccion}\n\nIDENTIDAD:\n- Tu nombre es Luna. Si preguntan c\\u00f3mo te llamas: \"Soy Luna, asesora de VETA \\ud83c\\udf19\".\n- NO te vuelvas a presentar si ya hay historial activo.\n\nTONO:\n- C\\u00e1lida, cercana, como asesora de boutique que de verdad quiere ayudar.\n- Espa\\u00f1ol colombiano: \"con gusto\", \"claro que s\\u00ed\", \"quedo pendiente\".\n- Emojis con gracia: 1-3 por mensaje. M\\u00e1x ~4 l\\u00edneas salvo al mostrar productos.\n- Nunca presiones. Cierra siempre con un paso \\u00fatil o pregunta que avance.\n\nFLUJO DE COMPRA (sigue este orden ESTRICTAMENTE):\n1. Confirma pieza(s) y talla(s).\n2. Si no sabe la talla \\u2192 gu\\u00eda a ${siteUrl}#care antes de continuar.\n3. Resumen claro: pieza, talla, acabado, precio.\n4. Pide nombre completo.\n5. Pide ciudad y direcci\\u00f3n (acepta CUALQUIER formato colombiano v\\u00e1lido).\n6. M\\u00e9todo de pago: transferencia/Nequi o contraentrega.\n7. \\u00bfEs regalo? Si s\\u00ed, pide nombre del destinatario.\n8. Resumen completo \\u2192 \"\\u00bfConfirmas este pedido?\"\n9. SOLO con confirmaci\\u00f3n expl\\u00edcita (s\\u00ed/confirmo/listo/ok/dale) genera el tag.\n\nREGLA CR\\u00cdTICA \\u2014 CONFIRMACI\\u00d3N: cuando confirmes un pedido escribe PRIMERO un mensaje c\\u00e1lido visible para el cliente. El tag va en l\\u00ednea aparte al final. Nunca el tag solo.\n\nCAMPOS OBLIGATORIOS: nombre completo, ciudad, direcci\\u00f3n, m\\u00e9todo de pago.\nCAMPOS OPCIONALES (incl\\u00fayellos vac\\u00edos si no aplican): barrio, ref, destinatario, notes_cliente.\n\nREGLA dir vs ref:\n- dir = direcci\\u00f3n base (calle+n\\u00famero O nombre del conjunto/portal/urbanizaci\\u00f3n).\n- ref = complemento (apto, casa, piso, torre, porter\\u00eda, recepci\\u00f3n).\n- notes_cliente = instrucciones especiales.\n- NO insistas en calle+n\\u00famero si el cliente ya di\\u00f3 un lugar identificable.\n\nTag (EXACTAMENTE con corchetes, al final):\n[PEDIDO_CONFIRMADO: nombre=X | ciudad=X | items=PIEZA(talla)xCANT | pago=X | dir=X | barrio=X | ref=X | destinatario=X | notes_cliente=X]\n\nESCALAMIENTO: escala SOLO si el cliente lo pide expl\\u00edcitamente, hay queja/reclamo/molestia o problema con pedido existente. Token interno: [ESCALAR] (nunca lo menciones).\n\nPREGUNTAS FRECUENTES:\n- Env\\u00edo: 3-5 d\\u00edas h\\u00e1biles, solo Colombia.\n- Pago: transferencia, Nequi, Daviplata o contraentrega.\n- Materiales: plata 925, oro laminado 18k sobre plata 925, piercings acero quir\\u00fargico.\n- Garant\\u00eda: de por vida en la estructura de cada pieza.\n- Tallas: gu\\u00eda en ${siteUrl}#care.\n${pedidosResumen}\n${catalogSection}`;\n\n// ── Construir contents para Gemini ───────────────────────────\n// Gemini exige: alternancia user/model, empieza y termina en user.\nconst sanitized = [];\nfor (const row of historyArray) {\n  const role = row.role === 'user' ? 'user' : 'model';\n  if (sanitized.length > 0 && sanitized[sanitized.length - 1].role === role) continue;\n  sanitized.push({ role, content: row.content });\n}\n// Nunca puede empezar con 'model'\nwhile (sanitized.length > 0 && sanitized[0].role === 'model') sanitized.shift();\n\nconst contents = [\n  ...sanitized.map(r => ({ role: r.role, parts: [{ text: r.content }] })),\n  { role: 'user', parts: [{ text: msgData.textContent }] },\n];\n\nconst geminiRequest = {\n  system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },\n  contents,\n  generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },\n};\n\nreturn [{ json: {\n  from:          msgData.from,\n  phoneNumberId: msgData.phoneNumberId,\n  userMessage:   msgData.textContent,\n  geminiRequest,\n  catalogMode:   intent.catalogMode,\n} }];"
       },
       "id": "ddddbd28-5822-401b-9c2b-1fbac6b7ca81",
       "name": "Preparar Contexto",
@@ -522,13 +522,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
-              "name": "Authorization",
-              "value": "=Bearer {{$env.GROQ_API_KEY}}"
+              "name": "x-goog-api-key",
+              "value": "={{$env.GEMINI_API_KEY}}"
             },
             {
               "name": "Content-Type",
@@ -538,11 +538,11 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"model\":\"llama-3.3-70b-versatile\",\"max_tokens\":1024,\"messages\":{{ JSON.stringify($json.messages) }}}",
+        "jsonBody": "={{ JSON.stringify($json.geminiRequest) }}",
         "options": {}
       },
       "id": "e6baee0a-b1b5-4f04-ace2-19607f635612",
-      "name": "Groq - Asesora VETA",
+      "name": "Gemini - Asesora VETA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -552,7 +552,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const groqResponse = $input.first().json;\nconst contextData = $('Preparar Contexto').first().json;\n\nconst assistantMessage = groqResponse.choices?.[0]?.message?.content || 'Hubo un error, intenta de nuevo.';\nconst needsHuman = /\\[ESCALAR\\]/i.test(assistantMessage);\n\n// Regex flexible: con o sin corchetes, con o sin espacios alrededor del tag\nconst orderMatch = assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]\\n]+?)\\]?(?=\\s*$|\\n)/m)\n  || assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]]+?)\\]?/);\n\nlet orderData = null;\nlet cleanMessage = assistantMessage\n  .replace(/\\[?PEDIDO_CONFIRMADO:[^\\]\\n]*\\]?/g, '')\n  .replace(/\\[ESCALAR\\]/ig, '')\n  .trim();\n\nif (orderMatch) {\n  const parts = {};\n  orderMatch[1].split('|').forEach(p => {\n    const idx = p.indexOf('=');\n    if (idx > 0) {\n      const key = p.slice(0, idx).trim();\n      const val = p.slice(idx + 1).trim();\n      parts[key] = val; // se permiten vacíos para opcionales\n    }\n  });\n\n  // Compatibilidad hacia atrás: si vienen en formato viejo (notas=Pago:X. Dir:Y)\n  if (!parts['pago'] && parts['notas']) {\n    const m = (parts['notas'] || '').match(/pago:\\s*([^.]+)/i);\n    if (m) parts['pago'] = m[1].trim();\n  }\n  if (!parts['dir'] && parts['notas']) {\n    const dIdx = (parts['notas'] || '').search(/dir:/i);\n    if (dIdx >= 0) parts['dir'] = parts['notas'].slice(dIdx + 4).trim();\n  }\n\n  const nombre = parts['nombre'] || '';\n  const ciudad = parts['ciudad'] || '';\n  const items  = parts['items']  || '';\n  const pago   = parts['pago']   || '';\n  const dir    = parts['dir']    || '';\n  const barrio = parts['barrio'] || ''; // opcional, no bloquea el pedido\n\n  if (nombre.length > 1 && ciudad.length > 1 && items.length > 1 &&\n      pago.length > 1 && dir.length > 3) {\n    // Reconstruir notas como resumen legible (compatibilidad con panel)\n    parts['notas'] = `Pago: ${pago}. Dir: ${dir}` +\n      (barrio ? `. Barrio: ${barrio}` : '') +\n      (parts['ref'] ? `. Ref: ${parts['ref']}` : '');\n    parts['client_notes'] = parts['notes_cliente'] || '';\n    orderData = parts;\n  }\n  // Si faltan datos, cleanMessage ya está sin el tag — el bot seguirá la conversación\n}\n\nreturn [{ json: {\n  from: contextData.from,\n  phoneNumberId: contextData.phoneNumberId,\n  userMessage: contextData.userMessage,\n  assistantMessage: cleanMessage,\n  hasOrder: !!orderData,\n  orderData,\n  needsHuman\n} }];"
+        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData    = $('Preparar Contexto').first().json;\n\n// Gemini: candidates[0].content.parts[0].text\nconst assistantMessage = geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text\n  || 'Hubo un error procesando tu mensaje. Int\\u00e9ntalo de nuevo.';\n\nconst needsHuman = /\\[ESCALAR\\]/i.test(assistantMessage);\n\nconst orderMatch =\n  assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]\\n]+?)\\]?(?=\\s*$|\\n)/m) ||\n  assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]]+?)\\]?/);\n\nlet orderData = null;\nlet cleanMessage = assistantMessage\n  .replace(/\\[?PEDIDO_CONFIRMADO:[^\\]\\n]*\\]?/g, '')\n  .replace(/\\[ESCALAR\\]/ig, '')\n  .trim();\n\nif (orderMatch) {\n  const parts = {};\n  orderMatch[1].split('|').forEach(p => {\n    const idx = p.indexOf('=');\n    if (idx > 0) parts[p.slice(0, idx).trim()] = p.slice(idx + 1).trim();\n  });\n  // Compatibilidad formato antiguo\n  if (!parts['pago'] && parts['notas']) {\n    const m = (parts['notas'] || '').match(/pago:\\s*([^.]+)/i);\n    if (m) parts['pago'] = m[1].trim();\n  }\n  if (!parts['dir'] && parts['notas']) {\n    const dIdx = (parts['notas'] || '').search(/dir:/i);\n    if (dIdx >= 0) parts['dir'] = parts['notas'].slice(dIdx + 4).trim();\n  }\n  const { nombre='', ciudad='', items='', pago='', dir='' } = parts;\n  if (nombre.length > 1 && ciudad.length > 1 && items.length > 1 && pago.length > 1 && dir.length > 3) {\n    parts['notas'] = 'Pago: ' + pago + '. Dir: ' + dir +\n      (parts['barrio'] ? '. Barrio: ' + parts['barrio'] : '') +\n      (parts['ref']    ? '. Ref: '    + parts['ref']    : '');\n    parts['client_notes'] = parts['notes_cliente'] || '';\n    orderData = parts;\n  }\n}\n\nreturn [{ json: {\n  from:             contextData.from,\n  phoneNumberId:    contextData.phoneNumberId,\n  userMessage:      contextData.userMessage,\n  assistantMessage: cleanMessage,\n  hasOrder:         !!orderData,\n  orderData,\n  needsHuman,\n} }];"
       },
       "id": "75f0ee87-2e0c-46be-883f-3837bd900c2d",
       "name": "Procesar Respuesta",
@@ -730,7 +730,7 @@
         "options": {}
       },
       "id": "1048274f-413c-4ce4-9d88-d8fe874b3a02",
-    "onError": "continueRegularOutput",
+      "onError": "continueRegularOutput",
       "name": "Notificar Pedido al Equipo",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -771,7 +771,7 @@
     },
     {
       "parameters": {
-        "url": "={{$env.SUPABASE_URL}}/rest/v1/products",
+        "url": "={{\n(() => {\n  const base = $env.SUPABASE_URL + '/rest/v1/products';\n  const mode = $('Detectar Intención').first().json.catalogMode;\n  const cat  = $('Detectar Intención').first().json.catFilter;\n  const pid  = $('Detectar Intención').first().json.productId;\n  let p = 'visible=eq.true&select=id,name,cat,material,finish,price,sizes,blurb&order=cat';\n  if (mode === 'none' || mode === 'full_catalog') p += '&limit=0';\n  else if (mode === 'category' && cat)            p += '&cat=eq.' + cat;\n  else if (mode === 'product'  && pid)            p += '&id=eq.'  + pid;\n  else if (mode === 'featured')                   p += '&limit=8';\n  return base + '?' + p;\n})()\n}}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -782,23 +782,6 @@
             {
               "name": "Authorization",
               "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "visible",
-              "value": "eq.true"
-            },
-            {
-              "name": "select",
-              "value": "id,name,cat,material,finish,price,sizes,blurb"
-            },
-            {
-              "name": "order",
-              "value": "cat"
             }
           ]
         },
@@ -1753,6 +1736,19 @@
         700,
         880
       ]
+    },
+    {
+      "id": "detectar-intencion-v1",
+      "name": "Detectar Intención",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        760
+      ],
+      "parameters": {
+        "jsCode": "const parsed = $('Parsear Mensaje WA').first().json;\nconst msg = (parsed.textContent || '').toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n\n// Categorías de producto\nconst catMap = {\n  anillos:   /\\banill[oa]s?\\b/,\n  collares:  /\\bcollar(es)?\\b/,\n  aretes:    /\\barete[s]?\\b|\\bzarcillo[s]?\\b|\\bpendiente[s]?\\b/,\n  pulseras:  /\\bpulsera[s]?\\b|\\bbrazalete[s]?\\b/,\n  piercings: /\\bpiercing[s]?\\b/,\n};\nconst detectedCats = Object.entries(catMap)\n  .filter(([, rx]) => rx.test(msg))\n  .map(([cat]) => cat);\n\n// ID de producto específico: an-01, co-03, ar-02, etc.\nconst productMatch = msg.match(/\\b(an|co|ar|pu|pi)-?0?\\d{1,2}\\b/i);\nconst productId = productMatch\n  ? productMatch[0].replace(/^(an|co|ar|pu|pi)(\\d)/i, '$1-$2').toLowerCase()\n  : null;\n\n// Cliente pide ver el catálogo completo\nconst wantsCatalog = /cat[a\\u00e1]logo|ver todo|todos los productos|qu[e\\u00e9] (tienen|tienes|manejan|venden|ofrecen|joyas)|qu[e\\u00e9] (hay|tienen)/.test(msg);\n\n// FAQ pura — no necesita catálogo\nconst isFaq = detectedCats.length === 0 && !productId && !wantsCatalog && (\n  /env[i\\u00ed]o|despacho|tarifa|costo.*env|cu[a\\u00e1]nto tarda|d[o\\u00f3]nde env|internacional/.test(msg) ||\n  /talla|medida|aro|circunferencia|gu[i\\u00ed]a.*talla/.test(msg) ||\n  /material|plata|oro|acero|qu[i\\u00ed]rurgico|alerg/.test(msg) ||\n  /garant[i\\u00ed]a|cuidado|mantenimiento/.test(msg) ||\n  /pago|nequi|daviplata|transferencia|contraentrega|efectivo|bancolombia/.test(msg)\n);\n\nlet catalogMode;\nif (wantsCatalog)                  catalogMode = 'full_catalog';\nelse if (productId)                catalogMode = 'product';\nelse if (detectedCats.length > 0)  catalogMode = 'category';\nelse if (isFaq)                    catalogMode = 'none';\nelse                               catalogMode = 'featured';\n\nreturn [{ json: {\n  catalogMode,\n  catFilter: detectedCats[0] || null,\n  productId,\n} }];"
+      }
     }
   ],
   "connections": {
@@ -1941,18 +1937,7 @@
       "main": [
         [
           {
-            "node": "Groq - Asesora VETA",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Groq - Asesora VETA": {
-      "main": [
-        [
-          {
-            "node": "Procesar Respuesta",
+            "node": "Gemini - Asesora VETA",
             "type": "main",
             "index": 0
           }
@@ -2114,7 +2099,7 @@
         ],
         [
           {
-            "node": "Cargar Catálogo",
+            "node": "Detectar Intención",
             "type": "main",
             "index": 0
           }
@@ -2305,6 +2290,28 @@
           }
         ]
       ]
+    },
+    "Gemini - Asesora VETA": {
+      "main": [
+        [
+          {
+            "node": "Procesar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detectar Intención": {
+      "main": [
+        [
+          {
+            "node": "Cargar Catálogo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -2318,5 +2325,5 @@
     }
   ],
   "pinData": {},
-  "versionId": "a9f3e201-cc11-4b2b-8801-def100000002"
+  "versionId": "gemini-v1-1781198593687"
 }
