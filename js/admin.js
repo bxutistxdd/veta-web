@@ -1632,35 +1632,86 @@ function parseOrderNotes(notes) {
     address: dirIdx >= 0 ? notes.slice(dirIdx + 4).trim() : ""
   };
 }
+var EyeOpen = () => /*#__PURE__*/React.createElement("svg", {
+  width: "14",
+  height: "14",
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: "2.2",
+  strokeLinecap: "round",
+  strokeLinejoin: "round"
+}, /*#__PURE__*/React.createElement("path", {
+  d: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+}), /*#__PURE__*/React.createElement("circle", {
+  cx: "12",
+  cy: "12",
+  r: "3"
+}));
+var EyeClosed = () => /*#__PURE__*/React.createElement("svg", {
+  width: "14",
+  height: "14",
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: "2.2",
+  strokeLinecap: "round",
+  strokeLinejoin: "round"
+}, /*#__PURE__*/React.createElement("path", {
+  d: "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"
+}), /*#__PURE__*/React.createElement("path", {
+  d: "M10.73 10.73a3 3 0 0 0 4.24 4.24"
+}), /*#__PURE__*/React.createElement("line", {
+  x1: "1",
+  y1: "1",
+  x2: "23",
+  y2: "23"
+}));
 function OrderCard({
   order,
   onStatusChange,
   onNotesSave,
-  onDelete
+  onDeliveryNotesSave,
+  onDelete,
+  onToggleHidden
 }) {
   var [editingNotes, setEditingNotes] = useState(false);
   var [notesVal, setNotesVal] = useState(order.admin_notes || "");
   var [savingNotes, setSavingNotes] = useState(false);
+  var [editingDelivery, setEditingDelivery] = useState(false);
+  var [deliveryVal, setDeliveryVal] = useState(order.delivery_notes || "");
+  var [savingDelivery, setSavingDelivery] = useState(false);
   var [statusBusy, setStatusBusy] = useState(false);
   var [confirmCancel, setConfirmCancel] = useState(false);
   var [confirmDelete, setConfirmDelete] = useState(false);
   var [actionBusy, setActionBusy] = useState(false);
-
-  // Columnas nuevas con fallback a parseo de notas (compatibilidad pedidos viejos)
+  useEffect(() => {
+    setNotesVal(order.admin_notes || "");
+  }, [order.admin_notes]);
+  useEffect(() => {
+    setDeliveryVal(order.delivery_notes || "");
+  }, [order.delivery_notes]);
   var {
     payment: legacyPayment,
     address: legacyAddress
   } = parseOrderNotes(order.notes);
-  var address = order.address || legacyAddress;
-  var neighborhood = order.neighborhood || "";
+  var address = order.address || legacyAddress || "";
+  var nbhd = order.neighborhood || "";
   var aptRef = order.apt_ref || "";
-  var payment = order.payment_method || legacyPayment;
+  var payment = order.payment_method || legacyPayment || "";
   var recipient = order.recipient_name || "";
-  var clientNotes = order.client_notes || "";
+  var NA = "No proporcionó";
   var date = new Date(order.created_at).toLocaleDateString("es-CO", {
     day: "2-digit",
     month: "short",
     year: "numeric"
+  });
+  var time = new Date(order.created_at).toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
   });
   var handleStatus = async e => {
     var s = e.target.value;
@@ -1675,9 +1726,11 @@ function OrderCard({
     setSavingNotes(false);
     setEditingNotes(false);
   };
-  var cancelNotes = () => {
-    setNotesVal(order.admin_notes || "");
-    setEditingNotes(false);
+  var handleSaveDelivery = async () => {
+    setSavingDelivery(true);
+    await onDeliveryNotesSave(order.id, deliveryVal);
+    setSavingDelivery(false);
+    setEditingDelivery(false);
   };
   var handleCancel = async () => {
     setActionBusy(true);
@@ -1690,20 +1743,27 @@ function OrderCard({
     await onDelete(order.id);
     setActionBusy(false);
   };
-  var isCancelled = order.status === "cancelled";
   return /*#__PURE__*/React.createElement("div", {
-    className: `adm-desp-card adm-desp-card--${order.status}`
+    className: `adm-desp-card adm-desp-card--${order.status}${order.hidden ? " adm-desp-card--hidden" : ""}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-card-top"
   }, /*#__PURE__*/React.createElement("span", {
     className: `adm-desp-pill adm-desp-pill--${order.status}`
   }, DESP_LABELS[order.status] || order.status), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-card-top-right"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: `adm-desp-eye${order.hidden ? " adm-desp-eye--off" : ""}`,
+    onClick: () => onToggleHidden(order.id, !order.hidden),
+    title: order.hidden ? "Mostrar pedido" : "Ocultar pedido"
+  }, order.hidden ? /*#__PURE__*/React.createElement(EyeClosed, null) : /*#__PURE__*/React.createElement(EyeOpen, null)), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-meta"
   }, order.order_number && /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-order-num"
   }, "#", order.order_number), /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-date"
-  }, date))), /*#__PURE__*/React.createElement("div", {
+  }, date), /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-date"
+  }, time)))), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-customer"
   }, /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-name"
@@ -1718,31 +1778,60 @@ function OrderCard({
     className: "adm-desp-items-lbl"
   }, "Piezas"), order.items), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-fields"
-  }, order.city && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Ciudad"), /*#__PURE__*/React.createElement("span", null, order.city, neighborhood ? `, ${neighborhood}` : "")), address && /*#__PURE__*/React.createElement("div", {
+  }, "Ciudad"), order.city ? /*#__PURE__*/React.createElement("span", null, order.city, nbhd ? `, ${nbhd}` : "") : /*#__PURE__*/React.createElement("em", {
+    className: "adm-desp-na"
+  }, NA)), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address)), aptRef && /*#__PURE__*/React.createElement("div", {
+  }, "Direcci\xF3n"), address ? /*#__PURE__*/React.createElement("span", null, address) : /*#__PURE__*/React.createElement("em", {
+    className: "adm-desp-na"
+  }, NA)), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Ref/Entrega"), /*#__PURE__*/React.createElement("span", null, aptRef)), payment && /*#__PURE__*/React.createElement("div", {
+  }, "Ref/Entrega"), aptRef ? /*#__PURE__*/React.createElement("span", null, aptRef) : /*#__PURE__*/React.createElement("em", {
+    className: "adm-desp-na"
+  }, NA)), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Pago"), /*#__PURE__*/React.createElement("span", null, payment)), recipient && /*#__PURE__*/React.createElement("div", {
+  }, "Pago"), payment ? /*#__PURE__*/React.createElement("span", null, payment) : /*#__PURE__*/React.createElement("em", {
+    className: "adm-desp-na"
+  }, NA)), recipient && /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field adm-desp-field--gift"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Regalo para"), /*#__PURE__*/React.createElement("span", null, recipient))), clientNotes && /*#__PURE__*/React.createElement("div", {
-    className: "adm-desp-client-notes"
+  }, "Regalo para"), /*#__PURE__*/React.createElement("span", null, recipient))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-notes-wrap"
+  }, editingDelivery ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
+    className: "adm-input adm-desp-notes-ta",
+    value: deliveryVal,
+    onChange: e => setDeliveryVal(e.target.value),
+    placeholder: "Llamar a tal hora, dejar en porter\xEDa, instrucciones especiales de entrega\u2026",
+    rows: 2
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-notes-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--sm",
+    onClick: () => {
+      setDeliveryVal(order.delivery_notes || "");
+      setEditingDelivery(false);
+    }
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--primary adm-btn--sm",
+    disabled: savingDelivery,
+    onClick: handleSaveDelivery
+  }, savingDelivery ? "Guardando…" : "Guardar"))) : /*#__PURE__*/React.createElement("button", {
+    className: "adm-desp-notes-btn adm-desp-notes-btn--info",
+    onClick: () => setEditingDelivery(true)
   }, /*#__PURE__*/React.createElement("span", {
-    className: "adm-desp-client-notes-lbl"
-  }, "Info del cliente"), /*#__PURE__*/React.createElement("span", null, clientNotes)), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-notes-icon"
+  }, order.delivery_notes ? "📦" : "＋"), /*#__PURE__*/React.createElement("span", null, order.delivery_notes || "Información adicional de entrega"))), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-notes-wrap"
   }, editingNotes ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
     className: "adm-input adm-desp-notes-ta",
@@ -1754,7 +1843,10 @@ function OrderCard({
     className: "adm-desp-notes-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "adm-btn adm-btn--sm",
-    onClick: cancelNotes
+    onClick: () => {
+      setNotesVal(order.admin_notes || "");
+      setEditingNotes(false);
+    }
   }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
     className: "adm-btn adm-btn--primary adm-btn--sm",
     disabled: savingNotes,
@@ -1765,49 +1857,55 @@ function OrderCard({
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-notes-icon"
   }, order.admin_notes ? "📋" : "＋"), /*#__PURE__*/React.createElement("span", null, order.admin_notes || "Nota de despacho (admin)"))), /*#__PURE__*/React.createElement("div", {
-    className: "adm-desp-status-wrap"
+    className: "adm-desp-actions-col"
   }, /*#__PURE__*/React.createElement("select", {
     className: "adm-desp-status-select",
     value: order.status,
-    disabled: statusBusy || isCancelled,
+    disabled: statusBusy,
     onChange: handleStatus
   }, DESP_STATUSES.map(s => /*#__PURE__*/React.createElement("option", {
     key: s,
     value: s
-  }, DESP_LABELS[s]))), !isCancelled && !confirmCancel && /*#__PURE__*/React.createElement("button", {
+  }, DESP_LABELS[s]))), !confirmCancel ? /*#__PURE__*/React.createElement("button", {
     className: "adm-desp-action-btn adm-desp-action-btn--cancel",
-    title: "Cancelar pedido",
-    disabled: actionBusy,
+    disabled: actionBusy || order.status === "cancelled",
     onClick: () => setConfirmCancel(true)
-  }, "\u2715"), !isCancelled && confirmCancel && /*#__PURE__*/React.createElement("div", {
+  }, "Cancelar pedido") : /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-confirm"
-  }, /*#__PURE__*/React.createElement("span", null, "\xBFCancelar pedido?"), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-confirm-q"
+  }, "\xBFCancelar este pedido?"), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-confirm-btns"
+  }, /*#__PURE__*/React.createElement("button", {
     className: "adm-btn adm-btn--sm",
     onClick: () => setConfirmCancel(false)
   }, "No"), /*#__PURE__*/React.createElement("button", {
     className: "adm-btn adm-btn--danger adm-btn--sm",
     disabled: actionBusy,
     onClick: handleCancel
-  }, actionBusy ? "…" : "Sí, cancelar")), isCancelled && !confirmDelete && /*#__PURE__*/React.createElement("button", {
+  }, actionBusy ? "…" : "Sí, cancelar"))), !confirmDelete ? /*#__PURE__*/React.createElement("button", {
     className: "adm-desp-action-btn adm-desp-action-btn--delete",
-    title: "Eliminar permanentemente",
     disabled: actionBusy,
     onClick: () => setConfirmDelete(true)
-  }, "\uD83D\uDDD1"), isCancelled && confirmDelete && /*#__PURE__*/React.createElement("div", {
+  }, "Eliminar pedido") : /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-confirm"
-  }, /*#__PURE__*/React.createElement("span", null, "\xBFEliminar definitivamente?"), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-confirm-q"
+  }, "\xBFEliminar definitivamente?"), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-confirm-btns"
+  }, /*#__PURE__*/React.createElement("button", {
     className: "adm-btn adm-btn--sm",
     onClick: () => setConfirmDelete(false)
   }, "No"), /*#__PURE__*/React.createElement("button", {
     className: "adm-btn adm-btn--danger adm-btn--sm",
     disabled: actionBusy,
     onClick: handleDelete
-  }, actionBusy ? "…" : "Eliminar"))));
+  }, actionBusy ? "…" : "Eliminar")))));
 }
 function TabDespachos() {
   var [orders, setOrders] = useState([]);
   var [loading, setLoading] = useState(true);
-  var [filter, setFilter] = useState("all");
+  var [filter, setFilter] = useState("active");
   var [q, setQ] = useState("");
   var load = useCallback(async () => {
     setLoading(true);
@@ -1846,6 +1944,18 @@ function TabDespachos() {
       adminToast("No se pudo guardar: " + e.message, true);
     }
   };
+  var handleDeliveryNotesSave = async (id, delivery_notes) => {
+    try {
+      await window.VETA_DB.updateOrderDeliveryNotes(id, delivery_notes);
+      setOrders(prev => prev.map(o => o.id === id ? {
+        ...o,
+        delivery_notes
+      } : o));
+      adminToast("Nota guardada.");
+    } catch (e) {
+      adminToast("No se pudo guardar: " + e.message, true);
+    }
+  };
   var handleDelete = async id => {
     try {
       await window.VETA_DB.deleteOrder(id);
@@ -1855,31 +1965,65 @@ function TabDespachos() {
       adminToast("No se pudo eliminar: " + e.message, true);
     }
   };
+  var handleToggleHidden = async (id, hidden) => {
+    try {
+      await window.VETA_DB.toggleOrderHidden(id, hidden);
+      setOrders(prev => prev.map(o => o.id === id ? {
+        ...o,
+        hidden
+      } : o));
+      adminToast(hidden ? "Pedido ocultado." : "Pedido visible.");
+    } catch (e) {
+      adminToast("No se pudo cambiar: " + e.message, true);
+    }
+  };
   var counts = useMemo(() => {
     var c = {
-      all: 0,
+      active: 0,
       pending: 0,
       dispatched: 0,
       delivered: 0,
       problem: 0,
-      cancelled: 0
+      hidden: 0,
+      todos: 0
     };
     orders.forEach(o => {
-      if (o.status !== "cancelled") c.all++;
-      if (c[o.status] !== undefined) c[o.status]++;
+      c.todos++;
+      if (o.hidden) {
+        c.hidden++;
+        return;
+      }
+      if (o.status === "pending") {
+        c.active++;
+        c.pending++;
+      }
+      if (o.status === "dispatched") {
+        c.active++;
+        c.dispatched++;
+      }
+      if (o.status === "delivered") c.delivered++;
+      if (o.status === "problem") c.problem++;
     });
     return c;
   }, [orders]);
   var filtered = useMemo(() => orders.filter(o => {
-    if (filter === "all" && o.status === "cancelled") return false;
-    if (filter !== "all" && o.status !== filter) return false;
+    if (filter === "todos") {/* mostrar todo */} else if (filter === "hidden") {
+      if (!o.hidden) return false;
+    } else {
+      if (o.hidden) return false;
+      if (filter === "active") {
+        if (o.status !== "pending" && o.status !== "dispatched") return false;
+      } else {
+        if (o.status !== filter) return false;
+      }
+    }
     if (q) {
       var hay = (o.customer_name || "") + " " + o.phone + " " + (o.city || "");
       if (!hay.toLowerCase().includes(q.toLowerCase())) return false;
     }
     return true;
   }), [orders, filter, q]);
-  var FILTER_OPTS = [["all", "Todos"], ["pending", "Pendientes"], ["dispatched", "Despachados"], ["delivered", "Entregados"], ["problem", "⚠ Problemas"], ["cancelled", "Cancelados"]];
+  var FILTER_OPTS = [["active", "Activos"], ["pending", "Pendientes"], ["dispatched", "Despachados"], ["delivered", "Entregados"], ["problem", "⚠ Peligro"], ["hidden", "Ocultos"], ["todos", "Todos los pedidos"]];
   return /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-wrap"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1888,7 +2032,7 @@ function TabDespachos() {
     className: "adm-desp-filters"
   }, FILTER_OPTS.map(([id, label]) => /*#__PURE__*/React.createElement("button", {
     key: id,
-    className: `adm-desp-chip${filter === id ? " adm-desp-chip--on" : ""}${id === "problem" ? " adm-desp-chip--warn" : ""}`,
+    className: `adm-desp-chip${filter === id ? " adm-desp-chip--on" : ""}${id === "problem" ? " adm-desp-chip--warn" : ""}${id === "hidden" ? " adm-desp-chip--muted" : ""}`,
     onClick: () => setFilter(id)
   }, label, counts[id] > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-chip-count"
@@ -1908,14 +2052,16 @@ function TabDespachos() {
     className: "adm-desp-empty"
   }, "Cargando pedidos\u2026") : filtered.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "adm-desp-empty"
-  }, filter === "all" ? "Aún no hay pedidos registrados." : "No hay pedidos con este estado.") : /*#__PURE__*/React.createElement("div", {
+  }, filter === "active" ? "No hay pedidos activos." : "No hay pedidos con este estado.") : /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-list"
   }, filtered.map(o => /*#__PURE__*/React.createElement(OrderCard, {
     key: o.id,
     order: o,
     onStatusChange: handleStatusChange,
     onNotesSave: handleNotesSave,
-    onDelete: handleDelete
+    onDeliveryNotesSave: handleDeliveryNotesSave,
+    onDelete: handleDelete,
+    onToggleHidden: handleToggleHidden
   }))));
 }
 
