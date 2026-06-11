@@ -1656,6 +1656,7 @@ function OrderCard({
   var aptRef = order.apt_ref || "";
   var payment = order.payment_method || legacyPayment;
   var recipient = order.recipient_name || "";
+  var clientNotes = order.client_notes || "";
   var date = new Date(order.created_at).toLocaleDateString("es-CO", {
     day: "2-digit",
     month: "short",
@@ -1696,9 +1697,13 @@ function OrderCard({
     className: "adm-desp-card-top"
   }, /*#__PURE__*/React.createElement("span", {
     className: `adm-desp-pill adm-desp-pill--${order.status}`
-  }, DESP_LABELS[order.status] || order.status), /*#__PURE__*/React.createElement("span", {
+  }, DESP_LABELS[order.status] || order.status), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-card-top-right"
+  }, order.order_number && /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-order-num"
+  }, "#", order.order_number), /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-date"
-  }, date)), /*#__PURE__*/React.createElement("div", {
+  }, date))), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-customer"
   }, /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-name"
@@ -1721,7 +1726,11 @@ function OrderCard({
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address, aptRef ? ` — ${aptRef}` : "")), payment && /*#__PURE__*/React.createElement("div", {
+  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address)), aptRef && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-field"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-lbl"
+  }, "Ref/Entrega"), /*#__PURE__*/React.createElement("span", null, aptRef)), payment && /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
@@ -1729,13 +1738,17 @@ function OrderCard({
     className: "adm-desp-field adm-desp-field--gift"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Regalo para"), /*#__PURE__*/React.createElement("span", null, recipient))), /*#__PURE__*/React.createElement("div", {
+  }, "Regalo para"), /*#__PURE__*/React.createElement("span", null, recipient))), clientNotes && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-client-notes"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-client-notes-lbl"
+  }, "Info del cliente"), /*#__PURE__*/React.createElement("span", null, clientNotes)), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-notes-wrap"
   }, editingNotes ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
     className: "adm-input adm-desp-notes-ta",
     value: notesVal,
     onChange: e => setNotesVal(e.target.value),
-    placeholder: "Gu\xEDa, transportadora, observaciones\u2026",
+    placeholder: "Gu\xEDa de env\xEDo, transportadora, observaciones del admin\u2026",
     rows: 2
   }), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-notes-actions"
@@ -1751,7 +1764,7 @@ function OrderCard({
     onClick: () => setEditingNotes(true)
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-notes-icon"
-  }, order.admin_notes ? "📋" : "＋"), /*#__PURE__*/React.createElement("span", null, order.admin_notes || "Agregar nota de despacho"))), /*#__PURE__*/React.createElement("div", {
+  }, order.admin_notes ? "📋" : "＋"), /*#__PURE__*/React.createElement("span", null, order.admin_notes || "Nota de despacho (admin)"))), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-status-wrap"
   }, /*#__PURE__*/React.createElement("select", {
     className: "adm-desp-status-select",
