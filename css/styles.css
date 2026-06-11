@@ -3924,6 +3924,32 @@ img { max-width: 100%; display: block; }
 .adm-desp-status-select:focus { border-color: var(--accent); }
 .adm-desp-status-select:disabled { opacity: .5; cursor: not-allowed; }
 
+/* — Cancelar / Eliminar — */
+.adm-desp-action-btn {
+  margin-top: 8px; width: 100%; padding: 7px;
+  border-radius: 8px; border: 1.5px solid var(--line);
+  background: transparent; cursor: pointer;
+  font-size: 13px; font-weight: 500;
+  transition: background .15s, border-color .15s;
+}
+.adm-desp-action-btn--cancel { color: #c0392b; }
+.adm-desp-action-btn--cancel:hover:not(:disabled) { background: #fdf0ef; border-color: #c0392b; }
+.adm-desp-action-btn--delete { color: #7f3f00; }
+.adm-desp-action-btn--delete:hover:not(:disabled) { background: #fff5eb; border-color: #c0392b; }
+.adm-desp-confirm {
+  margin-top: 8px; display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--ink-soft);
+}
+.adm-desp-confirm span { flex: 1; }
+.adm-btn--danger {
+  background: #c0392b; color: #fff;
+  border-color: #c0392b;
+}
+.adm-btn--danger:hover:not(:disabled) { opacity: .85; }
+.adm-desp-pill--cancelled { background: #eee; color: #888; }
+.adm-desp-card--cancelled { opacity: .7; }
+.adm-desp-field--gift .adm-desp-lbl { color: #9b59b6; }
+
 .adm-desp-empty {
   color: var(--ink-faint); text-align: center;
   padding: 48px 0; font-size: 14px; margin: 0;
