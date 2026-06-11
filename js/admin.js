@@ -1243,6 +1243,20 @@ function useChatBadge() {
   }, []);
   return count;
 }
+function useDespBadge() {
+  var [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    var alive = true;
+    window.VETA_DB.getOrders("pending").then(data => {
+      if (alive) setCount(data.length);
+    }).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return count;
+}
 function ChatBubbleRow({
   msg,
   prev,
@@ -1597,6 +1611,175 @@ function TabChats() {
   }, sending ? "…" : "➤"))))));
 }
 
+// ── Tab: Despachos ────────────────────────────────────────
+var DESP_LABELS = {
+  pending: "Pendiente",
+  dispatched: "Despachado",
+  delivered: "Entregado"
+};
+var DESP_NEXT = {
+  pending: "dispatched",
+  dispatched: "delivered"
+};
+var DESP_NEXT_LABEL = {
+  pending: "Marcar despachado",
+  dispatched: "Marcar entregado"
+};
+function parseOrderNotes(notes) {
+  if (!notes) return {
+    payment: "",
+    address: ""
+  };
+  var dirIdx = notes.search(/dir:/i);
+  var payMatch = notes.match(/pago:\s*([^.]+)/i);
+  return {
+    payment: payMatch ? payMatch[1].trim() : "",
+    address: dirIdx >= 0 ? notes.slice(dirIdx + 4).trim() : ""
+  };
+}
+function TabDespachos() {
+  var [orders, setOrders] = useState([]);
+  var [loading, setLoading] = useState(true);
+  var [filter, setFilter] = useState("all");
+  var [q, setQ] = useState("");
+  var [updating, setUpdating] = useState(null);
+  var load = useCallback(async () => {
+    setLoading(true);
+    try {
+      var data = await window.VETA_DB.getOrders();
+      setOrders(data);
+    } catch (e) {
+      adminToast("No se pudieron cargar los despachos: " + e.message, true);
+    }
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  var advance = async order => {
+    var next = DESP_NEXT[order.status];
+    if (!next || updating) return;
+    setUpdating(order.id);
+    try {
+      await window.VETA_DB.updateOrderStatus(order.id, next);
+      setOrders(prev => prev.map(o => o.id === order.id ? {
+        ...o,
+        status: next
+      } : o));
+      adminToast(next === "dispatched" ? "Marcado como despachado." : "Marcado como entregado.");
+    } catch (e) {
+      adminToast("No se pudo actualizar: " + e.message, true);
+    }
+    setUpdating(null);
+  };
+  var counts = useMemo(() => {
+    var c = {
+      all: orders.length,
+      pending: 0,
+      dispatched: 0,
+      delivered: 0
+    };
+    orders.forEach(o => {
+      if (c[o.status] !== undefined) c[o.status]++;
+    });
+    return c;
+  }, [orders]);
+  var filtered = useMemo(() => orders.filter(o => {
+    if (filter !== "all" && o.status !== filter) return false;
+    if (q) {
+      var hay = (o.customer_name || "") + " " + o.phone + " " + (o.city || "");
+      if (!hay.toLowerCase().includes(q.toLowerCase())) return false;
+    }
+    return true;
+  }), [orders, filter, q]);
+  var FILTER_OPTS = [["all", "Todos"], ["pending", "Pendientes"], ["dispatched", "Despachados"], ["delivered", "Entregados"]];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-toolbar"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-filters"
+  }, FILTER_OPTS.map(([id, label]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    className: `adm-desp-chip${filter === id ? " adm-desp-chip--on" : ""}`,
+    onClick: () => setFilter(id)
+  }, label, counts[id] > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-chip-count"
+  }, counts[id])))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-toolbar-right"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "adm-input adm-desp-search",
+    placeholder: "Buscar\u2026",
+    value: q,
+    onChange: e => setQ(e.target.value)
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn",
+    onClick: load,
+    disabled: loading,
+    title: "Actualizar"
+  }, "\u21BA"))), loading ? /*#__PURE__*/React.createElement("p", {
+    className: "adm-desp-empty"
+  }, "Cargando pedidos\u2026") : filtered.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "adm-desp-empty"
+  }, filter === "all" ? "Aún no hay pedidos registrados." : "No hay pedidos con este estado.") : /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-list"
+  }, filtered.map(o => {
+    var {
+      payment,
+      address
+    } = parseOrderNotes(o.notes);
+    var date = new Date(o.created_at).toLocaleDateString("es-CO", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
+    var nextStatus = DESP_NEXT[o.status];
+    return /*#__PURE__*/React.createElement("div", {
+      key: o.id,
+      className: "adm-desp-card"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "adm-desp-card-top"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: `adm-desp-pill adm-desp-pill--${o.status}`
+    }, DESP_LABELS[o.status] || o.status), /*#__PURE__*/React.createElement("span", {
+      className: "adm-desp-date"
+    }, date)), /*#__PURE__*/React.createElement("div", {
+      className: "adm-desp-customer"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-desp-name"
+    }, o.customer_name || "Cliente"), /*#__PURE__*/React.createElement("a", {
+      className: "adm-desp-phone",
+      href: "https://wa.me/" + o.phone,
+      target: "_blank",
+      rel: "noopener"
+    }, "+", o.phone)), /*#__PURE__*/React.createElement("div", {
+      className: "adm-desp-field"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-desp-lbl"
+    }, "Piezas"), /*#__PURE__*/React.createElement("span", {
+      className: "adm-desp-items"
+    }, o.items)), o.city && /*#__PURE__*/React.createElement("div", {
+      className: "adm-desp-field"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-desp-lbl"
+    }, "Ciudad"), /*#__PURE__*/React.createElement("span", null, o.city)), address && /*#__PURE__*/React.createElement("div", {
+      className: "adm-desp-field"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-desp-lbl"
+    }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address)), payment && /*#__PURE__*/React.createElement("div", {
+      className: "adm-desp-field"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "adm-desp-lbl"
+    }, "Pago"), /*#__PURE__*/React.createElement("span", null, payment)), nextStatus && /*#__PURE__*/React.createElement("div", {
+      className: "adm-desp-actions"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "adm-btn adm-btn--primary adm-desp-advance",
+      disabled: updating === o.id,
+      onClick: () => advance(o)
+    }, updating === o.id ? "Guardando…" : DESP_NEXT_LABEL[o.status])));
+  })));
+}
+
 // ── Shell con sidebar ─────────────────────────────────────
 var ADMIN_TABS = [{
   id: "inicio",
@@ -1604,6 +1787,9 @@ var ADMIN_TABS = [{
 }, {
   id: "chats",
   label: "Chats"
+}, {
+  id: "despachos",
+  label: "Despachos"
 }, {
   id: "productos",
   label: "Productos"
@@ -1636,6 +1822,7 @@ function AdminShell({
     save: saveCfg
   } = useCfg();
   var chatBadge = useChatBadge();
+  var despBadge = useDespBadge();
   var toggleHidden = useCallback(async id => {
     var p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
     var currentlyVisible = p ? p.visible !== false : true;
@@ -1667,7 +1854,9 @@ function AdminShell({
     onClick: () => setTab(t.id)
   }, t.label, t.id === "chats" && chatBadge > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-sb-badge-count"
-  }, chatBadge)))), /*#__PURE__*/React.createElement("div", {
+  }, chatBadge), t.id === "despachos" && despBadge > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-sb-badge-count"
+  }, despBadge)))), /*#__PURE__*/React.createElement("div", {
     className: "adm-sb-foot"
   }, /*#__PURE__*/React.createElement("a", {
     href: "#home",
@@ -1695,7 +1884,7 @@ function AdminShell({
   }, tab === "inicio" && /*#__PURE__*/React.createElement(TabInicio, {
     products: products,
     stock: stock
-  }), tab === "chats" && /*#__PURE__*/React.createElement(TabChats, null), tab === "productos" && /*#__PURE__*/React.createElement(TabProductos, {
+  }), tab === "chats" && /*#__PURE__*/React.createElement(TabChats, null), tab === "despachos" && /*#__PURE__*/React.createElement(TabDespachos, null), tab === "productos" && /*#__PURE__*/React.createElement(TabProductos, {
     products: products,
     addProduct: add,
     updateProduct: update,
@@ -1719,7 +1908,9 @@ function AdminShell({
     onClick: () => setTab(t.id)
   }, t.label, t.id === "chats" && chatBadge > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-mob-badge"
-  }, chatBadge)))));
+  }, chatBadge), t.id === "despachos" && despBadge > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-badge"
+  }, despBadge)))));
 }
 
 // ── Raíz ──────────────────────────────────────────────────

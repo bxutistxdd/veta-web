@@ -829,6 +829,19 @@ function useChatBadge() {
   return count;
 }
 
+function useDespBadge() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    let alive = true;
+    window.VETA_DB.getOrders("pending")
+      .then(data => { if (alive) setCount(data.length); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  return count;
+}
+
 function ChatBubbleRow({ msg, prev, byMid }) {
   const out = ROLE_OUT[msg.role];
   const tag = msg.role === "assistant" ? "IA" : msg.role === "agent" ? "Tú" : null;
@@ -1100,13 +1113,166 @@ function TabChats() {
   );
 }
 
+// ── Tab: Despachos ────────────────────────────────────────
+const DESP_LABELS = { pending:"Pendiente", dispatched:"Despachado", delivered:"Entregado" };
+const DESP_NEXT   = { pending:"dispatched", dispatched:"delivered" };
+const DESP_NEXT_LABEL = { pending:"Marcar despachado", dispatched:"Marcar entregado" };
+
+function parseOrderNotes(notes) {
+  if (!notes) return { payment:"", address:"" };
+  const dirIdx   = notes.search(/dir:/i);
+  const payMatch = notes.match(/pago:\s*([^.]+)/i);
+  return {
+    payment: payMatch ? payMatch[1].trim() : "",
+    address: dirIdx >= 0 ? notes.slice(dirIdx + 4).trim() : "",
+  };
+}
+
+function TabDespachos() {
+  const [orders,   setOrders]   = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [filter,   setFilter]   = useState("all");
+  const [q,        setQ]        = useState("");
+  const [updating, setUpdating] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await window.VETA_DB.getOrders();
+      setOrders(data);
+    } catch (e) { adminToast("No se pudieron cargar los despachos: " + e.message, true); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const advance = async (order) => {
+    const next = DESP_NEXT[order.status];
+    if (!next || updating) return;
+    setUpdating(order.id);
+    try {
+      await window.VETA_DB.updateOrderStatus(order.id, next);
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: next } : o));
+      adminToast(next === "dispatched" ? "Marcado como despachado." : "Marcado como entregado.");
+    } catch (e) { adminToast("No se pudo actualizar: " + e.message, true); }
+    setUpdating(null);
+  };
+
+  const counts = useMemo(() => {
+    const c = { all: orders.length, pending: 0, dispatched: 0, delivered: 0 };
+    orders.forEach(o => { if (c[o.status] !== undefined) c[o.status]++; });
+    return c;
+  }, [orders]);
+
+  const filtered = useMemo(() => orders.filter(o => {
+    if (filter !== "all" && o.status !== filter) return false;
+    if (q) {
+      const hay = (o.customer_name || "") + " " + o.phone + " " + (o.city || "");
+      if (!hay.toLowerCase().includes(q.toLowerCase())) return false;
+    }
+    return true;
+  }), [orders, filter, q]);
+
+  const FILTER_OPTS = [
+    ["all","Todos"], ["pending","Pendientes"], ["dispatched","Despachados"], ["delivered","Entregados"]
+  ];
+
+  return (
+    <div className="adm-desp-wrap">
+      <div className="adm-desp-toolbar">
+        <div className="adm-desp-filters">
+          {FILTER_OPTS.map(([id, label]) => (
+            <button key={id}
+              className={`adm-desp-chip${filter===id?" adm-desp-chip--on":""}`}
+              onClick={() => setFilter(id)}>
+              {label}
+              {counts[id] > 0 && <span className="adm-desp-chip-count">{counts[id]}</span>}
+            </button>
+          ))}
+        </div>
+        <div className="adm-desp-toolbar-right">
+          <input className="adm-input adm-desp-search" placeholder="Buscar…"
+            value={q} onChange={e => setQ(e.target.value)} />
+          <button className="adm-btn" onClick={load} disabled={loading} title="Actualizar">↺</button>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="adm-desp-empty">Cargando pedidos…</p>
+      ) : filtered.length === 0 ? (
+        <p className="adm-desp-empty">
+          {filter === "all" ? "Aún no hay pedidos registrados." : "No hay pedidos con este estado."}
+        </p>
+      ) : (
+        <div className="adm-desp-list">
+          {filtered.map(o => {
+            const { payment, address } = parseOrderNotes(o.notes);
+            const date = new Date(o.created_at).toLocaleDateString("es-CO",
+              { day:"2-digit", month:"short", year:"numeric" });
+            const nextStatus = DESP_NEXT[o.status];
+            return (
+              <div key={o.id} className="adm-desp-card">
+                <div className="adm-desp-card-top">
+                  <span className={`adm-desp-pill adm-desp-pill--${o.status}`}>
+                    {DESP_LABELS[o.status] || o.status}
+                  </span>
+                  <span className="adm-desp-date">{date}</span>
+                </div>
+                <div className="adm-desp-customer">
+                  <span className="adm-desp-name">{o.customer_name || "Cliente"}</span>
+                  <a className="adm-desp-phone"
+                    href={"https://wa.me/" + o.phone} target="_blank" rel="noopener">
+                    +{o.phone}
+                  </a>
+                </div>
+                <div className="adm-desp-field">
+                  <span className="adm-desp-lbl">Piezas</span>
+                  <span className="adm-desp-items">{o.items}</span>
+                </div>
+                {o.city && (
+                  <div className="adm-desp-field">
+                    <span className="adm-desp-lbl">Ciudad</span>
+                    <span>{o.city}</span>
+                  </div>
+                )}
+                {address && (
+                  <div className="adm-desp-field">
+                    <span className="adm-desp-lbl">Dirección</span>
+                    <span>{address}</span>
+                  </div>
+                )}
+                {payment && (
+                  <div className="adm-desp-field">
+                    <span className="adm-desp-lbl">Pago</span>
+                    <span>{payment}</span>
+                  </div>
+                )}
+                {nextStatus && (
+                  <div className="adm-desp-actions">
+                    <button className="adm-btn adm-btn--primary adm-desp-advance"
+                      disabled={updating === o.id}
+                      onClick={() => advance(o)}>
+                      {updating === o.id ? "Guardando…" : DESP_NEXT_LABEL[o.status]}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Shell con sidebar ─────────────────────────────────────
 const ADMIN_TABS = [
-  { id:"inicio",    label:"Inicio"    },
-  { id:"chats",     label:"Chats"     },
-  { id:"productos", label:"Productos" },
-  { id:"stock",     label:"Stock"     },
-  { id:"config",    label:"Config."   },
+  { id:"inicio",    label:"Inicio"     },
+  { id:"chats",     label:"Chats"      },
+  { id:"despachos", label:"Despachos"  },
+  { id:"productos", label:"Productos"  },
+  { id:"stock",     label:"Stock"      },
+  { id:"config",    label:"Config."    },
 ];
 
 function AdminShell({ onLogout }) {
@@ -1115,6 +1281,7 @@ function AdminShell({ onLogout }) {
   const { stock, set: setStock, get: getStock, reset: resetStock } = useStock();
   const { cfg, save: saveCfg } = useCfg();
   const chatBadge = useChatBadge();
+  const despBadge = useDespBadge();
 
   const toggleHidden = useCallback(async (id) => {
     const p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
@@ -1138,7 +1305,8 @@ function AdminShell({ onLogout }) {
               className={`adm-sb-btn${tab===t.id?" adm-sb-btn--on":""}`}
               onClick={() => setTab(t.id)}>
               {t.label}
-              {t.id==="chats" && chatBadge>0 && <span className="adm-sb-badge-count">{chatBadge}</span>}
+              {t.id==="chats"     && chatBadge>0 && <span className="adm-sb-badge-count">{chatBadge}</span>}
+              {t.id==="despachos" && despBadge>0 && <span className="adm-sb-badge-count">{despBadge}</span>}
             </button>
           ))}
         </nav>
@@ -1159,6 +1327,7 @@ function AdminShell({ onLogout }) {
         <div className="adm-content">
           {tab==="inicio"    && <TabInicio    products={products} stock={stock}/>}
           {tab==="chats"     && <TabChats />}
+          {tab==="despachos" && <TabDespachos />}
           {tab==="productos" && <TabProductos products={products}
             addProduct={add} updateProduct={update} removeProduct={remove}
             toggleHidden={toggleHidden}/>}
@@ -1173,7 +1342,8 @@ function AdminShell({ onLogout }) {
             className={`adm-mob-btn${tab===t.id?" adm-mob-btn--on":""}`}
             onClick={()=>setTab(t.id)}>
             {t.label}
-            {t.id==="chats" && chatBadge>0 && <span className="adm-mob-badge">{chatBadge}</span>}
+            {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-badge">{chatBadge}</span>}
+            {t.id==="despachos" && despBadge>0 && <span className="adm-mob-badge">{despBadge}</span>}
           </button>
         ))}
       </nav>
