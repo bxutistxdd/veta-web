@@ -1616,9 +1616,10 @@ var DESP_LABELS = {
   pending: "Pendiente",
   dispatched: "Despachado",
   delivered: "Entregado",
-  problem: "⚠ Problema"
+  problem: "⚠ Problema",
+  cancelled: "Cancelado"
 };
-var DESP_STATUSES = ["pending", "dispatched", "delivered", "problem"];
+var DESP_STATUSES = ["pending", "dispatched", "delivered", "problem", "cancelled"];
 function parseOrderNotes(notes) {
   if (!notes) return {
     payment: "",
@@ -1634,16 +1635,27 @@ function parseOrderNotes(notes) {
 function OrderCard({
   order,
   onStatusChange,
-  onNotesSave
+  onNotesSave,
+  onDelete
 }) {
   var [editingNotes, setEditingNotes] = useState(false);
   var [notesVal, setNotesVal] = useState(order.admin_notes || "");
   var [savingNotes, setSavingNotes] = useState(false);
   var [statusBusy, setStatusBusy] = useState(false);
+  var [confirmCancel, setConfirmCancel] = useState(false);
+  var [confirmDelete, setConfirmDelete] = useState(false);
+  var [actionBusy, setActionBusy] = useState(false);
+
+  // Columnas nuevas con fallback a parseo de notas (compatibilidad pedidos viejos)
   var {
-    payment,
-    address
+    payment: legacyPayment,
+    address: legacyAddress
   } = parseOrderNotes(order.notes);
+  var address = order.address || legacyAddress;
+  var neighborhood = order.neighborhood || "";
+  var aptRef = order.apt_ref || "";
+  var payment = order.payment_method || legacyPayment;
+  var recipient = order.recipient_name || "";
   var date = new Date(order.created_at).toLocaleDateString("es-CO", {
     day: "2-digit",
     month: "short",
@@ -1666,6 +1678,18 @@ function OrderCard({
     setNotesVal(order.admin_notes || "");
     setEditingNotes(false);
   };
+  var handleCancel = async () => {
+    setActionBusy(true);
+    await onStatusChange(order.id, "cancelled");
+    setActionBusy(false);
+    setConfirmCancel(false);
+  };
+  var handleDelete = async () => {
+    setActionBusy(true);
+    await onDelete(order.id);
+    setActionBusy(false);
+  };
+  var isCancelled = order.status === "cancelled";
   return /*#__PURE__*/React.createElement("div", {
     className: `adm-desp-card adm-desp-card--${order.status}`
   }, /*#__PURE__*/React.createElement("div", {
@@ -1693,15 +1717,19 @@ function OrderCard({
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Ciudad"), /*#__PURE__*/React.createElement("span", null, order.city)), address && /*#__PURE__*/React.createElement("div", {
+  }, "Ciudad"), /*#__PURE__*/React.createElement("span", null, order.city, neighborhood ? `, ${neighborhood}` : "")), address && /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address)), payment && /*#__PURE__*/React.createElement("div", {
+  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address, aptRef ? ` — ${aptRef}` : "")), payment && /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-field"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-lbl"
-  }, "Pago"), /*#__PURE__*/React.createElement("span", null, payment))), /*#__PURE__*/React.createElement("div", {
+  }, "Pago"), /*#__PURE__*/React.createElement("span", null, payment)), recipient && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-field adm-desp-field--gift"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-lbl"
+  }, "Regalo para"), /*#__PURE__*/React.createElement("span", null, recipient))), /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-notes-wrap"
   }, editingNotes ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
     className: "adm-input adm-desp-notes-ta",
@@ -1728,12 +1756,40 @@ function OrderCard({
   }, /*#__PURE__*/React.createElement("select", {
     className: "adm-desp-status-select",
     value: order.status,
-    disabled: statusBusy,
+    disabled: statusBusy || isCancelled,
     onChange: handleStatus
   }, DESP_STATUSES.map(s => /*#__PURE__*/React.createElement("option", {
     key: s,
     value: s
-  }, DESP_LABELS[s])))));
+  }, DESP_LABELS[s]))), !isCancelled && !confirmCancel && /*#__PURE__*/React.createElement("button", {
+    className: "adm-desp-action-btn adm-desp-action-btn--cancel",
+    title: "Cancelar pedido",
+    disabled: actionBusy,
+    onClick: () => setConfirmCancel(true)
+  }, "\u2715"), !isCancelled && confirmCancel && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-confirm"
+  }, /*#__PURE__*/React.createElement("span", null, "\xBFCancelar pedido?"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--sm",
+    onClick: () => setConfirmCancel(false)
+  }, "No"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--danger adm-btn--sm",
+    disabled: actionBusy,
+    onClick: handleCancel
+  }, actionBusy ? "…" : "Sí, cancelar")), isCancelled && !confirmDelete && /*#__PURE__*/React.createElement("button", {
+    className: "adm-desp-action-btn adm-desp-action-btn--delete",
+    title: "Eliminar permanentemente",
+    disabled: actionBusy,
+    onClick: () => setConfirmDelete(true)
+  }, "\uD83D\uDDD1"), isCancelled && confirmDelete && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-confirm"
+  }, /*#__PURE__*/React.createElement("span", null, "\xBFEliminar definitivamente?"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--sm",
+    onClick: () => setConfirmDelete(false)
+  }, "No"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--danger adm-btn--sm",
+    disabled: actionBusy,
+    onClick: handleDelete
+  }, actionBusy ? "…" : "Eliminar"))));
 }
 function TabDespachos() {
   var [orders, setOrders] = useState([]);
@@ -1777,20 +1833,32 @@ function TabDespachos() {
       adminToast("No se pudo guardar: " + e.message, true);
     }
   };
+  var handleDelete = async id => {
+    try {
+      await window.VETA_DB.deleteOrder(id);
+      setOrders(prev => prev.filter(o => o.id !== id));
+      adminToast("Pedido eliminado.");
+    } catch (e) {
+      adminToast("No se pudo eliminar: " + e.message, true);
+    }
+  };
   var counts = useMemo(() => {
     var c = {
-      all: orders.length,
+      all: 0,
       pending: 0,
       dispatched: 0,
       delivered: 0,
-      problem: 0
+      problem: 0,
+      cancelled: 0
     };
     orders.forEach(o => {
+      if (o.status !== "cancelled") c.all++;
       if (c[o.status] !== undefined) c[o.status]++;
     });
     return c;
   }, [orders]);
   var filtered = useMemo(() => orders.filter(o => {
+    if (filter === "all" && o.status === "cancelled") return false;
     if (filter !== "all" && o.status !== filter) return false;
     if (q) {
       var hay = (o.customer_name || "") + " " + o.phone + " " + (o.city || "");
@@ -1798,7 +1866,7 @@ function TabDespachos() {
     }
     return true;
   }), [orders, filter, q]);
-  var FILTER_OPTS = [["all", "Todos"], ["pending", "Pendientes"], ["dispatched", "Despachados"], ["delivered", "Entregados"], ["problem", "⚠ Problemas"]];
+  var FILTER_OPTS = [["all", "Todos"], ["pending", "Pendientes"], ["dispatched", "Despachados"], ["delivered", "Entregados"], ["problem", "⚠ Problemas"], ["cancelled", "Cancelados"]];
   return /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-wrap"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1833,7 +1901,8 @@ function TabDespachos() {
     key: o.id,
     order: o,
     onStatusChange: handleStatusChange,
-    onNotesSave: handleNotesSave
+    onNotesSave: handleNotesSave,
+    onDelete: handleDelete
   }))));
 }
 

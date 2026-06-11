@@ -1114,8 +1114,8 @@ function TabChats() {
 }
 
 // ── Tab: Despachos ────────────────────────────────────────
-const DESP_LABELS   = { pending:"Pendiente", dispatched:"Despachado", delivered:"Entregado", problem:"⚠ Problema" };
-const DESP_STATUSES = ["pending","dispatched","delivered","problem"];
+const DESP_LABELS   = { pending:"Pendiente", dispatched:"Despachado", delivered:"Entregado", problem:"⚠ Problema", cancelled:"Cancelado" };
+const DESP_STATUSES = ["pending","dispatched","delivered","problem","cancelled"];
 
 function parseOrderNotes(notes) {
   if (!notes) return { payment:"", address:"" };
@@ -1127,13 +1127,23 @@ function parseOrderNotes(notes) {
   };
 }
 
-function OrderCard({ order, onStatusChange, onNotesSave }) {
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesVal,     setNotesVal]     = useState(order.admin_notes || "");
-  const [savingNotes,  setSavingNotes]  = useState(false);
-  const [statusBusy,   setStatusBusy]  = useState(false);
+function OrderCard({ order, onStatusChange, onNotesSave, onDelete }) {
+  const [editingNotes,   setEditingNotes]   = useState(false);
+  const [notesVal,       setNotesVal]       = useState(order.admin_notes || "");
+  const [savingNotes,    setSavingNotes]    = useState(false);
+  const [statusBusy,     setStatusBusy]     = useState(false);
+  const [confirmCancel,  setConfirmCancel]  = useState(false);
+  const [confirmDelete,  setConfirmDelete]  = useState(false);
+  const [actionBusy,     setActionBusy]     = useState(false);
 
-  const { payment, address } = parseOrderNotes(order.notes);
+  // Columnas nuevas con fallback a parseo de notas (compatibilidad pedidos viejos)
+  const { payment: legacyPayment, address: legacyAddress } = parseOrderNotes(order.notes);
+  const address      = order.address      || legacyAddress;
+  const neighborhood = order.neighborhood || "";
+  const aptRef       = order.apt_ref      || "";
+  const payment      = order.payment_method || legacyPayment;
+  const recipient    = order.recipient_name || "";
+
   const date = new Date(order.created_at).toLocaleDateString("es-CO",
     { day:"2-digit", month:"short", year:"numeric" });
 
@@ -1156,6 +1166,21 @@ function OrderCard({ order, onStatusChange, onNotesSave }) {
     setNotesVal(order.admin_notes || "");
     setEditingNotes(false);
   };
+
+  const handleCancel = async () => {
+    setActionBusy(true);
+    await onStatusChange(order.id, "cancelled");
+    setActionBusy(false);
+    setConfirmCancel(false);
+  };
+
+  const handleDelete = async () => {
+    setActionBusy(true);
+    await onDelete(order.id);
+    setActionBusy(false);
+  };
+
+  const isCancelled = order.status === "cancelled";
 
   return (
     <div className={`adm-desp-card adm-desp-card--${order.status}`}>
@@ -1183,19 +1208,25 @@ function OrderCard({ order, onStatusChange, onNotesSave }) {
         {order.city && (
           <div className="adm-desp-field">
             <span className="adm-desp-lbl">Ciudad</span>
-            <span>{order.city}</span>
+            <span>{order.city}{neighborhood ? `, ${neighborhood}` : ""}</span>
           </div>
         )}
         {address && (
           <div className="adm-desp-field">
             <span className="adm-desp-lbl">Dirección</span>
-            <span>{address}</span>
+            <span>{address}{aptRef ? ` — ${aptRef}` : ""}</span>
           </div>
         )}
         {payment && (
           <div className="adm-desp-field">
             <span className="adm-desp-lbl">Pago</span>
             <span>{payment}</span>
+          </div>
+        )}
+        {recipient && (
+          <div className="adm-desp-field adm-desp-field--gift">
+            <span className="adm-desp-lbl">Regalo para</span>
+            <span>{recipient}</span>
           </div>
         )}
       </div>
@@ -1226,11 +1257,43 @@ function OrderCard({ order, onStatusChange, onNotesSave }) {
 
       <div className="adm-desp-status-wrap">
         <select className="adm-desp-status-select" value={order.status}
-          disabled={statusBusy} onChange={handleStatus}>
+          disabled={statusBusy || isCancelled} onChange={handleStatus}>
           {DESP_STATUSES.map(s => (
             <option key={s} value={s}>{DESP_LABELS[s]}</option>
           ))}
         </select>
+
+        {!isCancelled && !confirmCancel && (
+          <button className="adm-desp-action-btn adm-desp-action-btn--cancel"
+            title="Cancelar pedido" disabled={actionBusy}
+            onClick={() => setConfirmCancel(true)}>✕</button>
+        )}
+        {!isCancelled && confirmCancel && (
+          <div className="adm-desp-confirm">
+            <span>¿Cancelar pedido?</span>
+            <button className="adm-btn adm-btn--sm" onClick={() => setConfirmCancel(false)}>No</button>
+            <button className="adm-btn adm-btn--danger adm-btn--sm"
+              disabled={actionBusy} onClick={handleCancel}>
+              {actionBusy ? "…" : "Sí, cancelar"}
+            </button>
+          </div>
+        )}
+
+        {isCancelled && !confirmDelete && (
+          <button className="adm-desp-action-btn adm-desp-action-btn--delete"
+            title="Eliminar permanentemente" disabled={actionBusy}
+            onClick={() => setConfirmDelete(true)}>🗑</button>
+        )}
+        {isCancelled && confirmDelete && (
+          <div className="adm-desp-confirm">
+            <span>¿Eliminar definitivamente?</span>
+            <button className="adm-btn adm-btn--sm" onClick={() => setConfirmDelete(false)}>No</button>
+            <button className="adm-btn adm-btn--danger adm-btn--sm"
+              disabled={actionBusy} onClick={handleDelete}>
+              {actionBusy ? "…" : "Eliminar"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1269,13 +1332,25 @@ function TabDespachos() {
     } catch (e) { adminToast("No se pudo guardar: " + e.message, true); }
   };
 
+  const handleDelete = async (id) => {
+    try {
+      await window.VETA_DB.deleteOrder(id);
+      setOrders(prev => prev.filter(o => o.id !== id));
+      adminToast("Pedido eliminado.");
+    } catch (e) { adminToast("No se pudo eliminar: " + e.message, true); }
+  };
+
   const counts = useMemo(() => {
-    const c = { all: orders.length, pending: 0, dispatched: 0, delivered: 0, problem: 0 };
-    orders.forEach(o => { if (c[o.status] !== undefined) c[o.status]++; });
+    const c = { all: 0, pending: 0, dispatched: 0, delivered: 0, problem: 0, cancelled: 0 };
+    orders.forEach(o => {
+      if (o.status !== "cancelled") c.all++;
+      if (c[o.status] !== undefined) c[o.status]++;
+    });
     return c;
   }, [orders]);
 
   const filtered = useMemo(() => orders.filter(o => {
+    if (filter === "all" && o.status === "cancelled") return false;
     if (filter !== "all" && o.status !== filter) return false;
     if (q) {
       const hay = (o.customer_name || "") + " " + o.phone + " " + (o.city || "");
@@ -1286,7 +1361,7 @@ function TabDespachos() {
 
   const FILTER_OPTS = [
     ["all","Todos"], ["pending","Pendientes"], ["dispatched","Despachados"],
-    ["delivered","Entregados"], ["problem","⚠ Problemas"],
+    ["delivered","Entregados"], ["problem","⚠ Problemas"], ["cancelled","Cancelados"],
   ];
 
   return (
@@ -1320,7 +1395,8 @@ function TabDespachos() {
           {filtered.map(o => (
             <OrderCard key={o.id} order={o}
               onStatusChange={handleStatusChange}
-              onNotesSave={handleNotesSave} />
+              onNotesSave={handleNotesSave}
+              onDelete={handleDelete} />
           ))}
         </div>
       )}
