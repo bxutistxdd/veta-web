@@ -1114,9 +1114,8 @@ function TabChats() {
 }
 
 // ── Tab: Despachos ────────────────────────────────────────
-const DESP_LABELS = { pending:"Pendiente", dispatched:"Despachado", delivered:"Entregado" };
-const DESP_NEXT   = { pending:"dispatched", dispatched:"delivered" };
-const DESP_NEXT_LABEL = { pending:"Marcar despachado", dispatched:"Marcar entregado" };
+const DESP_LABELS   = { pending:"Pendiente", dispatched:"Despachado", delivered:"Entregado", problem:"⚠ Problema" };
+const DESP_STATUSES = ["pending","dispatched","delivered","problem"];
 
 function parseOrderNotes(notes) {
   if (!notes) return { payment:"", address:"" };
@@ -1128,12 +1127,119 @@ function parseOrderNotes(notes) {
   };
 }
 
+function OrderCard({ order, onStatusChange, onNotesSave }) {
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesVal,     setNotesVal]     = useState(order.admin_notes || "");
+  const [savingNotes,  setSavingNotes]  = useState(false);
+  const [statusBusy,   setStatusBusy]  = useState(false);
+
+  const { payment, address } = parseOrderNotes(order.notes);
+  const date = new Date(order.created_at).toLocaleDateString("es-CO",
+    { day:"2-digit", month:"short", year:"numeric" });
+
+  const handleStatus = async (e) => {
+    const s = e.target.value;
+    if (s === order.status || statusBusy) return;
+    setStatusBusy(true);
+    await onStatusChange(order.id, s);
+    setStatusBusy(false);
+  };
+
+  const handleSaveNotes = async () => {
+    setSavingNotes(true);
+    await onNotesSave(order.id, notesVal);
+    setSavingNotes(false);
+    setEditingNotes(false);
+  };
+
+  const cancelNotes = () => {
+    setNotesVal(order.admin_notes || "");
+    setEditingNotes(false);
+  };
+
+  return (
+    <div className={`adm-desp-card adm-desp-card--${order.status}`}>
+      <div className="adm-desp-card-top">
+        <span className={`adm-desp-pill adm-desp-pill--${order.status}`}>
+          {DESP_LABELS[order.status] || order.status}
+        </span>
+        <span className="adm-desp-date">{date}</span>
+      </div>
+
+      <div className="adm-desp-customer">
+        <span className="adm-desp-name">{order.customer_name || "Cliente"}</span>
+        <a className="adm-desp-phone"
+          href={"https://wa.me/" + order.phone} target="_blank" rel="noopener">
+          +{order.phone}
+        </a>
+      </div>
+
+      <div className="adm-desp-fields">
+        <div className="adm-desp-field">
+          <span className="adm-desp-lbl">Piezas</span>
+          <span className="adm-desp-items">{order.items}</span>
+        </div>
+        {order.city && (
+          <div className="adm-desp-field">
+            <span className="adm-desp-lbl">Ciudad</span>
+            <span>{order.city}</span>
+          </div>
+        )}
+        {address && (
+          <div className="adm-desp-field">
+            <span className="adm-desp-lbl">Dirección</span>
+            <span>{address}</span>
+          </div>
+        )}
+        {payment && (
+          <div className="adm-desp-field">
+            <span className="adm-desp-lbl">Pago</span>
+            <span>{payment}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="adm-desp-notes-wrap">
+        {editingNotes ? (
+          <>
+            <textarea className="adm-input adm-desp-notes-ta"
+              value={notesVal}
+              onChange={e => setNotesVal(e.target.value)}
+              placeholder="Guía, transportadora, observaciones…"
+              rows={2} />
+            <div className="adm-desp-notes-actions">
+              <button className="adm-btn adm-btn--sm" onClick={cancelNotes}>Cancelar</button>
+              <button className="adm-btn adm-btn--primary adm-btn--sm"
+                disabled={savingNotes} onClick={handleSaveNotes}>
+                {savingNotes ? "Guardando…" : "Guardar nota"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <button className="adm-desp-notes-btn" onClick={() => setEditingNotes(true)}>
+            <span className="adm-desp-notes-icon">{order.admin_notes ? "📋" : "＋"}</span>
+            <span>{order.admin_notes || "Agregar nota de despacho"}</span>
+          </button>
+        )}
+      </div>
+
+      <div className="adm-desp-status-wrap">
+        <select className="adm-desp-status-select" value={order.status}
+          disabled={statusBusy} onChange={handleStatus}>
+          {DESP_STATUSES.map(s => (
+            <option key={s} value={s}>{DESP_LABELS[s]}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function TabDespachos() {
-  const [orders,   setOrders]   = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState("all");
-  const [q,        setQ]        = useState("");
-  const [updating, setUpdating] = useState(null);
+  const [orders,  setOrders]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter,  setFilter]  = useState("all");
+  const [q,       setQ]       = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1146,20 +1252,24 @@ function TabDespachos() {
 
   useEffect(() => { load(); }, [load]);
 
-  const advance = async (order) => {
-    const next = DESP_NEXT[order.status];
-    if (!next || updating) return;
-    setUpdating(order.id);
+  const handleStatusChange = async (id, newStatus) => {
     try {
-      await window.VETA_DB.updateOrderStatus(order.id, next);
-      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: next } : o));
-      adminToast(next === "dispatched" ? "Marcado como despachado." : "Marcado como entregado.");
+      await window.VETA_DB.updateOrderStatus(id, newStatus);
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+      adminToast("Estado actualizado.");
     } catch (e) { adminToast("No se pudo actualizar: " + e.message, true); }
-    setUpdating(null);
+  };
+
+  const handleNotesSave = async (id, notes) => {
+    try {
+      await window.VETA_DB.updateOrderNotes(id, notes);
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, admin_notes: notes } : o));
+      adminToast("Nota guardada.");
+    } catch (e) { adminToast("No se pudo guardar: " + e.message, true); }
   };
 
   const counts = useMemo(() => {
-    const c = { all: orders.length, pending: 0, dispatched: 0, delivered: 0 };
+    const c = { all: orders.length, pending: 0, dispatched: 0, delivered: 0, problem: 0 };
     orders.forEach(o => { if (c[o.status] !== undefined) c[o.status]++; });
     return c;
   }, [orders]);
@@ -1174,7 +1284,8 @@ function TabDespachos() {
   }), [orders, filter, q]);
 
   const FILTER_OPTS = [
-    ["all","Todos"], ["pending","Pendientes"], ["dispatched","Despachados"], ["delivered","Entregados"]
+    ["all","Todos"], ["pending","Pendientes"], ["dispatched","Despachados"],
+    ["delivered","Entregados"], ["problem","⚠ Problemas"],
   ];
 
   return (
@@ -1183,7 +1294,7 @@ function TabDespachos() {
         <div className="adm-desp-filters">
           {FILTER_OPTS.map(([id, label]) => (
             <button key={id}
-              className={`adm-desp-chip${filter===id?" adm-desp-chip--on":""}`}
+              className={`adm-desp-chip${filter===id?" adm-desp-chip--on":""}${id==="problem"?" adm-desp-chip--warn":""}`}
               onClick={() => setFilter(id)}>
               {label}
               {counts[id] > 0 && <span className="adm-desp-chip-count">{counts[id]}</span>}
@@ -1205,60 +1316,11 @@ function TabDespachos() {
         </p>
       ) : (
         <div className="adm-desp-list">
-          {filtered.map(o => {
-            const { payment, address } = parseOrderNotes(o.notes);
-            const date = new Date(o.created_at).toLocaleDateString("es-CO",
-              { day:"2-digit", month:"short", year:"numeric" });
-            const nextStatus = DESP_NEXT[o.status];
-            return (
-              <div key={o.id} className="adm-desp-card">
-                <div className="adm-desp-card-top">
-                  <span className={`adm-desp-pill adm-desp-pill--${o.status}`}>
-                    {DESP_LABELS[o.status] || o.status}
-                  </span>
-                  <span className="adm-desp-date">{date}</span>
-                </div>
-                <div className="adm-desp-customer">
-                  <span className="adm-desp-name">{o.customer_name || "Cliente"}</span>
-                  <a className="adm-desp-phone"
-                    href={"https://wa.me/" + o.phone} target="_blank" rel="noopener">
-                    +{o.phone}
-                  </a>
-                </div>
-                <div className="adm-desp-field">
-                  <span className="adm-desp-lbl">Piezas</span>
-                  <span className="adm-desp-items">{o.items}</span>
-                </div>
-                {o.city && (
-                  <div className="adm-desp-field">
-                    <span className="adm-desp-lbl">Ciudad</span>
-                    <span>{o.city}</span>
-                  </div>
-                )}
-                {address && (
-                  <div className="adm-desp-field">
-                    <span className="adm-desp-lbl">Dirección</span>
-                    <span>{address}</span>
-                  </div>
-                )}
-                {payment && (
-                  <div className="adm-desp-field">
-                    <span className="adm-desp-lbl">Pago</span>
-                    <span>{payment}</span>
-                  </div>
-                )}
-                {nextStatus && (
-                  <div className="adm-desp-actions">
-                    <button className="adm-btn adm-btn--primary adm-desp-advance"
-                      disabled={updating === o.id}
-                      onClick={() => advance(o)}>
-                      {updating === o.id ? "Guardando…" : DESP_NEXT_LABEL[o.status]}
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {filtered.map(o => (
+            <OrderCard key={o.id} order={o}
+              onStatusChange={handleStatusChange}
+              onNotesSave={handleNotesSave} />
+          ))}
         </div>
       )}
     </div>

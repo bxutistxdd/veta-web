@@ -1615,16 +1615,10 @@ function TabChats() {
 var DESP_LABELS = {
   pending: "Pendiente",
   dispatched: "Despachado",
-  delivered: "Entregado"
+  delivered: "Entregado",
+  problem: "⚠ Problema"
 };
-var DESP_NEXT = {
-  pending: "dispatched",
-  dispatched: "delivered"
-};
-var DESP_NEXT_LABEL = {
-  pending: "Marcar despachado",
-  dispatched: "Marcar entregado"
-};
+var DESP_STATUSES = ["pending", "dispatched", "delivered", "problem"];
 function parseOrderNotes(notes) {
   if (!notes) return {
     payment: "",
@@ -1637,12 +1631,117 @@ function parseOrderNotes(notes) {
     address: dirIdx >= 0 ? notes.slice(dirIdx + 4).trim() : ""
   };
 }
+function OrderCard({
+  order,
+  onStatusChange,
+  onNotesSave
+}) {
+  var [editingNotes, setEditingNotes] = useState(false);
+  var [notesVal, setNotesVal] = useState(order.admin_notes || "");
+  var [savingNotes, setSavingNotes] = useState(false);
+  var [statusBusy, setStatusBusy] = useState(false);
+  var {
+    payment,
+    address
+  } = parseOrderNotes(order.notes);
+  var date = new Date(order.created_at).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+  var handleStatus = async e => {
+    var s = e.target.value;
+    if (s === order.status || statusBusy) return;
+    setStatusBusy(true);
+    await onStatusChange(order.id, s);
+    setStatusBusy(false);
+  };
+  var handleSaveNotes = async () => {
+    setSavingNotes(true);
+    await onNotesSave(order.id, notesVal);
+    setSavingNotes(false);
+    setEditingNotes(false);
+  };
+  var cancelNotes = () => {
+    setNotesVal(order.admin_notes || "");
+    setEditingNotes(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: `adm-desp-card adm-desp-card--${order.status}`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-card-top"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: `adm-desp-pill adm-desp-pill--${order.status}`
+  }, DESP_LABELS[order.status] || order.status), /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-date"
+  }, date)), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-customer"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-name"
+  }, order.customer_name || "Cliente"), /*#__PURE__*/React.createElement("a", {
+    className: "adm-desp-phone",
+    href: "https://wa.me/" + order.phone,
+    target: "_blank",
+    rel: "noopener"
+  }, "+", order.phone)), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-fields"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-field"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-lbl"
+  }, "Piezas"), /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-items"
+  }, order.items)), order.city && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-field"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-lbl"
+  }, "Ciudad"), /*#__PURE__*/React.createElement("span", null, order.city)), address && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-field"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-lbl"
+  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address)), payment && /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-field"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-lbl"
+  }, "Pago"), /*#__PURE__*/React.createElement("span", null, payment))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-notes-wrap"
+  }, editingNotes ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("textarea", {
+    className: "adm-input adm-desp-notes-ta",
+    value: notesVal,
+    onChange: e => setNotesVal(e.target.value),
+    placeholder: "Gu\xEDa, transportadora, observaciones\u2026",
+    rows: 2
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-notes-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--sm",
+    onClick: cancelNotes
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--primary adm-btn--sm",
+    disabled: savingNotes,
+    onClick: handleSaveNotes
+  }, savingNotes ? "Guardando…" : "Guardar nota"))) : /*#__PURE__*/React.createElement("button", {
+    className: "adm-desp-notes-btn",
+    onClick: () => setEditingNotes(true)
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-desp-notes-icon"
+  }, order.admin_notes ? "📋" : "＋"), /*#__PURE__*/React.createElement("span", null, order.admin_notes || "Agregar nota de despacho"))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-desp-status-wrap"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "adm-desp-status-select",
+    value: order.status,
+    disabled: statusBusy,
+    onChange: handleStatus
+  }, DESP_STATUSES.map(s => /*#__PURE__*/React.createElement("option", {
+    key: s,
+    value: s
+  }, DESP_LABELS[s])))));
+}
 function TabDespachos() {
   var [orders, setOrders] = useState([]);
   var [loading, setLoading] = useState(true);
   var [filter, setFilter] = useState("all");
   var [q, setQ] = useState("");
-  var [updating, setUpdating] = useState(null);
   var load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1656,28 +1755,37 @@ function TabDespachos() {
   useEffect(() => {
     load();
   }, [load]);
-  var advance = async order => {
-    var next = DESP_NEXT[order.status];
-    if (!next || updating) return;
-    setUpdating(order.id);
+  var handleStatusChange = async (id, newStatus) => {
     try {
-      await window.VETA_DB.updateOrderStatus(order.id, next);
-      setOrders(prev => prev.map(o => o.id === order.id ? {
+      await window.VETA_DB.updateOrderStatus(id, newStatus);
+      setOrders(prev => prev.map(o => o.id === id ? {
         ...o,
-        status: next
+        status: newStatus
       } : o));
-      adminToast(next === "dispatched" ? "Marcado como despachado." : "Marcado como entregado.");
+      adminToast("Estado actualizado.");
     } catch (e) {
       adminToast("No se pudo actualizar: " + e.message, true);
     }
-    setUpdating(null);
+  };
+  var handleNotesSave = async (id, notes) => {
+    try {
+      await window.VETA_DB.updateOrderNotes(id, notes);
+      setOrders(prev => prev.map(o => o.id === id ? {
+        ...o,
+        admin_notes: notes
+      } : o));
+      adminToast("Nota guardada.");
+    } catch (e) {
+      adminToast("No se pudo guardar: " + e.message, true);
+    }
   };
   var counts = useMemo(() => {
     var c = {
       all: orders.length,
       pending: 0,
       dispatched: 0,
-      delivered: 0
+      delivered: 0,
+      problem: 0
     };
     orders.forEach(o => {
       if (c[o.status] !== undefined) c[o.status]++;
@@ -1692,7 +1800,7 @@ function TabDespachos() {
     }
     return true;
   }), [orders, filter, q]);
-  var FILTER_OPTS = [["all", "Todos"], ["pending", "Pendientes"], ["dispatched", "Despachados"], ["delivered", "Entregados"]];
+  var FILTER_OPTS = [["all", "Todos"], ["pending", "Pendientes"], ["dispatched", "Despachados"], ["delivered", "Entregados"], ["problem", "⚠ Problemas"]];
   return /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-wrap"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1701,7 +1809,7 @@ function TabDespachos() {
     className: "adm-desp-filters"
   }, FILTER_OPTS.map(([id, label]) => /*#__PURE__*/React.createElement("button", {
     key: id,
-    className: `adm-desp-chip${filter === id ? " adm-desp-chip--on" : ""}`,
+    className: `adm-desp-chip${filter === id ? " adm-desp-chip--on" : ""}${id === "problem" ? " adm-desp-chip--warn" : ""}`,
     onClick: () => setFilter(id)
   }, label, counts[id] > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-desp-chip-count"
@@ -1723,61 +1831,12 @@ function TabDespachos() {
     className: "adm-desp-empty"
   }, filter === "all" ? "Aún no hay pedidos registrados." : "No hay pedidos con este estado.") : /*#__PURE__*/React.createElement("div", {
     className: "adm-desp-list"
-  }, filtered.map(o => {
-    var {
-      payment,
-      address
-    } = parseOrderNotes(o.notes);
-    var date = new Date(o.created_at).toLocaleDateString("es-CO", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    });
-    var nextStatus = DESP_NEXT[o.status];
-    return /*#__PURE__*/React.createElement("div", {
-      key: o.id,
-      className: "adm-desp-card"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "adm-desp-card-top"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: `adm-desp-pill adm-desp-pill--${o.status}`
-    }, DESP_LABELS[o.status] || o.status), /*#__PURE__*/React.createElement("span", {
-      className: "adm-desp-date"
-    }, date)), /*#__PURE__*/React.createElement("div", {
-      className: "adm-desp-customer"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "adm-desp-name"
-    }, o.customer_name || "Cliente"), /*#__PURE__*/React.createElement("a", {
-      className: "adm-desp-phone",
-      href: "https://wa.me/" + o.phone,
-      target: "_blank",
-      rel: "noopener"
-    }, "+", o.phone)), /*#__PURE__*/React.createElement("div", {
-      className: "adm-desp-field"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "adm-desp-lbl"
-    }, "Piezas"), /*#__PURE__*/React.createElement("span", {
-      className: "adm-desp-items"
-    }, o.items)), o.city && /*#__PURE__*/React.createElement("div", {
-      className: "adm-desp-field"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "adm-desp-lbl"
-    }, "Ciudad"), /*#__PURE__*/React.createElement("span", null, o.city)), address && /*#__PURE__*/React.createElement("div", {
-      className: "adm-desp-field"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "adm-desp-lbl"
-    }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("span", null, address)), payment && /*#__PURE__*/React.createElement("div", {
-      className: "adm-desp-field"
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "adm-desp-lbl"
-    }, "Pago"), /*#__PURE__*/React.createElement("span", null, payment)), nextStatus && /*#__PURE__*/React.createElement("div", {
-      className: "adm-desp-actions"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "adm-btn adm-btn--primary adm-desp-advance",
-      disabled: updating === o.id,
-      onClick: () => advance(o)
-    }, updating === o.id ? "Guardando…" : DESP_NEXT_LABEL[o.status])));
-  })));
+  }, filtered.map(o => /*#__PURE__*/React.createElement(OrderCard, {
+    key: o.id,
+    order: o,
+    onStatusChange: handleStatusChange,
+    onNotesSave: handleNotesSave
+  }))));
 }
 
 // ── Shell con sidebar ─────────────────────────────────────
