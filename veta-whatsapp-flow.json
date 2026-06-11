@@ -695,7 +695,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"phone\":\"{{ $json.from }}\",\"customer_name\":\"{{ $json.orderData.nombre }}\",\"city\":\"{{ $json.orderData.ciudad }}\",\"items\":\"{{ $json.orderData.items }}\",\"notes\":\"{{ $json.orderData.notas }}\",\"address\":\"{{ $json.orderData.dir }}\",\"neighborhood\":\"{{ $json.orderData.barrio }}\",\"apt_ref\":\"{{ $json.orderData.ref }}\",\"payment_method\":\"{{ $json.orderData.pago }}\",\"recipient_name\":\"{{ $json.orderData.destinatario }}\",\"client_notes\":\"{{ $json.orderData.client_notes }}\",\"status\":\"pending\"}",
+        "jsonBody": "={\"phone\":\"{{ $json.from }}\",\"customer_name\":\"{{ $json.orderData.nombre }}\",\"city\":\"{{ $json.orderData.ciudad }}\",\"items\":\"{{ $json.orderData.items }}\",\"notes\":\"{{ $json.orderData.notas }}\",\"address\":\"{{ $json.orderData.dir }}\",\"neighborhood\":\"{{ $json.orderData.barrio }}\",\"apt_ref\":\"{{ $json.orderData.ref }}\",\"payment_method\":\"{{ $json.orderData.pago }}\",\"recipient_name\":\"{{ $json.orderData.destinatario }}\",\"delivery_notes\":\"{{ $json.orderData.client_notes }}\",\"status\":\"pending\"}",
         "options": {}
       },
       "id": "ab6e5542-6715-4d30-8cfb-dd856b5163d1",
@@ -726,7 +726,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"🛒 *Nuevo pedido VETA — #{{ $json.order_number }}*\n\n🔹 Producto: {{ $json.items }}\n\n👤 {{ $json.customer_name }} (+{{ $(\"Procesar Respuesta\").first().json.from }})\n📍 {{ $json.city }}{{ $json.neighborhood ? \", \" + $json.neighborhood : \"\" }}\n🏠 {{ $json.address }}{{ $json.apt_ref ? \" — \" + $json.apt_ref : \"\" }}\n💳 Pago: {{ $json.payment_method }}{{ $json.recipient_name ? \"\n🎁 Regalo para: \" + $json.recipient_name : \"\" }}{{ $json.client_notes ? \"\n📝 \" + $json.client_notes : \"\" }}\n\nGestiónalo en #admin → Despachos.\"}}",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"🛒 *Nuevo pedido VETA — #{{ $json.order_number }}*\n\n🔹 Producto: {{ $json.items }}\n\n👤 {{ $json.customer_name }} (+{{ $(\"Procesar Respuesta\").first().json.from }})\n📍 {{ $json.city }}{{ $json.neighborhood ? \", \" + $json.neighborhood : \"\" }}\n🏠 {{ $json.address }}{{ $json.apt_ref ? \" — \" + $json.apt_ref : \"\" }}\n💳 Pago: {{ $json.payment_method }}{{ $json.recipient_name ? \"\n🎁 Regalo para: \" + $json.recipient_name : \"\" }}{{ $json.delivery_notes ? \"\n📝 \" + $json.delivery_notes : \"\" }}\n\nGestiónalo en #admin → Despachos.\"}}",
         "options": {}
       },
       "id": "1048274f-413c-4ce4-9d88-d8fe874b3a02",
@@ -1513,6 +1513,84 @@
     },
     {
       "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_orders",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "=eq.{{ $json.from }}"
+            },
+            {
+              "name": "created_at",
+              "value": "=gte.{{ new Date(Date.now()-120000).toISOString() }}"
+            },
+            {
+              "name": "select",
+              "value": "id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "dedup-0000-0000-0000-000000000001",
+      "name": "Verificar Pedido Duplicado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4320, 100],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "dedup-check",
+              "leftValue": "={{ Array.isArray($json.body) ? $json.body.length : 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dedup-0000-0000-0000-000000000002",
+      "name": "¿Pedido Duplicado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [4560, 100]
+    },
+    {
+      "parameters": {
         "rule": {
           "interval": [
             {
@@ -1899,12 +1977,35 @@
       "main": [
         [
           {
-            "node": "Guardar Pedido",
+            "node": "Verificar Pedido Duplicado",
             "type": "main",
             "index": 0
           }
         ],
         []
+      ]
+    },
+    "Verificar Pedido Duplicado": {
+      "main": [
+        [
+          {
+            "node": "¿Pedido Duplicado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Pedido Duplicado?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Guardar Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Guardar Pedido": {
@@ -2210,5 +2311,5 @@
     }
   ],
   "pinData": {},
-  "versionId": "35876ff4-df3d-4d32-94f5-3d0122ecb535"
+  "versionId": "a9f3e201-cc11-4b2b-8801-def100000002"
 }
