@@ -16,11 +16,12 @@ window.VETA_DB = (function () {
   });
 
   // Caché en memoria
-  let _products = null;
-  let _stock    = {};
-  let _settings = {};
-  let _ready    = false;
-  let _listeners = [];
+  let _products      = null;
+  let _stock         = {};
+  let _settings      = {};
+  let _discountCodes = [];
+  let _ready         = false;
+  let _listeners     = [];
 
   function _notify() { _listeners.forEach(fn => fn()); }
 
@@ -65,8 +66,14 @@ window.VETA_DB = (function () {
     data.forEach(r => { _settings[r.key] = r.value; });
   }
 
+  async function loadDiscountCodes() {
+    const { data, error } = await sb.from("discount_codes").select("*").order("created_at", { ascending: false });
+    if (error) { console.warn("[VETA_DB] discount_codes:", error.message); return; }
+    _discountCodes = data || [];
+  }
+
   async function init() {
-    await Promise.all([loadProducts(), loadStock(), loadSettings()]);
+    await Promise.all([loadProducts(), loadStock(), loadSettings(), loadDiscountCodes()]);
     _ready = true;
     _notify();
 
@@ -82,6 +89,14 @@ window.VETA_DB = (function () {
     sb.channel("products-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, async () => {
         await loadProducts();
+        _notify();
+      })
+      .subscribe();
+
+    // Suscripción en tiempo real — discount_codes
+    sb.channel("discounts-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "discount_codes" }, async () => {
+        await loadDiscountCodes();
         _notify();
       })
       .subscribe();
@@ -214,6 +229,73 @@ window.VETA_DB = (function () {
     if (error) throw error;
     _settings[key] = value;
     _notify();
+  }
+
+  /* ── descuentos ── */
+  function getDiscountCodes() { return _discountCodes; }
+
+  // Devuelve el primer código activo con show_on_site=true (para el banner público)
+  function getPublicPromoCode() {
+    const now = new Date();
+    return _discountCodes.find(d =>
+      d.active &&
+      d.show_on_site &&
+      (!d.expires_at || new Date(d.expires_at) > now) &&
+      (d.max_uses === null || d.uses_count < d.max_uses)
+    ) || null;
+  }
+
+  async function validateCode(code, subtotal) {
+    const upper = (code || "").toUpperCase().trim();
+    const d = _discountCodes.find(c => c.code.toUpperCase() === upper && c.active);
+    if (!d) return { valid: false, reason: "Código no válido o inactivo." };
+    if (d.expires_at && new Date(d.expires_at) < new Date())
+      return { valid: false, reason: "El código ha expirado." };
+    if (d.max_uses !== null && d.uses_count >= d.max_uses)
+      return { valid: false, reason: "Este código ya alcanzó su límite de usos." };
+    if (d.min_subtotal > 0 && subtotal < d.min_subtotal) {
+      const minFmt = window.VETA_DATA ? window.VETA_DATA.fmtPrice(d.min_subtotal) : "$" + Math.round(d.min_subtotal).toLocaleString("es-CO");
+      return { valid: false, reason: `El subtotal mínimo para este código es ${minFmt}.` };
+    }
+    const discountAmount = d.type === "percent"
+      ? Math.round(subtotal * d.value / 100)
+      : Math.min(Number(d.value), subtotal);
+    return { valid: true, code: upper, type: d.type, value: Number(d.value), discountAmount, description: d.description };
+  }
+
+  async function upsertDiscountCode(data) {
+    const row = {
+      code:         (data.code || "").toUpperCase().trim(),
+      description:  data.description || "",
+      type:         data.type || "percent",
+      value:        Number(data.value),
+      min_subtotal: Number(data.min_subtotal) || 0,
+      max_uses:     data.max_uses ? Number(data.max_uses) : null,
+      active:       data.active !== false,
+      show_on_site: !!data.show_on_site,
+      expires_at:   data.expires_at || null,
+    };
+    if (data.id) row.id = data.id;
+    const { error } = await sb.from("discount_codes")
+      .upsert(row, { onConflict: data.id ? "id" : "code" });
+    if (error) throw error;
+    await loadDiscountCodes();
+    _notify();
+  }
+
+  async function deleteDiscountCode(id) {
+    const { error } = await sb.from("discount_codes").delete().eq("id", id);
+    if (error) throw error;
+    _discountCodes = _discountCodes.filter(d => d.id !== id);
+    _notify();
+  }
+
+  async function incrementCodeUses(code) {
+    try {
+      await sb.rpc("increment_discount_code_use", { p_code: (code || "").toUpperCase() });
+      await loadDiscountCodes();
+      _notify();
+    } catch (e) { console.warn("[VETA_DB] incrementCodeUses:", e.message); }
   }
 
   /* ── despachos (wa_orders) ── */
@@ -400,6 +482,9 @@ window.VETA_DB = (function () {
     getProducts, getStock, getSetting, isHidden,
     signIn, signOut, getSession, onAuthChange, changePassword,
     setStock, clearStock, setVisible, upsertProduct, deleteProduct, saveSetting,
+    // descuentos
+    getDiscountCodes, getPublicPromoCode, validateCode,
+    upsertDiscountCode, deleteDiscountCode, incrementCodeUses,
     // buzón de chats
     loadThreads, getThreads, getConversationList, getMessages,
     setBotPaused, clearNeedsHuman, sendAgentMessage, uploadChatImage, subscribeChats,

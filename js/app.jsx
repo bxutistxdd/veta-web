@@ -67,9 +67,15 @@ function useCart() {
     try { return JSON.parse(localStorage.getItem("veta-cart") || "[]"); }
     catch { return []; }
   });
-  useEffect(() => {
-    localStorage.setItem("veta-cart", JSON.stringify(items));
-  }, [items]);
+  const [appliedCode, setAppliedCode] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("veta-discount") || "null"); }
+    catch { return null; }
+  });
+  const [codeError, setCodeError] = useState("");
+  const [codeLoading, setCodeLoading] = useState(false);
+
+  useEffect(() => { localStorage.setItem("veta-cart", JSON.stringify(items)); }, [items]);
+  useEffect(() => { localStorage.setItem("veta-discount", JSON.stringify(appliedCode)); }, [appliedCode]);
 
   const add = useCallback((product, opts) => {
     setItems((prev) => {
@@ -99,17 +105,97 @@ function useCart() {
     const cap   = (stock !== null && stock !== undefined) ? stock : Infinity;
     return prev.map((it) => it.key === key ? { ...it, qty: Math.min(qty, cap) } : it);
   }), []);
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => { setItems([]); setAppliedCode(null); setCodeError(""); }, []);
 
-  const count = items.reduce((a, it) => a + it.qty, 0);
+  const count    = items.reduce((a, it) => a + it.qty, 0);
   const subtotal = items.reduce((a, it) => a + it.qty * it.price, 0);
 
-  return { items, add, remove, setQty, clear, count, subtotal };
+  const discountAmount = useMemo(() => {
+    if (!appliedCode || subtotal <= 0) return 0;
+    if (appliedCode.type === "percent") return Math.round(subtotal * appliedCode.value / 100);
+    return Math.min(Number(appliedCode.value), subtotal);
+  }, [appliedCode, subtotal]);
+
+  const total = subtotal - discountAmount;
+
+  const applyCode = async (code) => {
+    const trimmed = (code || "").trim();
+    if (!trimmed) return false;
+    setCodeLoading(true);
+    setCodeError("");
+    try {
+      if (!window.VETA_DB) { setCodeError("No se pudo conectar. Intenta de nuevo."); return false; }
+      const result = await window.VETA_DB.validateCode(trimmed, subtotal);
+      if (result.valid) {
+        setAppliedCode({ code: result.code, type: result.type, value: result.value, description: result.description });
+        return true;
+      } else {
+        setCodeError(result.reason || "Código no válido.");
+        return false;
+      }
+    } catch { setCodeError("No se pudo verificar el código."); return false; }
+    finally { setCodeLoading(false); }
+  };
+
+  const removeCode = useCallback(() => { setAppliedCode(null); setCodeError(""); }, []);
+
+  return { items, add, remove, setQty, clear, count, subtotal,
+           discountAmount, total, appliedCode, applyCode, removeCode, codeError, codeLoading };
 }
 
 /* ─────────────────────────────────────────────
    Cart Drawer
    ───────────────────────────────────────────── */
+function CartCoupon({ cart }) {
+  const [input, setInput] = useState("");
+  const handleApply = async () => {
+    const ok = await cart.applyCode(input);
+    if (ok) setInput("");
+  };
+  return (
+    <div className="cart-coupon">
+      <div className="cart-coupon-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        Código de descuento
+      </div>
+      {cart.appliedCode ? (
+        <div className="cart-coupon-applied">
+          <span className="cart-coupon-badge">
+            {cart.appliedCode.code}
+            {" · "}
+            {cart.appliedCode.type === "percent"
+              ? `${cart.appliedCode.value}% OFF`
+              : `${VETA_DATA.fmtPrice(cart.appliedCode.value)} OFF`}
+          </span>
+          <button className="cart-coupon-remove" onClick={cart.removeCode} aria-label="Quitar código">✕ Quitar</button>
+        </div>
+      ) : (
+        <div className="cart-coupon-row">
+          <input
+            className="cart-coupon-input"
+            placeholder="VETAINAUGURACIÓN"
+            value={input}
+            onChange={e => setInput(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === "Enter" && !cart.codeLoading && input.trim() && handleApply()}
+            aria-label="Código de descuento"
+          />
+          <button
+            className="cart-coupon-btn"
+            onClick={handleApply}
+            disabled={!input.trim() || cart.codeLoading}
+          >
+            {cart.codeLoading ? "…" : "Aplicar"}
+          </button>
+        </div>
+      )}
+      {cart.codeError && <p className="cart-coupon-error">{cart.codeError}</p>}
+    </div>
+  );
+}
+
 function CartDrawer({ open, onClose, cart, waPhone }) {
   useEffect(() => {
     if (!open) return;
@@ -127,15 +213,24 @@ function CartDrawer({ open, onClose, cart, waPhone }) {
     const lines = cart.items.map((it) =>
       `• ${it.name} (${it.material}, ${it.finish}, talla ${it.size}) x${it.qty} — ${VETA_DATA.fmtPrice(it.price * it.qty)} COP`
     );
+    const discLines = cart.appliedCode && cart.discountAmount > 0 ? [
+      `Código de descuento: ${cart.appliedCode.code} (${cart.appliedCode.type === "percent" ? cart.appliedCode.value + "%" : VETA_DATA.fmtPrice(cart.appliedCode.value)} OFF)`,
+      `Descuento: -${VETA_DATA.fmtPrice(cart.discountAmount)} COP`,
+    ] : [];
     const msg = [
       "Hola VETA, me interesa esta selección:",
       "",
       ...lines,
       "",
       `Subtotal: ${VETA_DATA.fmtPrice(cart.subtotal)} COP`,
+      ...discLines,
+      `Total estimado: ${VETA_DATA.fmtPrice(cart.total)} COP`,
       "",
       "¿Me confirman disponibilidad y envío?",
     ].join("\n");
+    if (cart.appliedCode) {
+      try { window.VETA_DB?.incrementCodeUses(cart.appliedCode.code); } catch {}
+    }
     const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank", "noopener");
   };
@@ -192,10 +287,20 @@ function CartDrawer({ open, onClose, cart, waPhone }) {
         </div>
         {cart.items.length > 0 && (
           <footer className="cart-foot">
+            <CartCoupon cart={cart} />
             <div className="cart-totals">
-              <div className="row"><span>Subtotal estimado</span><span>{VETA_DATA.fmtPrice(cart.subtotal)} COP</span></div>
+              <div className="row"><span>Subtotal</span><span>{VETA_DATA.fmtPrice(cart.subtotal)} COP</span></div>
+              {cart.discountAmount > 0 && (
+                <div className="row cart-discount-row">
+                  <span>Descuento ({cart.appliedCode.code})</span>
+                  <span className="cart-discount-amount">−{VETA_DATA.fmtPrice(cart.discountAmount)} COP</span>
+                </div>
+              )}
               <div className="row"><span>Envío</span><span>Se confirma por WhatsApp</span></div>
-              <div className="row total"><span>Total estimado</span><span>{VETA_DATA.fmtPrice(cart.subtotal)} COP</span></div>
+              <div className="row total">
+                <span>Total estimado</span>
+                <span>{VETA_DATA.fmtPrice(cart.total)} COP</span>
+              </div>
             </div>
             <Magnetic strength={0.1}>
               <button className="btn btn-wa" style={{ width: "100%" }} onClick={toWhatsApp}>
@@ -212,6 +317,41 @@ function CartDrawer({ open, onClose, cart, waPhone }) {
         )}
       </aside>
     </>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Banner de promoción (código público)
+   ───────────────────────────────────────────── */
+function SitePromoBanner({ onOpenCart }) {
+  const [promo, setPromo] = useState(() =>
+    window.VETA_DB ? window.VETA_DB.getPublicPromoCode() : null
+  );
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    const unsub = window.VETA_DB.subscribe(() =>
+      setPromo(window.VETA_DB.getPublicPromoCode())
+    );
+    return unsub;
+  }, []);
+  if (!promo) return null;
+  const label = promo.type === "percent"
+    ? `${promo.value}% de descuento`
+    : `${VETA_DATA.fmtPrice(promo.value)} de descuento`;
+  return (
+    <div className="site-promo-banner" role="banner">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+        <line x1="7" y1="7" x2="7.01" y2="7"/>
+      </svg>
+      <span>
+        Código <strong>{promo.code}</strong> — {label}
+        {promo.description ? `. ${promo.description}` : ""}
+      </span>
+      <button className="site-promo-banner__cta" onClick={onOpenCart}>
+        Agregar al carrito →
+      </button>
+    </div>
   );
 }
 
@@ -389,6 +529,7 @@ function App() {
         theme={t.theme}
         onThemeToggle={() => setTweak("theme", t.theme === "dark" ? "light" : "dark")}
       />
+      <SitePromoBanner onOpenCart={() => setCartOpen(true)} />
 
       {route.name === "home"    && <Home    onNavigate={navigate} onAdd={handleAdd} />}
       {route.name === "catalog" && <Catalog filter={route.filter} search={route.search} onNavigate={navigate} />}
