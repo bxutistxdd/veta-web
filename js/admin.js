@@ -1611,6 +1611,381 @@ function TabChats() {
   }, sending ? "…" : "➤"))))));
 }
 
+// ── Tab: Descuentos ──────────────────────────────────────
+function useDiscountCodes() {
+  var [codes, setCodes] = useState(() => window.VETA_DB ? window.VETA_DB.getDiscountCodes() : []);
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.subscribe(() => setCodes(window.VETA_DB.getDiscountCodes().slice()));
+  }, []);
+  var upsert = useCallback(async data => {
+    try {
+      await window.VETA_DB.upsertDiscountCode(data);
+      adminToast(data.id ? "Código guardado." : "Código creado.");
+      return true;
+    } catch (e) {
+      adminToast("No se pudo guardar: " + e.message, true);
+      return false;
+    }
+  }, []);
+  var remove = useCallback(async id => {
+    try {
+      await window.VETA_DB.deleteDiscountCode(id);
+      adminToast("Código eliminado.");
+    } catch (e) {
+      adminToast("No se pudo eliminar: " + e.message, true);
+    }
+  }, []);
+  var toggleActive = useCallback(async code => {
+    try {
+      await window.VETA_DB.upsertDiscountCode({
+        ...code,
+        id: code.id,
+        active: !code.active
+      });
+    } catch (e) {
+      adminToast("No se pudo cambiar: " + e.message, true);
+    }
+  }, []);
+  var toggleShowOnSite = useCallback(async code => {
+    try {
+      await window.VETA_DB.upsertDiscountCode({
+        ...code,
+        id: code.id,
+        show_on_site: !code.show_on_site
+      });
+    } catch (e) {
+      adminToast("No se pudo cambiar: " + e.message, true);
+    }
+  }, []);
+  return {
+    codes,
+    upsert,
+    remove,
+    toggleActive,
+    toggleShowOnSite
+  };
+}
+var DISC_EMPTY = {
+  code: "",
+  description: "",
+  type: "percent",
+  value: "",
+  min_subtotal: "",
+  max_uses: "",
+  active: true,
+  show_on_site: false,
+  expires_at: ""
+};
+function DiscountForm({
+  initial,
+  onSave,
+  onCancel
+}) {
+  var isNew = !initial?.id;
+  var [form, setForm] = useState(() => initial ? {
+    ...initial,
+    value: String(initial.value || ""),
+    min_subtotal: String(initial.min_subtotal || ""),
+    max_uses: initial.max_uses !== null && initial.max_uses !== undefined ? String(initial.max_uses) : "",
+    expires_at: initial.expires_at ? initial.expires_at.slice(0, 10) : ""
+  } : {
+    ...DISC_EMPTY
+  });
+  var [errors, setErrors] = useState({});
+  var set = useCallback((k, v) => setForm(f => ({
+    ...f,
+    [k]: v
+  })), []);
+  var validate = () => {
+    var e = {};
+    if (!form.code.trim()) e.code = "El código es obligatorio.";
+    if (!form.value || Number(form.value) <= 0) e.value = "El valor debe ser mayor a 0.";
+    if (form.type === "percent" && Number(form.value) > 100) e.value = "El porcentaje no puede superar 100.";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+  var submit = async e => {
+    e.preventDefault();
+    if (!validate()) return;
+    var ok = await onSave({
+      id: form.id,
+      code: form.code.toUpperCase().trim(),
+      description: form.description.trim(),
+      type: form.type,
+      value: Number(form.value),
+      min_subtotal: Number(form.min_subtotal) || 0,
+      max_uses: form.max_uses ? Number(form.max_uses) : null,
+      active: form.active,
+      show_on_site: form.show_on_site,
+      expires_at: form.expires_at || null
+    });
+    if (ok) onCancel();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-disc-form-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-topbar"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-back-btn",
+    onClick: onCancel
+  }, "\u2190 Volver"), /*#__PURE__*/React.createElement("h2", {
+    className: "adm-form-title"
+  }, isNew ? "Nuevo código de descuento" : `Editar · ${initial.code}`)), /*#__PURE__*/React.createElement("form", {
+    onSubmit: submit,
+    className: "adm-product-form"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-card"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-form-card-h"
+  }, "C\xF3digo y descripci\xF3n"), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field adm-form-field--full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "C\xF3digo ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-required"
+  }, "*")), /*#__PURE__*/React.createElement("input", {
+    className: `adm-input adm-input--mono${errors.code ? " adm-input--err" : ""}`,
+    value: form.code,
+    onChange: e => set("code", e.target.value.toUpperCase()),
+    placeholder: "VETAINAUGURACI\xD3N",
+    style: {
+      textTransform: "uppercase",
+      letterSpacing: "0.05em"
+    }
+  }), errors.code && /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-err"
+  }, errors.code), /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint"
+  }, "El cliente ingresar\xE1 este texto exacto en el carrito.")), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field adm-form-field--full"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Descripci\xF3n"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: form.description,
+    onChange: e => set("description", e.target.value),
+    placeholder: "Ej: 25% de descuento por inauguraci\xF3n"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-card"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-form-card-h"
+  }, "Tipo y valor"), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Tipo de descuento"), /*#__PURE__*/React.createElement("select", {
+    className: "adm-input",
+    value: form.type,
+    onChange: e => set("type", e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "percent"
+  }, "Porcentaje (%)"), /*#__PURE__*/React.createElement("option", {
+    value: "fixed"
+  }, "Valor fijo (COP)"))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Valor ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-required"
+  }, "*")), /*#__PURE__*/React.createElement("div", {
+    className: "adm-price-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: `adm-input${errors.value ? " adm-input--err" : ""}`,
+    type: "number",
+    min: "0",
+    step: form.type === "percent" ? "1" : "1000",
+    value: form.value,
+    onChange: e => set("value", e.target.value),
+    placeholder: form.type === "percent" ? "25" : "50000"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "adm-price-cur"
+  }, form.type === "percent" ? "%" : "COP")), errors.value && /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-err"
+  }, errors.value), Number(form.value) > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint"
+  }, form.type === "percent" ? `${form.value}% de descuento` : `${VETA_DATA.fmtPrice(Number(form.value))} de descuento`)), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Subtotal m\xEDnimo (COP)"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    type: "number",
+    min: "0",
+    step: "1000",
+    value: form.min_subtotal,
+    onChange: e => set("min_subtotal", e.target.value),
+    placeholder: "0 = sin m\xEDnimo"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Usos m\xE1ximos"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    type: "number",
+    min: "1",
+    step: "1",
+    value: form.max_uses,
+    onChange: e => set("max_uses", e.target.value),
+    placeholder: "Vac\xEDo = sin l\xEDmite"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Vence el"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    type: "date",
+    value: form.expires_at,
+    onChange: e => set("expires_at", e.target.value)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint"
+  }, "Vac\xEDo = no vence")))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-card"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-form-card-h"
+  }, "Visibilidad"), /*#__PURE__*/React.createElement("div", {
+    className: "adm-disc-toggles"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-disc-toggle"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: form.active,
+    onChange: e => set("active", e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "adm-disc-toggle-label"
+  }, "C\xF3digo activo"), /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint"
+  }, "Los clientes pueden usarlo")), /*#__PURE__*/React.createElement("label", {
+    className: "adm-disc-toggle"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: form.show_on_site,
+    onChange: e => set("show_on_site", e.target.checked)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "adm-disc-toggle-label"
+  }, "Mostrar en el sitio"), /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint"
+  }, "Aparece como banner en la tienda (para promociones p\xFAblicas)")))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-btn adm-btn--ghost",
+    onClick: onCancel
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "adm-btn adm-btn--primary"
+  }, isNew ? "Crear código" : "Guardar cambios"))));
+}
+function TabDescuentos() {
+  var {
+    codes,
+    upsert,
+    remove,
+    toggleActive,
+    toggleShowOnSite
+  } = useDiscountCodes();
+  var [view, setView] = useState("list"); // "list" | "new" | <code-obj>
+  var [confirm, setConfirm] = useState(null); // id a eliminar
+
+  if (view === "new" || view && typeof view === "object") {
+    return /*#__PURE__*/React.createElement(DiscountForm, {
+      initial: typeof view === "object" ? view : null,
+      onSave: upsert,
+      onCancel: () => setView("list")
+    });
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-page"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-toolbar"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "adm-hint",
+    style: {
+      margin: 0,
+      flex: 1
+    }
+  }, "Crea c\xF3digos que tus clientes ingresan en la bolsa para obtener descuento."), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--primary adm-btn--sm",
+    onClick: () => setView("new")
+  }, "+ Nuevo c\xF3digo")), codes.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "adm-empty"
+  }, "A\xFAn no hay c\xF3digos. \xA1Crea el primero!") : /*#__PURE__*/React.createElement("div", {
+    className: "adm-table-wrap"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "adm-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "C\xF3digo"), /*#__PURE__*/React.createElement("th", null, "Descripci\xF3n"), /*#__PURE__*/React.createElement("th", null, "Descuento"), /*#__PURE__*/React.createElement("th", null, "Usos"), /*#__PURE__*/React.createElement("th", null, "Vence"), /*#__PURE__*/React.createElement("th", null, "Activo"), /*#__PURE__*/React.createElement("th", null, "En sitio"), /*#__PURE__*/React.createElement("th", null, "Acciones"))), /*#__PURE__*/React.createElement("tbody", null, codes.map(c => {
+    var expired = c.expires_at && new Date(c.expires_at) < new Date();
+    var exhausted = c.max_uses !== null && c.uses_count >= c.max_uses;
+    return /*#__PURE__*/React.createElement("tr", {
+      key: c.id,
+      className: !c.active || expired || exhausted ? "adm-row--dim" : ""
+    }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("code", {
+      className: "adm-code adm-disc-code"
+    }, c.code)), /*#__PURE__*/React.createElement("td", {
+      style: {
+        color: "var(--ink-soft)",
+        fontSize: 13
+      }
+    }, c.description || "—"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+      className: "adm-disc-value"
+    }, c.type === "percent" ? `${c.value}%` : VETA_DATA.fmtPrice(c.value), " OFF", c.min_subtotal > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "adm-disc-min"
+    }, " (min ", VETA_DATA.fmtPrice(c.min_subtotal), ")"))), /*#__PURE__*/React.createElement("td", {
+      style: {
+        fontSize: 13,
+        color: "var(--ink-soft)"
+      }
+    }, c.uses_count, c.max_uses !== null ? ` / ${c.max_uses}` : "", exhausted && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#c0392b",
+        marginLeft: 4
+      }
+    }, "Agotado")), /*#__PURE__*/React.createElement("td", {
+      style: {
+        fontSize: 13,
+        color: expired ? "#c0392b" : "var(--ink-soft)"
+      }
+    }, c.expires_at ? new Date(c.expires_at).toLocaleDateString("es-CO") : "Sin vencimiento", expired && " ⚠"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+      className: `adm-badge${c.active ? " adm-badge--on" : ""}`,
+      onClick: () => toggleActive(c)
+    }, c.active ? "Activo" : "Inactivo")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+      className: `adm-badge${c.show_on_site ? " adm-badge--on" : ""}`,
+      onClick: () => toggleShowOnSite(c)
+    }, c.show_on_site ? "Visible" : "Oculto")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("div", {
+      className: "adm-row-actions"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn",
+      onClick: () => setView(c),
+      title: "Editar"
+    }, "\u270F"), confirm === c.id ? /*#__PURE__*/React.createElement("span", {
+      className: "adm-disc-confirm-inline"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn",
+      onClick: () => setConfirm(null)
+    }, "\u2717"), /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn adm-action-btn--del",
+      onClick: () => {
+        remove(c.id);
+        setConfirm(null);
+      }
+    }, "\u2713")) : /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn adm-action-btn--del",
+      onClick: () => setConfirm(c.id),
+      title: "Eliminar"
+    }, "\u2715"))));
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-note",
+    style: {
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("strong", null, "Tip:"), " Los c\xF3digos con ", /*#__PURE__*/React.createElement("em", null, "\"Mostrar en sitio\""), " activo aparecen como un banner en la tienda para todos los visitantes. \xDAsalo para promociones p\xFAblicas. Para c\xF3digos privados (descuentos a clientes espec\xEDficos), deja esa opci\xF3n inactiva."));
+}
+
 // ── Tab: Despachos ────────────────────────────────────────
 var DESP_LABELS = {
   pending: "Pendiente",
@@ -2082,6 +2457,9 @@ var ADMIN_TABS = [{
   id: "stock",
   label: "Stock"
 }, {
+  id: "descuentos",
+  label: "Descuentos"
+}, {
   id: "config",
   label: "Config."
 }];
@@ -2180,7 +2558,7 @@ function AdminShell({
     get: getStock,
     set: setStock,
     reset: resetStock
-  }), tab === "config" && /*#__PURE__*/React.createElement(TabConfig, {
+  }), tab === "descuentos" && /*#__PURE__*/React.createElement(TabDescuentos, null), tab === "config" && /*#__PURE__*/React.createElement(TabConfig, {
     cfg: cfg,
     save: saveCfg,
     onLogout: onLogout,

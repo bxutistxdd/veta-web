@@ -136,9 +136,21 @@ function useCart() {
       return [];
     }
   });
+  var [appliedCode, setAppliedCode] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("veta-discount") || "null");
+    } catch {
+      return null;
+    }
+  });
+  var [codeError, setCodeError] = useState("");
+  var [codeLoading, setCodeLoading] = useState(false);
   useEffect(() => {
     localStorage.setItem("veta-cart", JSON.stringify(items));
   }, [items]);
+  useEffect(() => {
+    localStorage.setItem("veta-discount", JSON.stringify(appliedCode));
+  }, [appliedCode]);
   var add = useCallback((product, opts) => {
     setItems(prev => {
       var key = `${product.id}::${opts.size}::${opts.finish}`;
@@ -184,9 +196,53 @@ function useCart() {
       qty: Math.min(qty, cap)
     } : it);
   }), []);
-  var clear = useCallback(() => setItems([]), []);
+  var clear = useCallback(() => {
+    setItems([]);
+    setAppliedCode(null);
+    setCodeError("");
+  }, []);
   var count = items.reduce((a, it) => a + it.qty, 0);
   var subtotal = items.reduce((a, it) => a + it.qty * it.price, 0);
+  var discountAmount = useMemo(() => {
+    if (!appliedCode || subtotal <= 0) return 0;
+    if (appliedCode.type === "percent") return Math.round(subtotal * appliedCode.value / 100);
+    return Math.min(Number(appliedCode.value), subtotal);
+  }, [appliedCode, subtotal]);
+  var total = subtotal - discountAmount;
+  var applyCode = async code => {
+    var trimmed = (code || "").trim();
+    if (!trimmed) return false;
+    setCodeLoading(true);
+    setCodeError("");
+    try {
+      if (!window.VETA_DB) {
+        setCodeError("No se pudo conectar. Intenta de nuevo.");
+        return false;
+      }
+      var result = await window.VETA_DB.validateCode(trimmed, subtotal);
+      if (result.valid) {
+        setAppliedCode({
+          code: result.code,
+          type: result.type,
+          value: result.value,
+          description: result.description
+        });
+        return true;
+      } else {
+        setCodeError(result.reason || "Código no válido.");
+        return false;
+      }
+    } catch {
+      setCodeError("No se pudo verificar el código.");
+      return false;
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+  var removeCode = useCallback(() => {
+    setAppliedCode(null);
+    setCodeError("");
+  }, []);
   return {
     items,
     add,
@@ -194,13 +250,74 @@ function useCart() {
     setQty,
     clear,
     count,
-    subtotal
+    subtotal,
+    discountAmount,
+    total,
+    appliedCode,
+    applyCode,
+    removeCode,
+    codeError,
+    codeLoading
   };
 }
 
 /* ─────────────────────────────────────────────
    Cart Drawer
    ───────────────────────────────────────────── */
+function CartCoupon({
+  cart
+}) {
+  var [input, setInput] = useState("");
+  var handleApply = async () => {
+    var ok = await cart.applyCode(input);
+    if (ok) setInput("");
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "cart-coupon"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "cart-coupon-label"
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "14",
+    height: "14",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "7",
+    y1: "7",
+    x2: "7.01",
+    y2: "7"
+  })), "C\xF3digo de descuento"), cart.appliedCode ? /*#__PURE__*/React.createElement("div", {
+    className: "cart-coupon-applied"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "cart-coupon-badge"
+  }, cart.appliedCode.code, " · ", cart.appliedCode.type === "percent" ? `${cart.appliedCode.value}% OFF` : `${VETA_DATA.fmtPrice(cart.appliedCode.value)} OFF`), /*#__PURE__*/React.createElement("button", {
+    className: "cart-coupon-remove",
+    onClick: cart.removeCode,
+    "aria-label": "Quitar c\xF3digo"
+  }, "\u2715 Quitar")) : /*#__PURE__*/React.createElement("div", {
+    className: "cart-coupon-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "cart-coupon-input",
+    placeholder: "VETAINAUGURACI\xD3N",
+    value: input,
+    onChange: e => setInput(e.target.value.toUpperCase()),
+    onKeyDown: e => e.key === "Enter" && !cart.codeLoading && input.trim() && handleApply(),
+    "aria-label": "C\xF3digo de descuento"
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "cart-coupon-btn",
+    onClick: handleApply,
+    disabled: !input.trim() || cart.codeLoading
+  }, cart.codeLoading ? "…" : "Aplicar")), cart.codeError && /*#__PURE__*/React.createElement("p", {
+    className: "cart-coupon-error"
+  }, cart.codeError));
+}
 function CartDrawer({
   open,
   onClose,
@@ -220,7 +337,13 @@ function CartDrawer({
   var toWhatsApp = () => {
     if (cart.items.length === 0) return;
     var lines = cart.items.map(it => `• ${it.name} (${it.material}, ${it.finish}, talla ${it.size}) x${it.qty} — ${VETA_DATA.fmtPrice(it.price * it.qty)} COP`);
-    var msg = ["Hola VETA, me interesa esta selección:", "", ...lines, "", `Subtotal: ${VETA_DATA.fmtPrice(cart.subtotal)} COP`, "", "¿Me confirman disponibilidad y envío?"].join("\n");
+    var discLines = cart.appliedCode && cart.discountAmount > 0 ? [`Código de descuento: ${cart.appliedCode.code} (${cart.appliedCode.type === "percent" ? cart.appliedCode.value + "%" : VETA_DATA.fmtPrice(cart.appliedCode.value)} OFF)`, `Descuento: -${VETA_DATA.fmtPrice(cart.discountAmount)} COP`] : [];
+    var msg = ["Hola VETA, me interesa esta selección:", "", ...lines, "", `Subtotal: ${VETA_DATA.fmtPrice(cart.subtotal)} COP`, ...discLines, `Total estimado: ${VETA_DATA.fmtPrice(cart.total)} COP`, "", "¿Me confirman disponibilidad y envío?"].join("\n");
+    if (cart.appliedCode) {
+      try {
+        window.VETA_DB?.incrementCodeUses(cart.appliedCode.code);
+      } catch {}
+    }
     var url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank", "noopener");
   };
@@ -300,15 +423,21 @@ function CartDrawer({
     }, "Quitar")));
   })), cart.items.length > 0 && /*#__PURE__*/React.createElement("footer", {
     className: "cart-foot"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(CartCoupon, {
+    cart: cart
+  }), /*#__PURE__*/React.createElement("div", {
     className: "cart-totals"
   }, /*#__PURE__*/React.createElement("div", {
     className: "row"
-  }, /*#__PURE__*/React.createElement("span", null, "Subtotal estimado"), /*#__PURE__*/React.createElement("span", null, VETA_DATA.fmtPrice(cart.subtotal), " COP")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "Subtotal"), /*#__PURE__*/React.createElement("span", null, VETA_DATA.fmtPrice(cart.subtotal), " COP")), cart.discountAmount > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "row cart-discount-row"
+  }, /*#__PURE__*/React.createElement("span", null, "Descuento (", cart.appliedCode.code, ")"), /*#__PURE__*/React.createElement("span", {
+    className: "cart-discount-amount"
+  }, "\u2212", VETA_DATA.fmtPrice(cart.discountAmount), " COP")), /*#__PURE__*/React.createElement("div", {
     className: "row"
   }, /*#__PURE__*/React.createElement("span", null, "Env\xEDo"), /*#__PURE__*/React.createElement("span", null, "Se confirma por WhatsApp")), /*#__PURE__*/React.createElement("div", {
     className: "row total"
-  }, /*#__PURE__*/React.createElement("span", null, "Total estimado"), /*#__PURE__*/React.createElement("span", null, VETA_DATA.fmtPrice(cart.subtotal), " COP"))), /*#__PURE__*/React.createElement(Magnetic, {
+  }, /*#__PURE__*/React.createElement("span", null, "Total estimado"), /*#__PURE__*/React.createElement("span", null, VETA_DATA.fmtPrice(cart.total), " COP"))), /*#__PURE__*/React.createElement(Magnetic, {
     strength: 0.1
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn btn-wa",
@@ -335,6 +464,46 @@ function CartDrawer({
       margin: 0
     }
   }, "Concretamos la venta y el env\xEDo contigo, persona a persona."))));
+}
+
+/* ─────────────────────────────────────────────
+   Banner de promoción (código público)
+   ───────────────────────────────────────────── */
+function SitePromoBanner({
+  onOpenCart
+}) {
+  var [promo, setPromo] = useState(() => window.VETA_DB ? window.VETA_DB.getPublicPromoCode() : null);
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    var unsub = window.VETA_DB.subscribe(() => setPromo(window.VETA_DB.getPublicPromoCode()));
+    return unsub;
+  }, []);
+  if (!promo) return null;
+  var label = promo.type === "percent" ? `${promo.value}% de descuento` : `${VETA_DATA.fmtPrice(promo.value)} de descuento`;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "site-promo-banner",
+    role: "banner"
+  }, /*#__PURE__*/React.createElement("svg", {
+    width: "13",
+    height: "13",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true"
+  }, /*#__PURE__*/React.createElement("path", {
+    d: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "7",
+    y1: "7",
+    x2: "7.01",
+    y2: "7"
+  })), /*#__PURE__*/React.createElement("span", null, "C\xF3digo ", /*#__PURE__*/React.createElement("strong", null, promo.code), " \u2014 ", label, promo.description ? `. ${promo.description}` : ""), /*#__PURE__*/React.createElement("button", {
+    className: "site-promo-banner__cta",
+    onClick: onOpenCart
+  }, "Agregar al carrito \u2192"));
 }
 
 /* ─────────────────────────────────────────────
@@ -553,6 +722,8 @@ function App() {
     onSearchOpen: () => setSearchOpen(true),
     theme: t.theme,
     onThemeToggle: () => setTweak("theme", t.theme === "dark" ? "light" : "dark")
+  }), /*#__PURE__*/React.createElement(SitePromoBanner, {
+    onOpenCart: () => setCartOpen(true)
   }), route.name === "home" && /*#__PURE__*/React.createElement(Home, {
     onNavigate: navigate,
     onAdd: handleAdd
