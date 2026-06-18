@@ -469,11 +469,20 @@ function CartDrawer({
 /* ─────────────────────────────────────────────
    Banner de promoción (código público)
    ───────────────────────────────────────────── */
+var PROMO_DISMISS_KEY = "veta_promo_dismissed";
 function SitePromoBanner({
   onOpenCart
 }) {
   var [promo, setPromo] = useState(() => window.VETA_DB ? window.VETA_DB.getPublicPromoCode() : null);
+  var [dismissedCode, setDismissedCode] = useState(() => {
+    try {
+      return localStorage.getItem(PROMO_DISMISS_KEY) || null;
+    } catch {
+      return null;
+    }
+  });
   var bannerRef = useRef(null);
+  var dismissed = !!promo && dismissedCode === promo.code;
   useEffect(() => {
     if (!window.VETA_DB) return;
     var unsub = window.VETA_DB.subscribe(() => setPromo(window.VETA_DB.getPublicPromoCode()));
@@ -499,10 +508,16 @@ function SitePromoBanner({
       };
     }
     return () => document.documentElement.style.setProperty('--promo-h', '0px');
-  }, [promo]);
-  if (!promo) return null;
+  }, [promo, dismissed]);
+  if (!promo || dismissed) return null;
   var label = promo.type === "percent" ? `${promo.value}% de descuento` : `${VETA_DATA.fmtPrice(promo.value)} de descuento`;
   var qualifier = promo.min_subtotal > 0 ? `en compras mayores a ${VETA_DATA.fmtPrice(promo.min_subtotal)}` : "en tus compras";
+  var close = () => {
+    setDismissedCode(promo.code);
+    try {
+      localStorage.setItem(PROMO_DISMISS_KEY, promo.code);
+    } catch {}
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "site-promo-banner",
     ref: bannerRef,
@@ -531,7 +546,11 @@ function SitePromoBanner({
   }, " \xB7 ", promo.description) : null), /*#__PURE__*/React.createElement("button", {
     className: "site-promo-banner__cta",
     onClick: onOpenCart
-  }, "Agregar al carrito \u2192"));
+  }, "Agregar al carrito \u2192"), /*#__PURE__*/React.createElement("button", {
+    className: "site-promo-banner__close",
+    onClick: close,
+    "aria-label": "Cerrar mensaje"
+  }, "\xD7"));
 }
 
 /* ─────────────────────────────────────────────
@@ -750,7 +769,7 @@ function App() {
     onSearchOpen: () => setSearchOpen(true),
     theme: t.theme,
     onThemeToggle: () => setTweak("theme", t.theme === "dark" ? "light" : "dark")
-  }), /*#__PURE__*/React.createElement(SitePromoBanner, {
+  }), route.name !== "catalog" && /*#__PURE__*/React.createElement(SitePromoBanner, {
     onOpenCart: () => setCartOpen(true)
   }), route.name === "home" && /*#__PURE__*/React.createElement(Home, {
     onNavigate: navigate,

@@ -4410,7 +4410,7 @@ img { max-width: 100%; display: block; }
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 9px var(--gutter);
+  padding: 9px 44px;
   margin-top: 72px;
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
   color: var(--bg);
@@ -4439,15 +4439,37 @@ img { max-width: 100%; display: block; }
   flex-shrink: 0;
 }
 .site-promo-banner__cta:hover { background: rgba(255,255,255,.3); }
+.site-promo-banner__close {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 50%;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.site-promo-banner__close:hover { background: rgba(255,255,255,.3); }
 /* En pantallas pequeñas: layout vertical centrado, descripción oculta */
 @media (max-width: 540px) {
   .site-promo-banner {
-    font-size: 12px; gap: 5px; padding: 8px 16px;
+    font-size: 12px; gap: 5px; padding: 8px 40px;
     flex-direction: column; align-items: center; text-align: center;
   }
   .site-promo-banner svg { display: none; }
   .site-promo-banner__desc { display: none; }
   .site-promo-banner__cta { font-size: 11px; padding: 4px 14px; width: 100%; max-width: 220px; }
+  .site-promo-banner__close { right: 10px; width: 20px; height: 20px; font-size: 13px; }
 }
 /* El gap del marquee se resuelve dinámicamente vía --promo-h (ResizeObserver en SitePromoBanner) */
 
