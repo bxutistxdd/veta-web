@@ -2595,11 +2595,16 @@ img { max-width: 100%; display: block; }
   background: var(--bg-elev);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom, 0);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.adm-mob-tabs::-webkit-scrollbar { display: none; }
 .adm-mob-btn {
-  flex: 1;
-  position: relative;       /* ancla el badge absoluto */
-  padding: 14px 4px 10px;
+  flex: 0 0 auto;
+  min-width: 72px;
+  position: relative;
+  padding: 12px 8px 10px;
   border: none;
   background: transparent;
   color: var(--ink-faint);
@@ -2607,7 +2612,7 @@ img { max-width: 100%; display: block; }
   cursor: pointer;
   transition: color .12s;
   overflow: visible;
-  min-width: 0;
+  white-space: nowrap;
 }
 .adm-mob-btn--on { color: var(--accent); font-weight: 700; }
 
@@ -2684,7 +2689,7 @@ img { max-width: 100%; display: block; }
   .adm-stats-grid { gap: 8px; }
   .adm-stat       { padding: 12px 12px; }
   .adm-stat-n     { font-size: 22px; }
-  .adm-mob-btn    { font-size: 10px; }
+  .adm-mob-btn    { font-size: 11px; min-width: 64px; }
 }
 
 /* ── CRUD de Productos: formulario ─────────────────────────── */
