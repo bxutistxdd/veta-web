@@ -304,26 +304,24 @@ window.VETA_DB = (function () {
      El mensaje de WhatsApp solo referencia ese código — el bot/asesor
      consulta los montos reales aquí en vez de confiar en el texto
      que el cliente pudo editar antes de enviar.                    */
-  function _genQuoteCode() {
+  function genQuoteCode() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I, ambiguos
     let s = "";
     for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
     return s;
   }
 
-  async function saveCartQuote({ items, subtotal, discountCode, discountAmount, total }) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const code = _genQuoteCode();
-      const { error } = await sb.from("cart_quotes").insert({
-        code, items, subtotal,
-        discount_code: discountCode || null,
-        discount_amount: discountAmount || 0,
-        total,
-      });
-      if (!error) return code;
-      if (error.code !== "23505") { console.warn("[VETA_DB] saveCartQuote:", error.message); return null; }
-    }
-    return null;
+  // El código va sincrónico en el mensaje de WhatsApp (genQuoteCode) ANTES de
+  // abrir wa.me; este guardado corre en paralelo sin bloquear la apertura,
+  // porque un await previo al window.open rompe el deep link a la app móvil.
+  async function saveCartQuote({ code, items, subtotal, discountCode, discountAmount, total }) {
+    const { error } = await sb.from("cart_quotes").insert({
+      code, items, subtotal,
+      discount_code: discountCode || null,
+      discount_amount: discountAmount || 0,
+      total,
+    });
+    if (error) console.warn("[VETA_DB] saveCartQuote:", error.message);
   }
 
   /* ── despachos (wa_orders) ── */
@@ -513,7 +511,7 @@ window.VETA_DB = (function () {
     // descuentos
     getDiscountCodes, getPublicPromoCode, validateCode,
     upsertDiscountCode, deleteDiscountCode, incrementCodeUses,
-    saveCartQuote,
+    genQuoteCode, saveCartQuote,
     // buzón de chats
     loadThreads, getThreads, getConversationList, getMessages,
     setBotPaused, clearNeedsHuman, sendAgentMessage, uploadChatImage, subscribeChats,

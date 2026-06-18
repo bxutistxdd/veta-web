@@ -210,17 +210,30 @@ function CartDrawer({ open, onClose, cart, waPhone }) {
 
   const toWhatsApp = () => {
     if (cart.items.length === 0) return;
-    // Se abre la pestaña ya (gesto del usuario) y se navega luego de guardar
-    // la cotización; si se espera el await antes de abrir, el navegador
-    // bloquea el popup por no verlo como acción directa del clic.
-    const win = window.open("", "_blank");
-    (async () => {
-      const lines = cart.items.map((it) =>
-        `• ${it.name} (${it.material}, ${it.finish}, talla ${it.size}) x${it.qty} — ${VETA_DATA.fmtPrice(it.price * it.qty)} COP`
-      );
-      let quoteCode = null;
+    const lines = cart.items.map((it) =>
+      `• ${it.name} (${it.material}, ${it.finish}, talla ${it.size}) x${it.qty} — ${VETA_DATA.fmtPrice(it.price * it.qty)} COP`
+    );
+    const quoteCode = window.VETA_DB?.genQuoteCode ? window.VETA_DB.genQuoteCode() : null;
+    const msg = [
+      quoteCode ? `Pedido #${quoteCode}` : null,
+      "",
+      "¡Hola! Vi estos productos en su catálogo y me interesan:",
+      "",
+      ...lines,
+      cart.appliedCode ? `Código aplicado: ${cart.appliedCode.code}` : null,
+      "",
+      "¿Me ayudan a confirmar disponibilidad y tiempos de envío? ¡Gracias!",
+    ].filter((l) => l !== null).join("\n");
+    const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+    // Abrir de inmediato, sin await previo: en móvil, cualquier demora entre
+    // el clic y la navegación hace que el sistema no reconozca el deep link
+    // a la app de WhatsApp y caiga al fallback de la tienda de apps.
+    window.open(url, "_blank", "noopener");
+    // El guardado de la cotización corre después, en paralelo, sin bloquear.
+    if (quoteCode) {
       try {
-        quoteCode = await window.VETA_DB?.saveCartQuote({
+        window.VETA_DB?.saveCartQuote({
+          code: quoteCode,
           items: cart.items.map((it) => ({
             id: it.id, name: it.name, material: it.material,
             finish: it.finish, size: it.size, qty: it.qty, price: it.price,
@@ -231,23 +244,10 @@ function CartDrawer({ open, onClose, cart, waPhone }) {
           total: cart.total,
         });
       } catch {}
-      const msg = [
-        quoteCode ? `Pedido #${quoteCode}` : null,
-        "",
-        "¡Hola! Vi estos productos en su catálogo y me interesan:",
-        "",
-        ...lines,
-        cart.appliedCode ? `Código aplicado: ${cart.appliedCode.code}` : null,
-        "",
-        "¿Me ayudan a confirmar disponibilidad y tiempos de envío? ¡Gracias!",
-      ].filter((l) => l !== null).join("\n");
-      if (cart.appliedCode) {
-        try { window.VETA_DB?.incrementCodeUses(cart.appliedCode.code); } catch {}
-      }
-      const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
-      if (win && !win.closed) win.location.href = url;
-      else window.open(url, "_blank");
-    })();
+    }
+    if (cart.appliedCode) {
+      try { window.VETA_DB?.incrementCodeUses(cart.appliedCode.code); } catch {}
+    }
   };
 
   return (
