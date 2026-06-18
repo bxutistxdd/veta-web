@@ -2518,6 +2518,7 @@ function AdminShell({
   onLogout
 }) {
   var [tab, setTab] = useState("inicio");
+  var [menuOpen, setMenuOpen] = useState(false);
   var {
     products: rawProducts,
     add,
@@ -2537,6 +2538,28 @@ function AdminShell({
   } = useCfg();
   var chatBadge = useChatBadge();
   var despBadge = useDespBadge();
+
+  // Bloquear scroll del body cuando el menú está abierto
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
+  // Cerrar con Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    var onKey = e => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+  var goTab = id => {
+    setTab(id);
+    setMenuOpen(false);
+  };
   var toggleHidden = useCallback(async id => {
     var p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
     var currentlyVisible = p ? p.visible !== false : true;
@@ -2593,7 +2616,15 @@ function AdminShell({
     className: "adm-hdr-title"
   }, ADMIN_TABS.find(t => t.id === tab)?.label), /*#__PURE__*/React.createElement("span", {
     className: "adm-hdr-meta"
-  }, "VETA \xB7 Panel en la nube")), /*#__PURE__*/React.createElement("div", {
+  }, "VETA \xB7 Panel en la nube"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-hdr-hamburger",
+    onClick: () => setMenuOpen(o => !o),
+    "aria-label": menuOpen ? "Cerrar menú" : "Abrir menú",
+    "aria-expanded": menuOpen
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-hdr-hamburger-icon",
+    "data-open": menuOpen ? "1" : "0"
+  }, /*#__PURE__*/React.createElement("span", null), /*#__PURE__*/React.createElement("span", null), /*#__PURE__*/React.createElement("span", null)))), /*#__PURE__*/React.createElement("div", {
     className: "adm-content"
   }, tab === "inicio" && /*#__PURE__*/React.createElement(TabInicio, {
     products: products,
@@ -2614,19 +2645,36 @@ function AdminShell({
     save: saveCfg,
     onLogout: onLogout,
     resetProducts: resetToSeed
-  }))), /*#__PURE__*/React.createElement("nav", {
-    className: "adm-mob-tabs"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "adm-mob-tabs-scroll"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-mob-menu",
+    "data-on": menuOpen ? "1" : "0",
+    "aria-hidden": !menuOpen
   }, ADMIN_TABS.map(t => /*#__PURE__*/React.createElement("button", {
     key: t.id,
-    className: `adm-mob-btn${tab === t.id ? " adm-mob-btn--on" : ""}`,
-    onClick: () => setTab(t.id)
+    className: `adm-mob-menu-link${tab === t.id ? " adm-mob-menu-link--on" : ""}`,
+    onClick: () => goTab(t.id),
+    tabIndex: menuOpen ? 0 : -1
   }, t.label, t.id === "chats" && chatBadge > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "adm-mob-badge"
+    className: "adm-mob-menu-badge"
   }, chatBadge), t.id === "despachos" && despBadge > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "adm-mob-badge"
-  }, despBadge))))));
+    className: "adm-mob-menu-badge"
+  }, despBadge))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-mob-menu-foot"
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "#home",
+    className: "adm-sb-link",
+    onClick: () => setMenuOpen(false)
+  }, "\u2190 Ver tienda"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-sb-link",
+    style: {
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      padding: 0
+    },
+    onClick: onLogout,
+    tabIndex: menuOpen ? 0 : -1
+  }, "Cerrar sesi\xF3n"))));
 }
 
 // ── Raíz ──────────────────────────────────────────────────
