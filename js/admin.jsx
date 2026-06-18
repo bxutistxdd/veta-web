@@ -1317,9 +1317,10 @@ function TabDescuentos() {
 
       {codes.length === 0 ? (
         <p className="adm-empty">Aún no hay códigos. ¡Crea el primero!</p>
-      ) : (
-        <div className="adm-table-wrap">
-          <table className="adm-table">
+      ) : (<>
+        {/* Vista desktop: tabla */}
+        <div className="adm-table-wrap adm-disc-table-wrap">
+          <table className="adm-table adm-table--disc">
             <thead>
               <tr>
                 <th>Código</th><th>Descripción</th><th>Descuento</th>
@@ -1332,14 +1333,11 @@ function TabDescuentos() {
                 const exhausted = c.max_uses !== null && c.uses_count >= c.max_uses;
                 return (
                   <tr key={c.id} className={(!c.active || expired || exhausted) ? "adm-row--dim" : ""}>
-                    <td>
-                      <code className="adm-code adm-disc-code">{c.code}</code>
-                    </td>
+                    <td><code className="adm-code adm-disc-code">{c.code}</code></td>
                     <td style={{ color: "var(--ink-soft)", fontSize: 13 }}>{c.description || "—"}</td>
                     <td>
                       <span className="adm-disc-value">
-                        {c.type === "percent" ? `${c.value}%` : VETA_DATA.fmtPrice(c.value)}
-                        {" OFF"}
+                        {c.type === "percent" ? `${c.value}%` : VETA_DATA.fmtPrice(c.value)}{" OFF"}
                         {c.min_subtotal > 0 && <span className="adm-disc-min"> (min {VETA_DATA.fmtPrice(c.min_subtotal)})</span>}
                       </span>
                     </td>
@@ -1352,14 +1350,12 @@ function TabDescuentos() {
                       {expired && " ⚠"}
                     </td>
                     <td>
-                      <button className={`adm-badge${c.active ? " adm-badge--on" : ""}`}
-                        onClick={() => toggleActive(c)}>
+                      <button className={`adm-badge${c.active ? " adm-badge--on" : ""}`} onClick={() => toggleActive(c)}>
                         {c.active ? "Activo" : "Inactivo"}
                       </button>
                     </td>
                     <td>
-                      <button className={`adm-badge${c.show_on_site ? " adm-badge--on" : ""}`}
-                        onClick={() => toggleShowOnSite(c)}>
+                      <button className={`adm-badge${c.show_on_site ? " adm-badge--on" : ""}`} onClick={() => toggleShowOnSite(c)}>
                         {c.show_on_site ? "Visible" : "Oculto"}
                       </button>
                     </td>
@@ -1382,7 +1378,53 @@ function TabDescuentos() {
             </tbody>
           </table>
         </div>
-      )}
+
+        {/* Vista móvil: tarjetas */}
+        <div className="adm-disc-cards">
+          {codes.map(c => {
+            const expired = c.expires_at && new Date(c.expires_at) < new Date();
+            const exhausted = c.max_uses !== null && c.uses_count >= c.max_uses;
+            return (
+              <div key={c.id} className={`adm-disc-card${(!c.active || expired || exhausted) ? " adm-disc-card--dim" : ""}`}>
+                <div className="adm-disc-card-top">
+                  <code className="adm-code adm-disc-code">{c.code}</code>
+                  <span className="adm-disc-value">
+                    {c.type === "percent" ? `${c.value}%` : VETA_DATA.fmtPrice(c.value)} OFF
+                  </span>
+                </div>
+                {c.description && <p className="adm-disc-card-desc">{c.description}</p>}
+                <div className="adm-disc-card-row">
+                  <button className={`adm-badge${c.active ? " adm-badge--on" : ""}`} onClick={() => toggleActive(c)}>
+                    {c.active ? "Activo" : "Inactivo"}
+                  </button>
+                  <button className={`adm-badge${c.show_on_site ? " adm-badge--on" : ""}`} onClick={() => toggleShowOnSite(c)}>
+                    {c.show_on_site ? "Visible" : "Oculto"}
+                  </button>
+                  <div className="adm-row-actions" style={{ marginLeft: "auto" }}>
+                    <button className="adm-action-btn" onClick={() => setView(c)} title="Editar">✏</button>
+                    {confirm === c.id ? (
+                      <span className="adm-disc-confirm-inline">
+                        <button className="adm-action-btn" onClick={() => setConfirm(null)}>✗</button>
+                        <button className="adm-action-btn adm-action-btn--del" onClick={() => { remove(c.id); setConfirm(null); }}>✓</button>
+                      </span>
+                    ) : (
+                      <button className="adm-action-btn adm-action-btn--del" onClick={() => setConfirm(c.id)} title="Eliminar">✕</button>
+                    )}
+                  </div>
+                </div>
+                {(c.uses_count > 0 || c.max_uses !== null || c.expires_at) && (
+                  <p className="adm-disc-card-meta">
+                    {c.uses_count > 0 || c.max_uses !== null ? `Usos: ${c.uses_count}${c.max_uses !== null ? ` / ${c.max_uses}` : ""}` : ""}
+                    {exhausted && " · Agotado"}
+                    {c.expires_at && ` · Vence: ${new Date(c.expires_at).toLocaleDateString("es-CO")}`}
+                    {expired && " ⚠"}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </>)}
 
       <div className="adm-note" style={{ marginTop: 16 }}>
         <strong>Tip:</strong> Los códigos con <em>"Mostrar en sitio"</em> activo aparecen como un banner en la tienda para todos los visitantes.
@@ -1871,15 +1913,17 @@ function AdminShell({ onLogout }) {
       </div>
 
       <nav className="adm-mob-tabs">
-        {ADMIN_TABS.map(t=>(
-          <button key={t.id}
-            className={`adm-mob-btn${tab===t.id?" adm-mob-btn--on":""}`}
-            onClick={()=>setTab(t.id)}>
-            {t.label}
-            {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-badge">{chatBadge}</span>}
-            {t.id==="despachos" && despBadge>0 && <span className="adm-mob-badge">{despBadge}</span>}
-          </button>
-        ))}
+        <div className="adm-mob-tabs-scroll">
+          {ADMIN_TABS.map(t=>(
+            <button key={t.id}
+              className={`adm-mob-btn${tab===t.id?" adm-mob-btn--on":""}`}
+              onClick={()=>setTab(t.id)}>
+              {t.label}
+              {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-badge">{chatBadge}</span>}
+              {t.id==="despachos" && despBadge>0 && <span className="adm-mob-badge">{despBadge}</span>}
+            </button>
+          ))}
+        </div>
       </nav>
     </div>
   );
