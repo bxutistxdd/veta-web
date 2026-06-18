@@ -14,7 +14,10 @@
       "PowerShell(\\(Get-Content \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\css\\\\styles.css\" | Select-Object -Last 3\\) -join \"`n\")",
       "PowerShell(\\(Get-Content \"C:\\\\Users\\\\Jeffer\\\\Desktop\\\\Sebastian\\\\veta-web\\\\js\\\\screens.jsx\" | Select-String \"filter, search\"\\).Line)",
       "PowerShell(gh *)",
-      "PowerShell(winget install *)"
+      "PowerShell(winget install *)",
+      "Bash(node apply-chat-sql.js)",
+      "Bash(node deploy-n8n-chat.js)",
+      "Bash(railway redeploy --service n8n --yes)"
     ]
   }
 }
