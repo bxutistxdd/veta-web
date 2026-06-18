@@ -673,7 +673,7 @@ img { max-width: 100%; display: block; }
           mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
 .marquee--compact {
-  margin-top: 72px;
+  margin-top: max(0px, calc(72px - var(--promo-h, 0px)));
   padding: 12px 0;
   font-family: var(--sans);
   font-style: normal;
@@ -2005,7 +2005,7 @@ img { max-width: 100%; display: block; }
   .care-steps { padding: 24px var(--gutter) 72px; }
 
   /* Marquee compact */
-  .marquee--compact { margin-top: 68px; }
+  .marquee--compact { margin-top: max(0px, calc(68px - var(--promo-h, 0px))); }
 
   /* Numbers — padding reducido */
   .num-cell { padding: 28px clamp(16px, 3vw, 32px); }
@@ -2199,30 +2199,32 @@ img { max-width: 100%; display: block; }
   position: relative;
   flex: 1;
   min-width: 0;
-  max-width: 180px;
+  max-width: 200px;
 }
 .adm-hdr-tab-select {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
-  background: var(--bg-elev, #f0ece6);
-  border: 1px solid var(--line, #e8e4dd);
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 6px 28px 6px 10px;
+  padding: 7px 28px 7px 11px;
   font-family: "Manrope", sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
   cursor: pointer;
   outline: none;
+  letter-spacing: .01em;
+  transition: border-color 150ms;
 }
 .adm-hdr-tab-select:focus { border-color: var(--accent); }
 .adm-hdr-tab-chevron {
   position: absolute;
-  right: 9px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--ink-faint);
   pointer-events: none;
 }
@@ -2268,7 +2270,7 @@ img { max-width: 100%; display: block; }
   position: fixed;
   inset: 0;
   z-index: 120;
-  background: var(--bg);
+  background: var(--bg-elev);
   flex-direction: column;
   transform: translateY(-100%);
   will-change: transform;
@@ -2286,58 +2288,76 @@ img { max-width: 100%; display: block; }
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--rule, #e8e4dd);
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 .adm-mob-menu-brand {
   font-family: "Manrope", sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: .12em;
+  letter-spacing: .16em;
   color: var(--ink);
   text-transform: uppercase;
 }
 .adm-mob-menu-section {
   font-family: "Manrope", sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: var(--ink-faint);
-  letter-spacing: .04em;
+  letter-spacing: .06em;
+  text-transform: uppercase;
 }
 /* Lista de nav */
 .adm-mob-menu-nav {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 8px 0;
+  padding: 6px 0;
 }
 .adm-mob-menu-link {
   font-family: "Manrope", sans-serif;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
-  padding: 14px 24px;
+  padding: 11px 20px;
   background: none;
   border: none;
+  border-left: 3px solid transparent;
   cursor: pointer;
   text-align: left;
   position: relative;
-  transition: background 140ms;
-  border-radius: 0;
+  transition: background 140ms, border-color 140ms;
 }
-.adm-mob-menu-link:hover { background: var(--bg-soft, #f7f5f2); }
-.adm-mob-menu-link--on   { background: var(--bg-soft, #f7f5f2); }
-.adm-mob-menu-icon {
-  font-size: 16px;
+.adm-mob-menu-link:hover { background: color-mix(in oklab, var(--accent) 6%, var(--bg-elev)); }
+.adm-mob-menu-link--on {
+  background: color-mix(in oklab, var(--accent) 10%, var(--bg-elev));
+  border-left-color: var(--accent);
+}
+/* Números de ítem (reemplaza los iconos Unicode) */
+.adm-mob-menu-num {
+  font-family: "Manrope", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
   color: var(--ink-faint);
-  width: 20px;
-  text-align: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--bg-soft, rgba(0,0,0,.06));
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  transition: color 140ms;
+  transition: background 140ms, color 140ms, border-color 140ms;
 }
-.adm-mob-menu-link--on .adm-mob-menu-icon { color: var(--ink); }
+.adm-mob-menu-link--on .adm-mob-menu-num {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: transparent;
+}
 .adm-mob-menu-text {
   display: flex;
   flex-direction: column;
@@ -2346,15 +2366,15 @@ img { max-width: 100%; display: block; }
   min-width: 0;
 }
 .adm-mob-menu-label {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--ink-soft);
+  color: var(--ink);
   line-height: 1.2;
   transition: color 140ms;
 }
 .adm-mob-menu-link--on .adm-mob-menu-label { color: var(--ink); }
 .adm-mob-menu-desc {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 400;
   color: var(--ink-faint);
   line-height: 1.3;
@@ -2379,13 +2399,16 @@ img { max-width: 100%; display: block; }
 }
 .adm-mob-menu-foot {
   flex-shrink: 0;
-  border-top: 1px solid var(--rule, #e8e4dd);
-  padding: 16px 24px 32px;
+  border-top: 1px solid var(--line);
+  padding: 14px 20px 28px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--ink-faint);
+  font-family: "Manrope", sans-serif;
+  font-weight: 500;
+  letter-spacing: .02em;
 }
 .adm-content {
   flex: 1;
@@ -3678,6 +3701,40 @@ img { max-width: 100%; display: block; }
   min-height: 0;
   background: var(--bg-elev);
 }
+/* Nav de sección dentro del chat (móvil) — igual que adm-hdr-tab-nav */
+.adm-chat-nav-bar {
+  display: none;
+  position: relative;
+}
+.adm-chat-nav-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 28px 7px 12px;
+  font-family: "Manrope", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  outline: none;
+}
+.adm-chat-nav-select:focus { border-color: var(--accent); }
+.adm-chat-nav-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  .adm-chat-nav-bar { display: block; }
+}
+
 .adm-chat-list-top {
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
@@ -4362,6 +4419,8 @@ img { max-width: 100%; display: block; }
   z-index: 10;
 }
 .site-promo-banner svg { flex-shrink: 0; opacity: .85; }
+.site-promo-banner__text { flex: 1; min-width: 0; }
+.site-promo-banner__desc { opacity: .8; font-style: normal; }
 .site-promo-banner strong { font-weight: 700; letter-spacing: .04em; }
 .site-promo-banner__cta {
   background: rgba(255,255,255,.18);
@@ -4376,16 +4435,17 @@ img { max-width: 100%; display: block; }
   flex-shrink: 0;
 }
 .site-promo-banner__cta:hover { background: rgba(255,255,255,.3); }
+/* En pantallas pequeñas: layout vertical centrado, descripción oculta */
 @media (max-width: 540px) {
-  .site-promo-banner { font-size: 12px; gap: 7px; padding: 8px 14px; }
-  .site-promo-banner__cta { font-size: 11px; padding: 3px 10px; }
+  .site-promo-banner {
+    font-size: 12px; gap: 5px; padding: 8px 16px;
+    flex-direction: column; align-items: center; text-align: center;
+  }
+  .site-promo-banner svg { display: none; }
+  .site-promo-banner__desc { display: none; }
+  .site-promo-banner__cta { font-size: 11px; padding: 4px 14px; width: 100%; max-width: 220px; }
 }
-/* Cuando el banner está presente, el marquee de Home no necesita tanto margen superior
-   porque el banner ya empuja el contenido ~38px hacia abajo */
-.site-promo-banner ~ .page-enter .marquee--compact { margin-top: 34px; }
-@media (max-width: 768px) {
-  .site-promo-banner ~ .page-enter .marquee--compact { margin-top: 30px; }
-}
+/* El gap del marquee se resuelve dinámicamente vía --promo-h (ResizeObserver en SitePromoBanner) */
 
 /* ════════════════════════════════════════════════════════════
    CUPÓN DE DESCUENTO — CartDrawer

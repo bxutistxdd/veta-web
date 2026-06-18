@@ -873,7 +873,7 @@ function ChatBubbleRow({ msg, prev, byMid }) {
   );
 }
 
-function TabChats() {
+function TabChats({ goTab }) {
   const [list, setList]         = useState([]);
   const [loading, setLoading]   = useState(true);
   const [active, setActive]     = useState(null);   // phone
@@ -1001,6 +1001,19 @@ function TabChats() {
       {/* ── Lista de conversaciones ── */}
       <aside className="adm-chat-list">
         <div className="adm-chat-list-top">
+          {goTab && (
+            <div className="adm-chat-nav-bar">
+              <select
+                className="adm-chat-nav-select"
+                value="chats"
+                onChange={e => goTab(e.target.value)}>
+                {ADMIN_TABS.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+              <span className="adm-chat-nav-chevron" aria-hidden="true">▾</span>
+            </div>
+          )}
           <input className="adm-input adm-input--sm" placeholder="Buscar por nombre o número…"
             value={q} onChange={e => setQ(e.target.value)} />
           <div className="adm-chat-filters">
@@ -1941,7 +1954,7 @@ function AdminShell({ onLogout }) {
         </header>
         <div className="adm-content">
           {tab==="inicio"    && <TabInicio    products={products} stock={stock}/>}
-          {tab==="chats"     && <TabChats />}
+          {tab==="chats"     && <TabChats goTab={goTab} />}
           {tab==="despachos" && <TabDespachos />}
           {tab==="productos" && <TabProductos products={products}
             addProduct={add} updateProduct={update} removeProduct={remove}
@@ -1959,19 +1972,18 @@ function AdminShell({ onLogout }) {
           <span className="adm-mob-menu-section">Panel de administración</span>
         </div>
         <nav className="adm-mob-menu-nav">
-          {ADMIN_TABS.map(t => (
+          {ADMIN_TABS.map((t, idx) => (
             <button key={t.id}
               className={`adm-mob-menu-link${tab===t.id?" adm-mob-menu-link--on":""}`}
               onClick={() => goTab(t.id)}
               tabIndex={menuOpen ? 0 : -1}>
-              <span className="adm-mob-menu-icon">{t.icon}</span>
+              <span className="adm-mob-menu-num">{String(idx+1).padStart(2,'0')}</span>
               <span className="adm-mob-menu-text">
                 <span className="adm-mob-menu-label">{t.label}</span>
                 <span className="adm-mob-menu-desc">{t.desc}</span>
               </span>
               {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-menu-badge">{chatBadge}</span>}
               {t.id==="despachos" && despBadge>0 && <span className="adm-mob-menu-badge">{despBadge}</span>}
-              {tab===t.id && <span className="adm-mob-menu-active-dot"/>}
             </button>
           ))}
         </nav>

@@ -327,6 +327,8 @@ function SitePromoBanner({ onOpenCart }) {
   const [promo, setPromo] = useState(() =>
     window.VETA_DB ? window.VETA_DB.getPublicPromoCode() : null
   );
+  const bannerRef = useRef(null);
+
   useEffect(() => {
     if (!window.VETA_DB) return;
     const unsub = window.VETA_DB.subscribe(() =>
@@ -334,6 +336,26 @@ function SitePromoBanner({ onOpenCart }) {
     );
     return unsub;
   }, []);
+
+  // Mide la altura real del banner y la expone como --promo-h para que
+  // el marquee de Home ajuste su margin-top dinámicamente.
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) {
+      document.documentElement.style.setProperty('--promo-h', '0px');
+      return;
+    }
+    const update = () =>
+      document.documentElement.style.setProperty('--promo-h', el.offsetHeight + 'px');
+    update();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => { ro.disconnect(); document.documentElement.style.setProperty('--promo-h', '0px'); };
+    }
+    return () => document.documentElement.style.setProperty('--promo-h', '0px');
+  }, [promo]);
+
   if (!promo) return null;
   const label = promo.type === "percent"
     ? `${promo.value}% de descuento`
@@ -342,14 +364,14 @@ function SitePromoBanner({ onOpenCart }) {
     ? `en compras mayores a ${VETA_DATA.fmtPrice(promo.min_subtotal)}`
     : "en tus compras";
   return (
-    <div className="site-promo-banner" role="banner">
+    <div className="site-promo-banner" ref={bannerRef} role="banner">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
         <line x1="7" y1="7" x2="7.01" y2="7"/>
       </svg>
-      <span>
+      <span className="site-promo-banner__text">
         Con el código <strong>{promo.code}</strong>, obtienes {label} {qualifier}
-        {promo.description ? ` · ${promo.description}` : ""}
+        {promo.description ? <em className="site-promo-banner__desc"> · {promo.description}</em> : null}
       </span>
       <button className="site-promo-banner__cta" onClick={onOpenCart}>
         Agregar al carrito →
