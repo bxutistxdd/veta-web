@@ -1914,10 +1914,10 @@ function TabDescuentos() {
     onClick: () => setView("new")
   }, "+ Nuevo c\xF3digo")), codes.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "adm-empty"
-  }, "A\xFAn no hay c\xF3digos. \xA1Crea el primero!") : /*#__PURE__*/React.createElement("div", {
-    className: "adm-table-wrap"
+  }, "A\xFAn no hay c\xF3digos. \xA1Crea el primero!") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "adm-table-wrap adm-disc-table-wrap"
   }, /*#__PURE__*/React.createElement("table", {
-    className: "adm-table"
+    className: "adm-table adm-table--disc"
   }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "C\xF3digo"), /*#__PURE__*/React.createElement("th", null, "Descripci\xF3n"), /*#__PURE__*/React.createElement("th", null, "Descuento"), /*#__PURE__*/React.createElement("th", null, "Usos"), /*#__PURE__*/React.createElement("th", null, "Vence"), /*#__PURE__*/React.createElement("th", null, "Activo"), /*#__PURE__*/React.createElement("th", null, "En sitio"), /*#__PURE__*/React.createElement("th", null, "Acciones"))), /*#__PURE__*/React.createElement("tbody", null, codes.map(c => {
     var expired = c.expires_at && new Date(c.expires_at) < new Date();
     var exhausted = c.max_uses !== null && c.uses_count >= c.max_uses;
@@ -1979,6 +1979,57 @@ function TabDescuentos() {
       title: "Eliminar"
     }, "\u2715"))));
   })))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-disc-cards"
+  }, codes.map(c => {
+    var expired = c.expires_at && new Date(c.expires_at) < new Date();
+    var exhausted = c.max_uses !== null && c.uses_count >= c.max_uses;
+    return /*#__PURE__*/React.createElement("div", {
+      key: c.id,
+      className: `adm-disc-card${!c.active || expired || exhausted ? " adm-disc-card--dim" : ""}`
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "adm-disc-card-top"
+    }, /*#__PURE__*/React.createElement("code", {
+      className: "adm-code adm-disc-code"
+    }, c.code), /*#__PURE__*/React.createElement("span", {
+      className: "adm-disc-value"
+    }, c.type === "percent" ? `${c.value}%` : VETA_DATA.fmtPrice(c.value), " OFF")), c.description && /*#__PURE__*/React.createElement("p", {
+      className: "adm-disc-card-desc"
+    }, c.description), /*#__PURE__*/React.createElement("div", {
+      className: "adm-disc-card-row"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: `adm-badge${c.active ? " adm-badge--on" : ""}`,
+      onClick: () => toggleActive(c)
+    }, c.active ? "Activo" : "Inactivo"), /*#__PURE__*/React.createElement("button", {
+      className: `adm-badge${c.show_on_site ? " adm-badge--on" : ""}`,
+      onClick: () => toggleShowOnSite(c)
+    }, c.show_on_site ? "Visible" : "Oculto"), /*#__PURE__*/React.createElement("div", {
+      className: "adm-row-actions",
+      style: {
+        marginLeft: "auto"
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn",
+      onClick: () => setView(c),
+      title: "Editar"
+    }, "\u270F"), confirm === c.id ? /*#__PURE__*/React.createElement("span", {
+      className: "adm-disc-confirm-inline"
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn",
+      onClick: () => setConfirm(null)
+    }, "\u2717"), /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn adm-action-btn--del",
+      onClick: () => {
+        remove(c.id);
+        setConfirm(null);
+      }
+    }, "\u2713")) : /*#__PURE__*/React.createElement("button", {
+      className: "adm-action-btn adm-action-btn--del",
+      onClick: () => setConfirm(c.id),
+      title: "Eliminar"
+    }, "\u2715"))), (c.uses_count > 0 || c.max_uses !== null || c.expires_at) && /*#__PURE__*/React.createElement("p", {
+      className: "adm-disc-card-meta"
+    }, c.uses_count > 0 || c.max_uses !== null ? `Usos: ${c.uses_count}${c.max_uses !== null ? ` / ${c.max_uses}` : ""}` : "", exhausted && " · Agotado", c.expires_at && ` · Vence: ${new Date(c.expires_at).toLocaleDateString("es-CO")}`, expired && " ⚠"));
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "adm-note",
     style: {
       marginTop: 16
@@ -2565,6 +2616,8 @@ function AdminShell({
     resetProducts: resetToSeed
   }))), /*#__PURE__*/React.createElement("nav", {
     className: "adm-mob-tabs"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-mob-tabs-scroll"
   }, ADMIN_TABS.map(t => /*#__PURE__*/React.createElement("button", {
     key: t.id,
     className: `adm-mob-btn${tab === t.id ? " adm-mob-btn--on" : ""}`,
@@ -2573,7 +2626,7 @@ function AdminShell({
     className: "adm-mob-badge"
   }, chatBadge), t.id === "despachos" && despBadge > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-mob-badge"
-  }, despBadge)))));
+  }, despBadge))))));
 }
 
 // ── Raíz ──────────────────────────────────────────────────
