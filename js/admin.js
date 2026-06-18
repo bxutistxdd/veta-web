@@ -1296,7 +1296,9 @@ function ChatBubbleRow({
     className: "adm-chat-meta"
   }, chatTime(msg.created_at)))));
 }
-function TabChats() {
+function TabChats({
+  goTab
+}) {
   var [list, setList] = useState([]);
   var [loading, setLoading] = useState(true);
   var [active, setActive] = useState(null); // phone
@@ -1471,7 +1473,19 @@ function TabChats() {
     className: "adm-chat-list"
   }, /*#__PURE__*/React.createElement("div", {
     className: "adm-chat-list-top"
-  }, /*#__PURE__*/React.createElement("input", {
+  }, goTab && /*#__PURE__*/React.createElement("div", {
+    className: "adm-chat-nav-bar"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "adm-chat-nav-select",
+    value: "chats",
+    onChange: e => goTab(e.target.value)
+  }, ADMIN_TABS.map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.id,
+    value: t.id
+  }, t.label))), /*#__PURE__*/React.createElement("span", {
+    className: "adm-chat-nav-chevron",
+    "aria-hidden": "true"
+  }, "\u25BE")), /*#__PURE__*/React.createElement("input", {
     className: "adm-input adm-input--sm",
     placeholder: "Buscar por nombre o n\xFAmero\u2026",
     value: q,
@@ -2656,7 +2670,9 @@ function AdminShell({
   }, tab === "inicio" && /*#__PURE__*/React.createElement(TabInicio, {
     products: products,
     stock: stock
-  }), tab === "chats" && /*#__PURE__*/React.createElement(TabChats, null), tab === "despachos" && /*#__PURE__*/React.createElement(TabDespachos, null), tab === "productos" && /*#__PURE__*/React.createElement(TabProductos, {
+  }), tab === "chats" && /*#__PURE__*/React.createElement(TabChats, {
+    goTab: goTab
+  }), tab === "despachos" && /*#__PURE__*/React.createElement(TabDespachos, null), tab === "productos" && /*#__PURE__*/React.createElement(TabProductos, {
     products: products,
     addProduct: add,
     updateProduct: update,
@@ -2684,14 +2700,14 @@ function AdminShell({
     className: "adm-mob-menu-section"
   }, "Panel de administraci\xF3n")), /*#__PURE__*/React.createElement("nav", {
     className: "adm-mob-menu-nav"
-  }, ADMIN_TABS.map(t => /*#__PURE__*/React.createElement("button", {
+  }, ADMIN_TABS.map((t, idx) => /*#__PURE__*/React.createElement("button", {
     key: t.id,
     className: `adm-mob-menu-link${tab === t.id ? " adm-mob-menu-link--on" : ""}`,
     onClick: () => goTab(t.id),
     tabIndex: menuOpen ? 0 : -1
   }, /*#__PURE__*/React.createElement("span", {
-    className: "adm-mob-menu-icon"
-  }, t.icon), /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-num"
+  }, String(idx + 1).padStart(2, '0')), /*#__PURE__*/React.createElement("span", {
     className: "adm-mob-menu-text"
   }, /*#__PURE__*/React.createElement("span", {
     className: "adm-mob-menu-label"
@@ -2701,9 +2717,7 @@ function AdminShell({
     className: "adm-mob-menu-badge"
   }, chatBadge), t.id === "despachos" && despBadge > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-mob-menu-badge"
-  }, despBadge), tab === t.id && /*#__PURE__*/React.createElement("span", {
-    className: "adm-mob-menu-active-dot"
-  })))), /*#__PURE__*/React.createElement("div", {
+  }, despBadge)))), /*#__PURE__*/React.createElement("div", {
     className: "adm-mob-menu-foot"
   }, /*#__PURE__*/React.createElement("a", {
     href: "#home",

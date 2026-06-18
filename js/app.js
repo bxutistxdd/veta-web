@@ -473,16 +473,39 @@ function SitePromoBanner({
   onOpenCart
 }) {
   var [promo, setPromo] = useState(() => window.VETA_DB ? window.VETA_DB.getPublicPromoCode() : null);
+  var bannerRef = useRef(null);
   useEffect(() => {
     if (!window.VETA_DB) return;
     var unsub = window.VETA_DB.subscribe(() => setPromo(window.VETA_DB.getPublicPromoCode()));
     return unsub;
   }, []);
+
+  // Mide la altura real del banner y la expone como --promo-h para que
+  // el marquee de Home ajuste su margin-top dinámicamente.
+  useEffect(() => {
+    var el = bannerRef.current;
+    if (!el) {
+      document.documentElement.style.setProperty('--promo-h', '0px');
+      return;
+    }
+    var update = () => document.documentElement.style.setProperty('--promo-h', el.offsetHeight + 'px');
+    update();
+    if (typeof ResizeObserver !== 'undefined') {
+      var ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => {
+        ro.disconnect();
+        document.documentElement.style.setProperty('--promo-h', '0px');
+      };
+    }
+    return () => document.documentElement.style.setProperty('--promo-h', '0px');
+  }, [promo]);
   if (!promo) return null;
   var label = promo.type === "percent" ? `${promo.value}% de descuento` : `${VETA_DATA.fmtPrice(promo.value)} de descuento`;
   var qualifier = promo.min_subtotal > 0 ? `en compras mayores a ${VETA_DATA.fmtPrice(promo.min_subtotal)}` : "en tus compras";
   return /*#__PURE__*/React.createElement("div", {
     className: "site-promo-banner",
+    ref: bannerRef,
     role: "banner"
   }, /*#__PURE__*/React.createElement("svg", {
     width: "13",
@@ -501,7 +524,11 @@ function SitePromoBanner({
     y1: "7",
     x2: "7.01",
     y2: "7"
-  })), /*#__PURE__*/React.createElement("span", null, "Con el c\xF3digo ", /*#__PURE__*/React.createElement("strong", null, promo.code), ", obtienes ", label, " ", qualifier, promo.description ? ` · ${promo.description}` : ""), /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "site-promo-banner__text"
+  }, "Con el c\xF3digo ", /*#__PURE__*/React.createElement("strong", null, promo.code), ", obtienes ", label, " ", qualifier, promo.description ? /*#__PURE__*/React.createElement("em", {
+    className: "site-promo-banner__desc"
+  }, " \xB7 ", promo.description) : null), /*#__PURE__*/React.createElement("button", {
     className: "site-promo-banner__cta",
     onClick: onOpenCart
   }, "Agregar al carrito \u2192"));
