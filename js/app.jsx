@@ -323,11 +323,17 @@ function CartDrawer({ open, onClose, cart, waPhone }) {
 /* ─────────────────────────────────────────────
    Banner de promoción (código público)
    ───────────────────────────────────────────── */
+const PROMO_DISMISS_KEY = "veta_promo_dismissed";
+
 function SitePromoBanner({ onOpenCart }) {
   const [promo, setPromo] = useState(() =>
     window.VETA_DB ? window.VETA_DB.getPublicPromoCode() : null
   );
+  const [dismissedCode, setDismissedCode] = useState(() => {
+    try { return localStorage.getItem(PROMO_DISMISS_KEY) || null; } catch { return null; }
+  });
   const bannerRef = useRef(null);
+  const dismissed = !!promo && dismissedCode === promo.code;
 
   useEffect(() => {
     if (!window.VETA_DB) return;
@@ -354,15 +360,19 @@ function SitePromoBanner({ onOpenCart }) {
       return () => { ro.disconnect(); document.documentElement.style.setProperty('--promo-h', '0px'); };
     }
     return () => document.documentElement.style.setProperty('--promo-h', '0px');
-  }, [promo]);
+  }, [promo, dismissed]);
 
-  if (!promo) return null;
+  if (!promo || dismissed) return null;
   const label = promo.type === "percent"
     ? `${promo.value}% de descuento`
     : `${VETA_DATA.fmtPrice(promo.value)} de descuento`;
   const qualifier = promo.min_subtotal > 0
     ? `en compras mayores a ${VETA_DATA.fmtPrice(promo.min_subtotal)}`
     : "en tus compras";
+  const close = () => {
+    setDismissedCode(promo.code);
+    try { localStorage.setItem(PROMO_DISMISS_KEY, promo.code); } catch {}
+  };
   return (
     <div className="site-promo-banner" ref={bannerRef} role="banner">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -376,6 +386,7 @@ function SitePromoBanner({ onOpenCart }) {
       <button className="site-promo-banner__cta" onClick={onOpenCart}>
         Agregar al carrito →
       </button>
+      <button className="site-promo-banner__close" onClick={close} aria-label="Cerrar mensaje">×</button>
     </div>
   );
 }
@@ -554,7 +565,7 @@ function App() {
         theme={t.theme}
         onThemeToggle={() => setTweak("theme", t.theme === "dark" ? "light" : "dark")}
       />
-      <SitePromoBanner onOpenCart={() => setCartOpen(true)} />
+      {route.name !== "catalog" && <SitePromoBanner onOpenCart={() => setCartOpen(true)} />}
 
       {route.name === "home"    && <Home    onNavigate={navigate} onAdd={handleAdd} />}
       {route.name === "catalog" && <Catalog filter={route.filter} search={route.search} onNavigate={navigate} />}
