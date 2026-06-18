@@ -1852,11 +1852,28 @@ const ADMIN_TABS = [
 
 function AdminShell({ onLogout }) {
   const [tab, setTab] = useState("inicio");
+  const [menuOpen, setMenuOpen] = useState(false);
   const { products: rawProducts, add, update, remove, resetToSeed } = useProducts();
   const { stock, set: setStock, get: getStock, reset: resetStock } = useStock();
   const { cfg, save: saveCfg } = useCfg();
   const chatBadge = useChatBadge();
   const despBadge = useDespBadge();
+
+  // Bloquear scroll del body cuando el menú está abierto
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menuOpen]);
+
+  // Cerrar con Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = e => { if (e.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
+  const goTab = (id) => { setTab(id); setMenuOpen(false); };
 
   const toggleHidden = useCallback(async (id) => {
     const p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
@@ -1898,6 +1915,16 @@ function AdminShell({ onLogout }) {
         <header className="adm-hdr">
           <h1 className="adm-hdr-title">{ADMIN_TABS.find(t=>t.id===tab)?.label}</h1>
           <span className="adm-hdr-meta">VETA · Panel en la nube</span>
+          {/* Hamburguesa — solo visible en móvil */}
+          <button
+            className="adm-hdr-hamburger"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={menuOpen}>
+            <span className="adm-hdr-hamburger-icon" data-open={menuOpen ? "1" : "0"}>
+              <span/><span/><span/>
+            </span>
+          </button>
         </header>
         <div className="adm-content">
           {tab==="inicio"    && <TabInicio    products={products} stock={stock}/>}
@@ -1912,19 +1939,27 @@ function AdminShell({ onLogout }) {
         </div>
       </div>
 
-      <nav className="adm-mob-tabs">
-        <div className="adm-mob-tabs-scroll">
-          {ADMIN_TABS.map(t=>(
-            <button key={t.id}
-              className={`adm-mob-btn${tab===t.id?" adm-mob-btn--on":""}`}
-              onClick={()=>setTab(t.id)}>
-              {t.label}
-              {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-badge">{chatBadge}</span>}
-              {t.id==="despachos" && despBadge>0 && <span className="adm-mob-badge">{despBadge}</span>}
-            </button>
-          ))}
+      {/* Menú fullscreen móvil */}
+      <div className="adm-mob-menu" data-on={menuOpen ? "1" : "0"} aria-hidden={!menuOpen}>
+        {ADMIN_TABS.map(t => (
+          <button key={t.id}
+            className={`adm-mob-menu-link${tab===t.id?" adm-mob-menu-link--on":""}`}
+            onClick={() => goTab(t.id)}
+            tabIndex={menuOpen ? 0 : -1}>
+            {t.label}
+            {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-menu-badge">{chatBadge}</span>}
+            {t.id==="despachos" && despBadge>0 && <span className="adm-mob-menu-badge">{despBadge}</span>}
+          </button>
+        ))}
+        <div className="adm-mob-menu-foot">
+          <a href="#home" className="adm-sb-link" onClick={() => setMenuOpen(false)}>← Ver tienda</a>
+          <button className="adm-sb-link"
+            style={{background:"none",border:"none",cursor:"pointer",padding:0}}
+            onClick={onLogout} tabIndex={menuOpen ? 0 : -1}>
+            Cerrar sesión
+          </button>
         </div>
-      </nav>
+      </div>
     </div>
   );
 }
