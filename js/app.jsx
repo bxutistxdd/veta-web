@@ -338,6 +338,9 @@ function SitePromoBanner({ onOpenCart }) {
   const label = promo.type === "percent"
     ? `${promo.value}% de descuento`
     : `${VETA_DATA.fmtPrice(promo.value)} de descuento`;
+  const qualifier = promo.min_subtotal > 0
+    ? `en compras mayores a ${VETA_DATA.fmtPrice(promo.min_subtotal)}`
+    : "en tus compras";
   return (
     <div className="site-promo-banner" role="banner">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -345,8 +348,8 @@ function SitePromoBanner({ onOpenCart }) {
         <line x1="7" y1="7" x2="7.01" y2="7"/>
       </svg>
       <span>
-        Código <strong>{promo.code}</strong> — {label}
-        {promo.description ? `. ${promo.description}` : ""}
+        Con el código <strong>{promo.code}</strong>, obtienes {label} {qualifier}
+        {promo.description ? ` · ${promo.description}` : ""}
       </span>
       <button className="site-promo-banner__cta" onClick={onOpenCart}>
         Agregar al carrito →

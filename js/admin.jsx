@@ -1915,6 +1915,19 @@ function AdminShell({ onLogout }) {
         <header className="adm-hdr">
           <h1 className="adm-hdr-title">{ADMIN_TABS.find(t=>t.id===tab)?.label}</h1>
           <span className="adm-hdr-meta">VETA · Panel en la nube</span>
+          {/* Dropdown de navegación — solo visible en móvil */}
+          <div className="adm-hdr-tab-nav">
+            <select
+              className="adm-hdr-tab-select"
+              value={tab}
+              onChange={e => goTab(e.target.value)}
+              aria-label="Navegar entre secciones">
+              {ADMIN_TABS.map(t => (
+                <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
+              ))}
+            </select>
+            <span className="adm-hdr-tab-chevron" aria-hidden="true">▾</span>
+          </div>
           {/* Hamburguesa — solo visible en móvil */}
           <button
             className="adm-hdr-hamburger"

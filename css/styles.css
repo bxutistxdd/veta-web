@@ -2193,6 +2193,40 @@ img { max-width: 100%; display: block; }
   letter-spacing: .04em;
 }
 
+/* Dropdown de navegación admin (solo en móvil) */
+.adm-hdr-tab-nav {
+  display: none;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+}
+.adm-hdr-tab-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  background: var(--bg-elev, #f0ece6);
+  border: 1px solid var(--line, #e8e4dd);
+  border-radius: 8px;
+  padding: 6px 28px 6px 10px;
+  font-family: "Manrope", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  outline: none;
+}
+.adm-hdr-tab-select:focus { border-color: var(--accent); }
+.adm-hdr-tab-chevron {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
 /* Hamburguesa del header admin (solo en móvil) */
 .adm-hdr-hamburger {
   display: none;
@@ -2796,9 +2830,10 @@ img { max-width: 100%; display: block; }
   }
 
   /* ── Cabecera ── */
-  .adm-hdr       { padding: 12px 16px; }
+  .adm-hdr       { padding: 12px 16px; gap: 8px; }
   .adm-hdr-meta  { display: none; }
   .adm-hdr-title { font-size: 14px; }
+  .adm-hdr-tab-nav { display: flex; align-items: center; }
 
   /* ── Página genérica ── */
   .adm-page { padding: 16px 14px; gap: 16px; }
@@ -4344,6 +4379,12 @@ img { max-width: 100%; display: block; }
 @media (max-width: 540px) {
   .site-promo-banner { font-size: 12px; gap: 7px; padding: 8px 14px; }
   .site-promo-banner__cta { font-size: 11px; padding: 3px 10px; }
+}
+/* Cuando el banner está presente, el marquee de Home no necesita tanto margen superior
+   porque el banner ya empuja el contenido ~38px hacia abajo */
+.site-promo-banner ~ .page-enter .marquee--compact { margin-top: 34px; }
+@media (max-width: 768px) {
+  .site-promo-banner ~ .page-enter .marquee--compact { margin-top: 30px; }
 }
 
 /* ════════════════════════════════════════════════════════════
