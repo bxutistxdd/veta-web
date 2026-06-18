@@ -480,6 +480,7 @@ function SitePromoBanner({
   }, []);
   if (!promo) return null;
   var label = promo.type === "percent" ? `${promo.value}% de descuento` : `${VETA_DATA.fmtPrice(promo.value)} de descuento`;
+  var qualifier = promo.min_subtotal > 0 ? `en compras mayores a ${VETA_DATA.fmtPrice(promo.min_subtotal)}` : "en tus compras";
   return /*#__PURE__*/React.createElement("div", {
     className: "site-promo-banner",
     role: "banner"
@@ -500,7 +501,7 @@ function SitePromoBanner({
     y1: "7",
     x2: "7.01",
     y2: "7"
-  })), /*#__PURE__*/React.createElement("span", null, "C\xF3digo ", /*#__PURE__*/React.createElement("strong", null, promo.code), " \u2014 ", label, promo.description ? `. ${promo.description}` : ""), /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement("span", null, "Con el c\xF3digo ", /*#__PURE__*/React.createElement("strong", null, promo.code), ", obtienes ", label, " ", qualifier, promo.description ? ` · ${promo.description}` : ""), /*#__PURE__*/React.createElement("button", {
     className: "site-promo-banner__cta",
     onClick: onOpenCart
   }, "Agregar al carrito \u2192"));

@@ -2494,25 +2494,39 @@ function TabDespachos() {
 // ── Shell con sidebar ─────────────────────────────────────
 var ADMIN_TABS = [{
   id: "inicio",
-  label: "Inicio"
+  label: "Inicio",
+  desc: "Resumen general",
+  icon: "▦"
 }, {
   id: "chats",
-  label: "Chats"
+  label: "Chats",
+  desc: "Mensajes de clientes",
+  icon: "✉"
 }, {
   id: "despachos",
-  label: "Despachos"
+  label: "Despachos",
+  desc: "Pedidos y envíos",
+  icon: "⬡"
 }, {
   id: "productos",
-  label: "Productos"
+  label: "Productos",
+  desc: "Catálogo y visibilidad",
+  icon: "◈"
 }, {
   id: "stock",
-  label: "Stock"
+  label: "Stock",
+  desc: "Inventario por talla",
+  icon: "◫"
 }, {
   id: "descuentos",
-  label: "Descuentos"
+  label: "Descuentos",
+  desc: "Códigos promocionales",
+  icon: "◎"
 }, {
   id: "config",
-  label: "Config."
+  label: "Config.",
+  desc: "Ajustes del sistema",
+  icon: "◉"
 }];
 function AdminShell({
   onLogout
@@ -2616,7 +2630,20 @@ function AdminShell({
     className: "adm-hdr-title"
   }, ADMIN_TABS.find(t => t.id === tab)?.label), /*#__PURE__*/React.createElement("span", {
     className: "adm-hdr-meta"
-  }, "VETA \xB7 Panel en la nube"), /*#__PURE__*/React.createElement("button", {
+  }, "VETA \xB7 Panel en la nube"), /*#__PURE__*/React.createElement("div", {
+    className: "adm-hdr-tab-nav"
+  }, /*#__PURE__*/React.createElement("select", {
+    className: "adm-hdr-tab-select",
+    value: tab,
+    onChange: e => goTab(e.target.value),
+    "aria-label": "Navegar entre secciones"
+  }, ADMIN_TABS.map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.id,
+    value: t.id
+  }, t.icon, " ", t.label))), /*#__PURE__*/React.createElement("span", {
+    className: "adm-hdr-tab-chevron",
+    "aria-hidden": "true"
+  }, "\u25BE")), /*#__PURE__*/React.createElement("button", {
     className: "adm-hdr-hamburger",
     onClick: () => setMenuOpen(o => !o),
     "aria-label": menuOpen ? "Cerrar menú" : "Abrir menú",
@@ -2649,16 +2676,34 @@ function AdminShell({
     className: "adm-mob-menu",
     "data-on": menuOpen ? "1" : "0",
     "aria-hidden": !menuOpen
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-mob-menu-hdr"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-brand"
+  }, "VETA"), /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-section"
+  }, "Panel de administraci\xF3n")), /*#__PURE__*/React.createElement("nav", {
+    className: "adm-mob-menu-nav"
   }, ADMIN_TABS.map(t => /*#__PURE__*/React.createElement("button", {
     key: t.id,
     className: `adm-mob-menu-link${tab === t.id ? " adm-mob-menu-link--on" : ""}`,
     onClick: () => goTab(t.id),
     tabIndex: menuOpen ? 0 : -1
-  }, t.label, t.id === "chats" && chatBadge > 0 && /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-icon"
+  }, t.icon), /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-text"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-label"
+  }, t.label), /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-desc"
+  }, t.desc)), t.id === "chats" && chatBadge > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-mob-menu-badge"
   }, chatBadge), t.id === "despachos" && despBadge > 0 && /*#__PURE__*/React.createElement("span", {
     className: "adm-mob-menu-badge"
-  }, despBadge))), /*#__PURE__*/React.createElement("div", {
+  }, despBadge), tab === t.id && /*#__PURE__*/React.createElement("span", {
+    className: "adm-mob-menu-active-dot"
+  })))), /*#__PURE__*/React.createElement("div", {
     className: "adm-mob-menu-foot"
   }, /*#__PURE__*/React.createElement("a", {
     href: "#home",
