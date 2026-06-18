@@ -70,7 +70,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  const waMessageId = message.id || null;\n  const replyTo = message.context?.id || null;\n  const waTimestamp = message.timestamp || null;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = 'text';   // ruta del switch: 'audio' | 'image' | 'text'\n  let msgType = 'text';     // tipo guardado en BD: 'image' | 'text'\n  if (type === 'text') {\n    textContent = message.text.body;\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n    mediaType = 'image';\n    msgType = 'image';\n  } else {\n    textContent = '[Archivo no soportado]';\n  }\n  const RESET_KEYWORDS = ['nuevo chat', 'nueva sesion', 'nueva sesión', 'reiniciar'];\n  const normalized = textContent.toLowerCase().trim().replace(/[¡!¿?.,]/g, '');\n  const isReset = type === 'text' && RESET_KEYWORDS.some(k => normalized === k || normalized.includes(k));\n  const finalText = isReset ? 'Quiero iniciar una nueva sesión' : textContent;\n  return [{ json: { from, type, textContent: finalText, mediaId, mediaType, msgType, waMessageId, replyTo, waTimestamp, phoneNumberId, skip: false, isReset } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
+        "jsCode": "const body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  const waMessageId = message.id || null;\n  const replyTo = message.context?.id || null;\n  const waTimestamp = message.timestamp || null;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = 'text';   // ruta del switch: 'audio' | 'image' | 'text'\n  let msgType = 'text';     // tipo guardado en BD: 'image' | 'text'\n  if (type === 'text') {\n    textContent = message.text.body;\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n    mediaType = 'image';\n    msgType = 'image';\n  } else {\n    textContent = '[Archivo no soportado]';\n  }\n  const RESET_KEYWORDS = ['nuevo chat', 'nueva sesion', 'nueva sesión', 'reiniciar'];\n  const normalized = textContent.toLowerCase().trim().replace(/[¡!¿?.,]/g, '');\n  const isReset = type === 'text' && RESET_KEYWORDS.some(k => normalized === k || normalized.includes(k));\n  const finalText = isReset ? 'Quiero iniciar una nueva sesión' : textContent;\n  const qMatch = type === 'text' ? textContent.match(/pedido\\s*#\\s*([a-z0-9]{4,10})/i) : null;\n  const quoteCode = qMatch ? qMatch[1].toUpperCase() : '';\n  return [{ json: { from, type, textContent: finalText, mediaId, mediaType, msgType, waMessageId, replyTo, waTimestamp, phoneNumberId, skip: false, isReset, quoteCode } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
       },
       "id": "1ae7bd57-6afd-482b-8659-02fa96b397a2",
       "name": "Parsear Mensaje WA",
@@ -695,7 +695,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"phone\":\"{{ $('Procesar Respuesta').first().json.from }}\",\"customer_name\":\"{{ $('Procesar Respuesta').first().json.orderData.nombre }}\",\"city\":\"{{ $('Procesar Respuesta').first().json.orderData.ciudad }}\",\"items\":\"{{ $('Procesar Respuesta').first().json.orderData.items }}\",\"notes\":\"{{ $('Procesar Respuesta').first().json.orderData.notas }}\",\"address\":\"{{ $('Procesar Respuesta').first().json.orderData.dir }}\",\"neighborhood\":\"{{ $('Procesar Respuesta').first().json.orderData.barrio }}\",\"apt_ref\":\"{{ $('Procesar Respuesta').first().json.orderData.ref }}\",\"payment_method\":\"{{ $('Procesar Respuesta').first().json.orderData.pago }}\",\"recipient_name\":\"{{ $('Procesar Respuesta').first().json.orderData.destinatario }}\",\"delivery_notes\":\"{{ $('Procesar Respuesta').first().json.orderData.client_notes }}\",\"status\":\"pending\"}",
+        "jsonBody": "={\"phone\":\"{{ $('Procesar Respuesta').first().json.from }}\",\"customer_name\":\"{{ $('Procesar Respuesta').first().json.orderData.nombre }}\",\"city\":\"{{ $('Procesar Respuesta').first().json.orderData.ciudad }}\",\"items\":\"{{ $('Procesar Respuesta').first().json.orderData.items }}\",\"notes\":\"{{ $('Procesar Respuesta').first().json.orderData.notas }}\",\"address\":\"{{ $('Procesar Respuesta').first().json.orderData.dir }}\",\"neighborhood\":\"{{ $('Procesar Respuesta').first().json.orderData.barrio }}\",\"apt_ref\":\"{{ $('Procesar Respuesta').first().json.orderData.ref }}\",\"payment_method\":\"{{ $('Procesar Respuesta').first().json.orderData.pago }}\",\"recipient_name\":\"{{ $('Procesar Respuesta').first().json.orderData.destinatario }}\",\"delivery_notes\":\"{{ $('Procesar Respuesta').first().json.orderData.client_notes }}\",\"status\":\"pending\",\"subtotal\":{{ $('Combinar Pedido y Cotización').first().json.subtotal != null ? $('Combinar Pedido y Cotización').first().json.subtotal : 'null' }},\"discount_code\":{{ $('Combinar Pedido y Cotización').first().json.discount_code ? JSON.stringify($('Combinar Pedido y Cotización').first().json.discount_code) : 'null' }},\"discount_amount\":{{ $('Combinar Pedido y Cotización').first().json.discount_amount != null ? $('Combinar Pedido y Cotización').first().json.discount_amount : 'null' }},\"total\":{{ $('Combinar Pedido y Cotización').first().json.total != null ? $('Combinar Pedido y Cotización').first().json.total : 'null' }},\"quote_code\":{{ $('Combinar Pedido y Cotización').first().json.quote_code ? JSON.stringify($('Combinar Pedido y Cotización').first().json.quote_code) : 'null' }}}",
         "options": {}
       },
       "id": "ab6e5542-6715-4d30-8cfb-dd856b5163d1",
@@ -1749,6 +1749,249 @@
       "parameters": {
         "jsCode": "const parsed = $('Parsear Mensaje WA').first().json;\nconst msg = (parsed.textContent || '').toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n\n// Categorías de producto\nconst catMap = {\n  anillos:   /\\banill[oa]s?\\b/,\n  collares:  /\\bcollar(es)?\\b/,\n  aretes:    /\\barete[s]?\\b|\\bzarcillo[s]?\\b|\\bpendiente[s]?\\b/,\n  pulseras:  /\\bpulsera[s]?\\b|\\bbrazalete[s]?\\b/,\n  piercings: /\\bpiercing[s]?\\b/,\n};\nconst detectedCats = Object.entries(catMap)\n  .filter(([, rx]) => rx.test(msg))\n  .map(([cat]) => cat);\n\n// ID de producto específico: an-01, co-03, ar-02, etc.\nconst productMatch = msg.match(/\\b(an|co|ar|pu|pi)-?0?\\d{1,2}\\b/i);\nconst productId = productMatch\n  ? productMatch[0].replace(/^(an|co|ar|pu|pi)(\\d)/i, '$1-$2').toLowerCase()\n  : null;\n\n// El cliente quiere explorar / ver el catálogo -> le damos el LINK del sitio (0 tokens de productos)\nconst wantsCatalog = /catalogo|ver todo|todos los productos|que (tienen|tienes|manejan|venden|ofrecen|joyas|hay)|que mas|muestrame|ensename|recomi|opciones/.test(msg);\n\n// MÁXIMO AHORRO: solo se inyecta catálogo real en category/product.\n// full_catalog -> link.  Todo lo demás (FAQ, checkout, charla) -> none (0 tokens).\nlet catalogMode;\nif (wantsCatalog)                  catalogMode = 'full_catalog';\nelse if (productId)                catalogMode = 'product';\nelse if (detectedCats.length > 0)  catalogMode = 'category';\nelse                               catalogMode = 'none';\n\nreturn [{ json: { catalogMode, catFilter: detectedCats[0] || null, productId } }];"
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Parsear Mensaje WA').first().json;\nconst quoteCode = (data.quoteCode || '').trim();\nif (!quoteCode) return [];\nreturn [{ json: { quoteCode, phone: data.from } }];"
+      },
+      "id": "quote-detect-001",
+      "name": "¿Cotización Nueva?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_threads?on_conflict=phone",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"phone\":\"{{ $json.phone }}\",\"quote_code\":\"{{ $json.quoteCode }}\",\"updated_at\":\"{{ new Date().toISOString() }}\"}",
+        "options": {}
+      },
+      "id": "quote-save-thread-001",
+      "name": "Guardar Código Cotización",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_threads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "=eq.{{ $('Procesar Respuesta').first().json.from }}"
+            },
+            {
+              "name": "select",
+              "value": "quote_code"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "quote-lookup-thread-001",
+      "name": "Buscar Hilo (Cotización)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4320,
+        100
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/cart_quotes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "code",
+              "value": "=eq.{{ ($('Buscar Hilo (Cotización)').first().json.body && $('Buscar Hilo (Cotización)').first().json.body[0] && $('Buscar Hilo (Cotización)').first().json.body[0].quote_code) || '____' }}"
+            },
+            {
+              "name": "select",
+              "value": "code,subtotal,discount_code,discount_amount,total"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "quote-lookup-data-001",
+      "name": "Buscar Datos Cotización",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4560,
+        100
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "let row = null;\ntry { const rows = $('Buscar Datos Cotización').first().json.body || []; row = rows[0] || null; } catch (e) {}\nreturn [{ json: {\n  quote_code: row ? row.code : null,\n  subtotal: row ? row.subtotal : null,\n  discount_code: row ? row.discount_code : null,\n  discount_amount: row ? row.discount_amount : null,\n  total: row ? row.total : null,\n} }];"
+      },
+      "id": "quote-merge-001",
+      "name": "Combinar Pedido y Cotización",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/cart_quotes?code=eq.{{ $('Combinar Pedido y Cotización').first().json.quote_code || '____' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"used\":true}",
+        "options": {}
+      },
+      "id": "quote-mark-used-001",
+      "name": "Marcar Cotización Usada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5280,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_threads?on_conflict=phone",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"phone\":\"{{ $('Procesar Respuesta').first().json.from }}\",\"quote_code\":null,\"updated_at\":\"{{ new Date().toISOString() }}\"}",
+        "options": {}
+      },
+      "id": "quote-clear-thread-001",
+      "name": "Limpiar Código en Hilo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5280,
+        280
+      ],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1802,6 +2045,11 @@
         [
           {
             "node": "¿Audio o Texto?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Cotización Nueva?",
             "type": "main",
             "index": 0
           }
@@ -1993,7 +2241,7 @@
         [],
         [
           {
-            "node": "Guardar Pedido",
+            "node": "Buscar Hilo (Cotización)",
             "type": "main",
             "index": 0
           }
@@ -2005,6 +2253,16 @@
         [
           {
             "node": "Notificar Pedido al Equipo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Marcar Cotización Usada",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Limpiar Código en Hilo",
             "type": "main",
             "index": 0
           }
@@ -2307,6 +2565,50 @@
         [
           {
             "node": "Procesar Respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cotización Nueva?": {
+      "main": [
+        [
+          {
+            "node": "Guardar Código Cotización",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Hilo (Cotización)": {
+      "main": [
+        [
+          {
+            "node": "Buscar Datos Cotización",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Datos Cotización": {
+      "main": [
+        [
+          {
+            "node": "Combinar Pedido y Cotización",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combinar Pedido y Cotización": {
+      "main": [
+        [
+          {
+            "node": "Guardar Pedido",
             "type": "main",
             "index": 0
           }

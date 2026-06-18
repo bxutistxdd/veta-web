@@ -336,16 +336,39 @@ function CartDrawer({
   }, [open, onClose]);
   var toWhatsApp = () => {
     if (cart.items.length === 0) return;
-    var lines = cart.items.map(it => `• ${it.name} (${it.material}, ${it.finish}, talla ${it.size}) x${it.qty} — ${VETA_DATA.fmtPrice(it.price * it.qty)} COP`);
-    var discLines = cart.appliedCode && cart.discountAmount > 0 ? [`Código de descuento: ${cart.appliedCode.code} (${cart.appliedCode.type === "percent" ? cart.appliedCode.value + "%" : VETA_DATA.fmtPrice(cart.appliedCode.value)} OFF)`, `Descuento: -${VETA_DATA.fmtPrice(cart.discountAmount)} COP`] : [];
-    var msg = ["Hola VETA, me interesa esta selección:", "", ...lines, "", `Subtotal: ${VETA_DATA.fmtPrice(cart.subtotal)} COP`, ...discLines, `Total estimado: ${VETA_DATA.fmtPrice(cart.total)} COP`, "", "¿Me confirman disponibilidad y envío?"].join("\n");
-    if (cart.appliedCode) {
+    // Se abre la pestaña ya (gesto del usuario) y se navega luego de guardar
+    // la cotización; si se espera el await antes de abrir, el navegador
+    // bloquea el popup por no verlo como acción directa del clic.
+    var win = window.open("", "_blank");
+    (async () => {
+      var lines = cart.items.map(it => `• ${it.name} (${it.material}, ${it.finish}, talla ${it.size}) x${it.qty} — ${VETA_DATA.fmtPrice(it.price * it.qty)} COP`);
+      var quoteCode = null;
       try {
-        window.VETA_DB?.incrementCodeUses(cart.appliedCode.code);
+        quoteCode = await window.VETA_DB?.saveCartQuote({
+          items: cart.items.map(it => ({
+            id: it.id,
+            name: it.name,
+            material: it.material,
+            finish: it.finish,
+            size: it.size,
+            qty: it.qty,
+            price: it.price
+          })),
+          subtotal: cart.subtotal,
+          discountCode: cart.appliedCode?.code || null,
+          discountAmount: cart.discountAmount || 0,
+          total: cart.total
+        });
       } catch {}
-    }
-    var url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank", "noopener");
+      var msg = [quoteCode ? `Pedido #${quoteCode}` : null, "", "¡Hola! Vi estos productos en su catálogo y me interesan:", "", ...lines, cart.appliedCode ? `Código aplicado: ${cart.appliedCode.code}` : null, "", "¿Me ayudan a confirmar disponibilidad y tiempos de envío? ¡Gracias!"].filter(l => l !== null).join("\n");
+      if (cart.appliedCode) {
+        try {
+          window.VETA_DB?.incrementCodeUses(cart.appliedCode.code);
+        } catch {}
+      }
+      var url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+      if (win && !win.closed) win.location.href = url;else window.open(url, "_blank");
+    })();
   };
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "cart-scrim",

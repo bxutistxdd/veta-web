@@ -298,6 +298,34 @@ window.VETA_DB = (function () {
     } catch (e) { console.warn("[VETA_DB] incrementCodeUses:", e.message); }
   }
 
+  /* ── cotizaciones de carrito (cart_quotes) ──────────────────
+     Al hacer clic en "Continuar por WhatsApp" se guarda el carrito
+     completo (items, descuento, totales) con un código corto.
+     El mensaje de WhatsApp solo referencia ese código — el bot/asesor
+     consulta los montos reales aquí en vez de confiar en el texto
+     que el cliente pudo editar antes de enviar.                    */
+  function _genQuoteCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I, ambiguos
+    let s = "";
+    for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    return s;
+  }
+
+  async function saveCartQuote({ items, subtotal, discountCode, discountAmount, total }) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const code = _genQuoteCode();
+      const { error } = await sb.from("cart_quotes").insert({
+        code, items, subtotal,
+        discount_code: discountCode || null,
+        discount_amount: discountAmount || 0,
+        total,
+      });
+      if (!error) return code;
+      if (error.code !== "23505") { console.warn("[VETA_DB] saveCartQuote:", error.message); return null; }
+    }
+    return null;
+  }
+
   /* ── despachos (wa_orders) ── */
   async function getOrders(status) {
     let q = sb.from("wa_orders").select("*").order("created_at", { ascending: false });
@@ -485,6 +513,7 @@ window.VETA_DB = (function () {
     // descuentos
     getDiscountCodes, getPublicPromoCode, validateCode,
     upsertDiscountCode, deleteDiscountCode, incrementCodeUses,
+    saveCartQuote,
     // buzón de chats
     loadThreads, getThreads, getConversationList, getMessages,
     setBotPaused, clearNeedsHuman, sendAgentMessage, uploadChatImage, subscribeChats,
