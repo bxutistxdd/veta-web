@@ -2644,7 +2644,7 @@ function AdminShell({
     className: "adm-hdr-title"
   }, ADMIN_TABS.find(t => t.id === tab)?.label), /*#__PURE__*/React.createElement("span", {
     className: "adm-hdr-meta"
-  }, "VETA \xB7 Panel en la nube"), /*#__PURE__*/React.createElement("div", {
+  }, "VETA \xB7 Panel en la nube"), tab === "chats" && /*#__PURE__*/React.createElement("div", {
     className: "adm-hdr-tab-nav"
   }, /*#__PURE__*/React.createElement("select", {
     className: "adm-hdr-tab-select",

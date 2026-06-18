@@ -673,7 +673,7 @@ img { max-width: 100%; display: block; }
           mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
 }
 .marquee--compact {
-  margin-top: max(0px, calc(72px - var(--promo-h, 0px)));
+  margin-top: calc(16px + max(0px, 56px - var(--promo-h, 0px)));
   padding: 12px 0;
   font-family: var(--sans);
   font-style: normal;
@@ -2005,7 +2005,10 @@ img { max-width: 100%; display: block; }
   .care-steps { padding: 24px var(--gutter) 72px; }
 
   /* Marquee compact */
-  .marquee--compact { margin-top: max(0px, calc(68px - var(--promo-h, 0px))); }
+  .marquee--compact { margin-top: calc(16px + max(0px, 52px - var(--promo-h, 0px))); }
+
+  /* Banner de promo: clearance del nav móvil */
+  .site-promo-banner { margin-top: 68px; }
 
   /* Numbers — padding reducido */
   .num-cell { padding: 28px clamp(16px, 3vw, 32px); }
@@ -4408,6 +4411,7 @@ img { max-width: 100%; display: block; }
   justify-content: center;
   gap: 10px;
   padding: 9px var(--gutter);
+  margin-top: 72px;
   background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
   color: var(--bg);
   font-size: 13px;
