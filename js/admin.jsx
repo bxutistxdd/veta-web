@@ -1841,13 +1841,13 @@ function TabDespachos() {
 
 // ── Shell con sidebar ─────────────────────────────────────
 const ADMIN_TABS = [
-  { id:"inicio",     label:"Inicio"      },
-  { id:"chats",      label:"Chats"       },
-  { id:"despachos",  label:"Despachos"   },
-  { id:"productos",  label:"Productos"   },
-  { id:"stock",      label:"Stock"       },
-  { id:"descuentos", label:"Descuentos"  },
-  { id:"config",     label:"Config."     },
+  { id:"inicio",     label:"Inicio",      desc:"Resumen general",      icon:"▦" },
+  { id:"chats",      label:"Chats",       desc:"Mensajes de clientes", icon:"✉" },
+  { id:"despachos",  label:"Despachos",   desc:"Pedidos y envíos",     icon:"⬡" },
+  { id:"productos",  label:"Productos",   desc:"Catálogo y visibilidad",icon:"◈" },
+  { id:"stock",      label:"Stock",       desc:"Inventario por talla", icon:"◫" },
+  { id:"descuentos", label:"Descuentos",  desc:"Códigos promocionales", icon:"◎" },
+  { id:"config",     label:"Config.",     desc:"Ajustes del sistema",  icon:"◉" },
 ];
 
 function AdminShell({ onLogout }) {
@@ -1941,16 +1941,27 @@ function AdminShell({ onLogout }) {
 
       {/* Menú fullscreen móvil */}
       <div className="adm-mob-menu" data-on={menuOpen ? "1" : "0"} aria-hidden={!menuOpen}>
-        {ADMIN_TABS.map(t => (
-          <button key={t.id}
-            className={`adm-mob-menu-link${tab===t.id?" adm-mob-menu-link--on":""}`}
-            onClick={() => goTab(t.id)}
-            tabIndex={menuOpen ? 0 : -1}>
-            {t.label}
-            {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-menu-badge">{chatBadge}</span>}
-            {t.id==="despachos" && despBadge>0 && <span className="adm-mob-menu-badge">{despBadge}</span>}
-          </button>
-        ))}
+        <div className="adm-mob-menu-hdr">
+          <span className="adm-mob-menu-brand">VETA</span>
+          <span className="adm-mob-menu-section">Panel de administración</span>
+        </div>
+        <nav className="adm-mob-menu-nav">
+          {ADMIN_TABS.map(t => (
+            <button key={t.id}
+              className={`adm-mob-menu-link${tab===t.id?" adm-mob-menu-link--on":""}`}
+              onClick={() => goTab(t.id)}
+              tabIndex={menuOpen ? 0 : -1}>
+              <span className="adm-mob-menu-icon">{t.icon}</span>
+              <span className="adm-mob-menu-text">
+                <span className="adm-mob-menu-label">{t.label}</span>
+                <span className="adm-mob-menu-desc">{t.desc}</span>
+              </span>
+              {t.id==="chats"     && chatBadge>0 && <span className="adm-mob-menu-badge">{chatBadge}</span>}
+              {t.id==="despachos" && despBadge>0 && <span className="adm-mob-menu-badge">{despBadge}</span>}
+              {tab===t.id && <span className="adm-mob-menu-active-dot"/>}
+            </button>
+          ))}
+        </nav>
         <div className="adm-mob-menu-foot">
           <a href="#home" className="adm-sb-link" onClick={() => setMenuOpen(false)}>← Ver tienda</a>
           <button className="adm-sb-link"
