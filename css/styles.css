@@ -1154,7 +1154,7 @@ img { max-width: 100%; display: block; }
 
 .filters {
   position: sticky;
-  top: 68px;
+  top: 60px;
   z-index: 50;
   background: color-mix(in oklab, var(--bg) 80%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
