@@ -508,7 +508,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const msgData  = $('\\u00bfL\\u00edmite alcanzado?').first().json;\nconst isReset  = $('Parsear Mensaje WA').first().json.isReset === true;\nconst intent   = $('Detectar Intenci\\u00f3n').first().json;\n\n// ── Historial (8 últimos, asc; cada mensaje truncado a 500 chars) ──\nconst HMAX = 500;\nlet historyArray = $('Historial de Conversaci\\u00f3n').all()\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content)\n  .reverse();\nif (isReset) historyArray = [];\nconst esPrimerMensaje = historyArray.length === 0;\n\n// ── Catálogo filtrado (compacto, sin blurb) ──\nconst products  = ($('Cargar Cat\\u00e1logo').first().json.body) || [];\nconst stockRows = ($('Cargar Stock').first().json.body) || [];\nconst stockMap  = {};\nstockRows.forEach(r => { stockMap[r.product_id + '::' + r.size] = r.qty; });\n\nconst CAT_LABELS = { anillos:'ANILLOS', collares:'COLLARES', aretes:'ARETES', pulseras:'PULSERAS', piercings:'PIERCINGS' };\nlet siteUrl; try { siteUrl = $env.SITE_URL || 'vetajoyeria.co'; } catch(e) { siteUrl = 'vetajoyeria.co'; }\n\nlet catalogSection = '';\nif (intent.catalogMode === 'full_catalog') {\n  catalogSection = 'CAT\\u00c1LOGO: el cliente quiere explorar. Env\\u00edale el link ' + siteUrl +\n    ' (cat\\u00e1logo con stock en tiempo real) y ofr\\u00e9cele orientarlo. No listes productos en el chat.';\n} else if ((intent.catalogMode === 'category' || intent.catalogMode === 'product') && products.length > 0) {\n  const byCat = {};\n  products.forEach(p => { (byCat[p.cat] = byCat[p.cat] || []).push(p); });\n  let catText = '';\n  for (const cat of Object.keys(CAT_LABELS)) {\n    const list = byCat[cat];\n    if (!list || !list.length) continue;\n    catText += '\\n' + CAT_LABELS[cat] + ':\\n';\n    for (const p of list) {\n      const precio = '$' + Number(p.price).toLocaleString('es-CO');\n      const sizes  = Array.isArray(p.sizes) ? p.sizes : [];\n      const dispo  = sizes.map(sz => {\n        const q = stockMap[p.id + '::' + sz];\n        return (q !== undefined && q <= 0) ? sz + '(agotada)' : sz;\n      });\n      const hayAlgo = sizes.length === 0 ||\n        sizes.some(sz => { const q = stockMap[p.id + '::' + sz]; return q === undefined || q > 0; });\n      const tallas = dispo.length ? dispo.join(',') : '\\u00fanica';\n      catText += '\\u2022 ' + p.name + ' (' + p.id + ') ' + precio + ' \\u00b7 ' +\n        p.material + ' ' + p.finish + ' \\u00b7 T:' + tallas + (hayAlgo ? '' : ' [AGOTADO]') + '\\n';\n    }\n  }\n  if (catText) catalogSection = 'CAT\\u00c1LOGO (stock real):\\n' + catText +\n    '\\nOfrece solo lo de arriba. \"(agotada)\"/[AGOTADO] \\u2192 no lo ofrezcas, prop\\u00f3n alternativa.';\n}\n\n// ── Pedidos previos ──\nlet pedidosRows = [];\ntry { pedidosRows = $('Cargar Pedidos Cliente').first().json.body || []; } catch(e) {}\nlet pedidosResumen = '';\nif (!isReset && pedidosRows.length > 0) {\n  pedidosResumen = '\\nPEDIDOS PREVIOS:\\n';\n  const estados = { pending:'Pendiente', dispatched:'Despachado', delivered:'Entregado' };\n  pedidosRows.forEach((p, i) => {\n    const fecha = new Date(p.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short' });\n    pedidosResumen += (i+1) + '. ' + p.items + ' | ' + p.city + ' | ' + (estados[p.status] || p.status) + ' | ' + fecha + '\\n';\n  });\n}\n\n// ── Saludo ──\nlet saludoInstruccion;\nif (isReset) {\n  saludoInstruccion = 'NUEVA SESI\\u00d3N: el cliente pidi\\u00f3 empezar de cero. (1) acusa recibo con calidez, (2) pres\\u00e9ntate: \"Soy Luna, asesora de VETA \\ud83c\\udf19\", (3) pregunta \"\\u00bfCon qui\\u00e9n tengo el gusto?\".';\n} else if (esPrimerMensaje) {\n  saludoInstruccion = 'PRIMER CONTACTO: saluda con calidez, pres\\u00e9ntate como \"Luna, asesora de VETA \\ud83c\\udf19\" y pregunta con qui\\u00e9n tienes el gusto.';\n} else {\n  saludoInstruccion = 'CLIENTE RECURRENTE: ' + (pedidosRows.length > 0\n    ? 'tiene ' + pedidosRows.length + ' pedido(s) previo(s). Sal\\u00fadalo por nombre, sin presentarte. Ofrece: seguimiento al pedido reciente (' + pedidosRows[0].items + ', ' + pedidosRows[0].status + '), nuevo pedido, cat\\u00e1logo o dudas.'\n    : 'sal\\u00fadalo por nombre, sin presentarte de nuevo.');\n}\n\nconst SYSTEM_PROMPT =\n`Eres Luna, asesora de ventas de VETA (joyer\\u00eda minimalista colombiana de autor) por WhatsApp.\n\n${saludoInstruccion}\n\nIDENTIDAD: Te llamas Luna. Si preguntan: \"Soy Luna, asesora de VETA \\ud83c\\udf19\". No te repitas si ya hay historial.\n\nTONO: C\\u00e1lida, cercana, espa\\u00f1ol colombiano (\"con gusto\", \"claro que s\\u00ed\"). 1-3 emojis, m\\u00e1x ~4 l\\u00edneas (salvo al mostrar productos). No presiones; cierra con un paso \\u00fatil.\n\nFLUJO DE COMPRA (orden estricto):\n1. Confirma pieza(s) y talla(s). Si no sabe la talla \\u2192 gu\\u00edala a ${siteUrl}#care.\n2. Resumen: pieza, talla, acabado, precio.\n3. Nombre completo.\n4. Ciudad y direcci\\u00f3n (cualquier formato colombiano v\\u00e1lido).\n5. Pago: transferencia/Nequi o contraentrega.\n6. \\u00bfRegalo? Si s\\u00ed, nombre del destinatario.\n7. Resumen completo \\u2192 \"\\u00bfConfirmas este pedido?\".\n8. SOLO con confirmaci\\u00f3n expl\\u00edcita (s\\u00ed/confirmo/listo/ok/dale) generas el tag.\n\nAl confirmar: escribe PRIMERO un mensaje c\\u00e1lido visible para el cliente; el tag va en l\\u00ednea aparte al final, nunca solo.\n\nObligatorios: nombre, ciudad, direcci\\u00f3n, pago. Opcionales (vac\\u00edos si no aplican): barrio, ref, destinatario, notes_cliente.\ndir = calle+n\\u00famero o nombre del conjunto/portal. ref = apto/casa/piso/torre/porter\\u00eda. notes_cliente = instrucciones especiales. No insistas en calle+n\\u00famero si ya dio un lugar identificable.\n\nTag (EXACTO, al final):\n[PEDIDO_CONFIRMADO: nombre=X | ciudad=X | items=PIEZA(talla)xCANT | pago=X | dir=X | barrio=X | ref=X | destinatario=X | notes_cliente=X]\n\nESCALA solo si el cliente lo pide, o hay queja/reclamo/problema con un pedido. Token interno [ESCALAR] (nunca lo menciones).\n\nFAQ: Env\\u00edo 3-5 d\\u00edas h\\u00e1biles, solo Colombia. Pago: transferencia, Nequi, Daviplata o contraentrega. Materiales: plata 925, oro laminado 18k sobre plata 925, piercings acero quir\\u00fargico. Garant\\u00eda de por vida en la estructura. Tallas: ${siteUrl}#care.\n${pedidosResumen}\n${catalogSection}`;\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...historyArray.map(row => ({\n    role: row.role === 'user' ? 'user' : 'assistant',\n    content: (row.content || '').length > HMAX ? (row.content.slice(0, HMAX) + '\\u2026') : row.content\n  })),\n  { role: 'user', content: msgData.textContent }\n];\n\nreturn [{ json: {\n  from:          msgData.from,\n  phoneNumberId: msgData.phoneNumberId,\n  userMessage:   msgData.textContent,\n  messages,\n  catalogMode:   intent.catalogMode,\n} }];"
+        "jsCode": "const msgData  = $('¿Límite alcanzado?').first().json;\nconst isReset  = $('Parsear Mensaje WA').first().json.isReset === true;\nconst intent   = $('Detectar Intención').first().json;\n\n// ── Historial (8 últimos, asc; cada mensaje truncado a 500 chars) ──\nconst HMAX = 500;\nlet historyArray = $('Historial de Conversación').all()\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content)\n  .reverse();\nif (isReset) historyArray = [];\nconst esPrimerMensaje = historyArray.length === 0;\n\n// ── Código de descuento mencionado en el mensaje actual ──\nlet discountRows = [];\ntry { discountRows = $('Cargar Códigos Descuento').first().json.body || []; } catch (e) {}\n\nfunction normCode(s) {\n  return (s || '').toString().toUpperCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .replace(/[^A-Z0-9]/g, '');\n}\n\nconst msgNorm = normCode(msgData.textContent);\nlet matchedCode = null;\nfor (const row of discountRows) {\n  const codeNorm = normCode(row.code);\n  if (codeNorm && msgNorm.includes(codeNorm)) { matchedCode = row; break; }\n}\n\nlet codeExpired = false;\nlet discountSection = '';\nif (matchedCode) {\n  codeExpired = !!(matchedCode.expires_at && new Date(matchedCode.expires_at) < new Date());\n  if (codeExpired) {\n    discountSection = '\\nCÓDIGO DE DESCUENTO: el cliente mencionó \"' + matchedCode.code +\n      '\" pero ESTÁ EXPIRADO. Informa amablemente que ya no es válido. No apliques ningún descuento.';\n  } else {\n    const isPercent = matchedCode.type === 'percent';\n    const minSub = Number(matchedCode.min_subtotal) || 0;\n    discountSection = '\\nCÓDIGO DE DESCUENTO VÁLIDO: \"' + matchedCode.code + '\" ' +\n      (isPercent ? '(' + Number(matchedCode.value) + '% off)' : '($' + Number(matchedCode.value).toLocaleString('es-CO') + ' off)') +\n      (minSub > 0 ? ' · válido solo en compras desde $' + minSub.toLocaleString('es-CO') : '') +\n      '.\\nLos precios del catálogo de abajo YA incluyen el descuento aplicado (precio final tachado→con descuento). NO recalcules ni inventes otro descuento ni otro monto; usa exactamente los precios que ves.';\n  }\n}\nconst discountActive = !!matchedCode && !codeExpired;\n\n// ── Catálogo filtrado (compacto, sin blurb) ──\nconst products  = ($('Cargar Catálogo').first().json.body) || [];\nconst stockRows = ($('Cargar Stock').first().json.body) || [];\nconst stockMap  = {};\nstockRows.forEach(r => { stockMap[r.product_id + '::' + r.size] = r.qty; });\n\nconst CAT_LABELS = { anillos:'ANILLOS', collares:'COLLARES', aretes:'ARETES', pulseras:'PULSERAS', piercings:'PIERCINGS' };\nlet siteUrl; try { siteUrl = $env.SITE_URL || 'vetajoyeria.co'; } catch(e) { siteUrl = 'vetajoyeria.co'; }\n\nfunction precioConDescuento(base) {\n  if (!discountActive) return null;\n  if (matchedCode.type === 'percent') return Math.round(base * (1 - Number(matchedCode.value) / 100));\n  return Math.max(0, Math.round(base - Number(matchedCode.value)));\n}\n\nlet catalogSection = '';\nif (intent.catalogMode === 'full_catalog') {\n  catalogSection = 'CATÁLOGO: el cliente quiere explorar. Envíale el link ' + siteUrl +\n    ' (catálogo con stock en tiempo real) y ofrécele orientarlo. No listes productos en el chat.';\n} else if ((intent.catalogMode === 'category' || intent.catalogMode === 'product') && products.length > 0) {\n  const byCat = {};\n  products.forEach(p => { (byCat[p.cat] = byCat[p.cat] || []).push(p); });\n  let catText = '';\n  for (const cat of Object.keys(CAT_LABELS)) {\n    const list = byCat[cat];\n    if (!list || !list.length) continue;\n    catText += '\\n' + CAT_LABELS[cat] + ':\\n';\n    for (const p of list) {\n      const base = Number(p.price);\n      const final = precioConDescuento(base);\n      const precio = final != null\n        ? '$' + base.toLocaleString('es-CO') + ' → $' + final.toLocaleString('es-CO') + ' (con ' + matchedCode.code + ')'\n        : '$' + base.toLocaleString('es-CO');\n      const sizes  = Array.isArray(p.sizes) ? p.sizes : [];\n      const dispo  = sizes.map(sz => {\n        const q = stockMap[p.id + '::' + sz];\n        return (q !== undefined && q <= 0) ? sz + '(agotada)' : sz;\n      });\n      const hayAlgo = sizes.length === 0 ||\n        sizes.some(sz => { const q = stockMap[p.id + '::' + sz]; return q === undefined || q > 0; });\n      const tallas = dispo.length ? dispo.join(',') : 'única';\n      catText += '• ' + p.name + ' (' + p.id + ') ' + precio + ' · ' +\n        p.material + ' ' + p.finish + ' · T:' + tallas + (hayAlgo ? '' : ' [AGOTADO]') + '\\n';\n    }\n  }\n  if (catText) catalogSection = 'CATÁLOGO (stock real):\\n' + catText +\n    '\\nOfrece solo lo de arriba. \"(agotada)\"/[AGOTADO] → no lo ofrezcas, propón alternativa.';\n}\n\n// ── Pedidos previos ──\nlet pedidosRows = [];\ntry { pedidosRows = $('Cargar Pedidos Cliente').first().json.body || []; } catch(e) {}\nlet pedidosResumen = '';\nif (!isReset && pedidosRows.length > 0) {\n  pedidosResumen = '\\nPEDIDOS PREVIOS:\\n';\n  const estados = { pending:'Pendiente', dispatched:'Despachado', delivered:'Entregado' };\n  pedidosRows.forEach((p, i) => {\n    const fecha = new Date(p.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short' });\n    pedidosResumen += (i+1) + '. ' + p.items + ' | ' + p.city + ' | ' + (estados[p.status] || p.status) + ' | ' + fecha + '\\n';\n  });\n}\n\n// ── Saludo ──\nlet saludoInstruccion;\nif (isReset) {\n  saludoInstruccion = 'NUEVA SESIÓN: el cliente pidió empezar de cero. (1) acusa recibo con calidez, (2) preséntate: \"Soy Luna, asesora de VETA 🌙\", (3) pregunta \"¿Con quién tengo el gusto?\".';\n} else if (esPrimerMensaje) {\n  saludoInstruccion = 'PRIMER CONTACTO: saluda con calidez, preséntate como \"Luna, asesora de VETA 🌙\" y pregunta con quién tienes el gusto.';\n} else {\n  saludoInstruccion = 'CLIENTE RECURRENTE: ' + (pedidosRows.length > 0\n    ? 'tiene ' + pedidosRows.length + ' pedido(s) previo(s). Salúdalo por nombre, sin presentarte. Ofrece: seguimiento al pedido reciente (' + pedidosRows[0].items + ', ' + pedidosRows[0].status + '), nuevo pedido, catálogo o dudas.'\n    : 'salúdalo por nombre, sin presentarte de nuevo.');\n}\n\nconst SYSTEM_PROMPT =\n`Eres Luna, asesora de ventas de VETA (joyería minimalista colombiana de autor) por WhatsApp.\n\n${saludoInstruccion}\n\nIDENTIDAD: Te llamas Luna. Si preguntan: \"Soy Luna, asesora de VETA 🌙\". No te repitas si ya hay historial.\n\nTONO: Cálida, cercana, español colombiano (\"con gusto\", \"claro que sí\"). 1-3 emojis, máx ~4 líneas (salvo al mostrar productos). No presiones; cierra con un paso útil.\n\nFLUJO DE COMPRA (orden estricto):\n1. Confirma pieza(s) y talla(s). Si no sabe la talla → guíala a ${siteUrl}#care.\n2. Resumen: pieza, talla, acabado, precio.\n3. Nombre completo.\n4. Ciudad y dirección (cualquier formato colombiano válido).\n5. Pago: transferencia/Nequi o contraentrega.\n6. ¿Regalo? Si sí, nombre del destinatario.\n7. Resumen completo → \"¿Confirmas este pedido?\".\n8. SOLO con confirmación explícita (sí/confirmo/listo/ok/dale) generas el tag.\n\nAl confirmar: escribe PRIMERO un mensaje cálido visible para el cliente; el tag va en línea aparte al final, nunca solo.\n\nObligatorios: nombre, ciudad, dirección, pago. Opcionales (vacíos si no aplican): barrio, ref, destinatario, notes_cliente.\ndir = calle+número o nombre del conjunto/portal. ref = apto/casa/piso/torre/portería. notes_cliente = instrucciones especiales. No insistas en calle+número si ya dio un lugar identificable.\n\nTag (EXACTO, al final):\n[PEDIDO_CONFIRMADO: nombre=X | ciudad=X | items=PIEZA(talla)xCANT | pago=X | dir=X | barrio=X | ref=X | destinatario=X | notes_cliente=X]\n\nESCALA solo si el cliente lo pide, o hay queja/reclamo/problema con un pedido. Token interno [ESCALAR] (nunca lo menciones).\n\nFAQ: Envío 3-5 días hábiles, solo Colombia. Pago: transferencia, Nequi, Daviplata o contraentrega. Materiales: plata 925, oro laminado 18k sobre plata 925, piercings acero quirúrgico. Garantía de por vida en la estructura. Tallas: ${siteUrl}#care.\n${pedidosResumen}\n${catalogSection}\n${discountSection}`;\n\nconst messages = [\n  { role: 'system', content: SYSTEM_PROMPT },\n  ...historyArray.map(row => ({\n    role: row.role === 'user' ? 'user' : 'assistant',\n    content: (row.content || '').length > HMAX ? (row.content.slice(0, HMAX) + '…') : row.content\n  })),\n  { role: 'user', content: msgData.textContent }\n];\n\nreturn [{ json: {\n  from:          msgData.from,\n  phoneNumberId: msgData.phoneNumberId,\n  userMessage:   msgData.textContent,\n  messages,\n  catalogMode:   intent.catalogMode,\n} }];"
       },
       "id": "ddddbd28-5822-401b-9c2b-1fbac6b7ca81",
       "name": "Preparar Contexto",
@@ -1992,6 +1992,53 @@
         280
       ],
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/discount_codes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "code,type,value,min_subtotal,expires_at"
+            },
+            {
+              "name": "active",
+              "value": "eq.true"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-00ee-00ee-00ee-0000000000ee",
+      "name": "Cargar Códigos Descuento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3000,
+        580
+      ],
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -2295,7 +2342,7 @@
       "main": [
         [
           {
-            "node": "Cargar Pedidos Cliente",
+            "node": "Cargar Códigos Descuento",
             "type": "main",
             "index": 0
           }
@@ -2609,6 +2656,17 @@
         [
           {
             "node": "Guardar Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cargar Códigos Descuento": {
+      "main": [
+        [
+          {
+            "node": "Cargar Pedidos Cliente",
             "type": "main",
             "index": 0
           }
