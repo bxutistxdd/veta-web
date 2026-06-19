@@ -15,6 +15,48 @@ function visibleProducts() {
 }
 
 /* ─────────────────────────────────────────────
+   Destacados del Home — rotación diaria con semilla
+   ───────────────────────────────────────────── */
+function dailySeed() {
+  var d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+function seededRng(seed) {
+  var t = seed;
+  return function () {
+    t |= 0;
+    t = t + 0x6D2B79F5 | 0;
+    var r = Math.imul(t ^ t >>> 15, 1 | t);
+    r = r + Math.imul(r ^ r >>> 7, 61 | r) ^ r;
+    return ((r ^ r >>> 14) >>> 0) / 4294967296;
+  };
+}
+function seededShuffle(arr, rng) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* Modo manual (admin elige) o automático (4-6 al azar, prioriza p.featured, se renueva cada día) */
+function pickDailyFeatured(products) {
+  var db = window.VETA_DB;
+  var mode = db && db.getSetting("featured_mode", "auto") || "auto";
+  if (mode === "manual") {
+    var ids = db && db.getSetting("featured_manual_ids", []) || [];
+    var picked = ids.map(id => products.find(p => p.id === id)).filter(Boolean);
+    if (picked.length) return picked.slice(0, 6);
+  }
+  var rng = seededRng(dailySeed());
+  var count = 4 + Math.floor(rng() * 3); // 4, 5 o 6
+  var marked = seededShuffle(products.filter(p => p.featured === true), rng);
+  var rest = seededShuffle(products.filter(p => p.featured !== true), rng);
+  return marked.concat(rest).slice(0, count);
+}
+
+/* ─────────────────────────────────────────────
    Búsqueda de productos
    ───────────────────────────────────────────── */
 function norm(s) {
@@ -69,7 +111,7 @@ function Home({
   onAdd
 }) {
   var products = visibleProducts();
-  var featured = products.filter(p => ["an-01", "co-01", "ar-02", "pu-01"].includes(p.id));
+  var featured = useMemo(() => pickDailyFeatured(products), [products]);
   return /*#__PURE__*/React.createElement("main", {
     className: "page-enter"
   }, /*#__PURE__*/React.createElement(Marquee, {

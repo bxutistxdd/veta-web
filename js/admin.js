@@ -723,7 +723,8 @@ function TabProductos({
   addProduct,
   updateProduct,
   removeProduct,
-  toggleHidden
+  toggleHidden,
+  toggleFeatured
 }) {
   var [view, setView] = useState("list"); // "list" | "new" | <product-obj>
   var [q, setQ] = useState("");
@@ -778,7 +779,7 @@ function TabProductos({
     className: "adm-table-wrap"
   }, /*#__PURE__*/React.createElement("table", {
     className: "adm-table"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Img."), /*#__PURE__*/React.createElement("th", null, "Nombre"), /*#__PURE__*/React.createElement("th", null, "Cat."), /*#__PURE__*/React.createElement("th", null, "Material"), /*#__PURE__*/React.createElement("th", null, "Precio"), /*#__PURE__*/React.createElement("th", null, "Tallas"), /*#__PURE__*/React.createElement("th", null, "Estado"), /*#__PURE__*/React.createElement("th", null, "Acciones"))), /*#__PURE__*/React.createElement("tbody", null, filtered.map(p => /*#__PURE__*/React.createElement("tr", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Img."), /*#__PURE__*/React.createElement("th", null, "Nombre"), /*#__PURE__*/React.createElement("th", null, "Cat."), /*#__PURE__*/React.createElement("th", null, "Material"), /*#__PURE__*/React.createElement("th", null, "Precio"), /*#__PURE__*/React.createElement("th", null, "Tallas"), /*#__PURE__*/React.createElement("th", null, "Estado"), /*#__PURE__*/React.createElement("th", null, "Destacado"), /*#__PURE__*/React.createElement("th", null, "Acciones"))), /*#__PURE__*/React.createElement("tbody", null, filtered.map(p => /*#__PURE__*/React.createElement("tr", {
     key: p.id,
     className: p.hidden ? "adm-row--dim" : ""
   }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("div", {
@@ -808,7 +809,11 @@ function TabProductos({
   }, p.sizes.join(" · ")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
     className: `adm-badge${p.hidden ? "" : " adm-badge--on"}`,
     onClick: () => toggleHidden(p.id)
-  }, p.hidden ? "Oculto" : "Visible")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("div", {
+  }, p.hidden ? "Oculto" : "Visible")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+    className: `adm-badge${p.featured ? " adm-badge--on" : ""}`,
+    onClick: () => toggleFeatured(p.id),
+    title: "Elegible para destacados del Home"
+  }, p.featured ? "Sí" : "No")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("div", {
     className: "adm-row-actions"
   }, /*#__PURE__*/React.createElement("button", {
     className: "adm-action-btn",
@@ -1024,11 +1029,66 @@ function ChangePwForm() {
     disabled: busy || !cur || !nxt || !rep
   }, busy ? "Guardando…" : "Cambiar contraseña"));
 }
+function FeaturedConfigSection({
+  products
+}) {
+  var [mode, setMode] = useState(() => window.VETA_DB && window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
+  var [manualIds, setManualIds] = useState(() => window.VETA_DB && window.VETA_DB.getSetting("featured_manual_ids", []) || []);
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.subscribe(() => {
+      setMode(window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
+      setManualIds(window.VETA_DB.getSetting("featured_manual_ids", []) || []);
+    });
+  }, []);
+  var changeMode = async m => {
+    try {
+      await window.VETA_DB.saveSetting("featured_mode", m);
+    } catch (e) {
+      adminToast("No se pudo cambiar el modo: " + e.message, true);
+    }
+  };
+  var toggleManual = async id => {
+    var next = manualIds.includes(id) ? manualIds.filter(x => x !== id) : manualIds.length >= 6 ? manualIds : [...manualIds, id];
+    try {
+      await window.VETA_DB.saveSetting("featured_manual_ids", next);
+    } catch (e) {
+      adminToast("No se pudo guardar: " + e.message, true);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-cfg-section"
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-cfg-h"
+  }, "Destacados del inicio"), /*#__PURE__*/React.createElement("p", {
+    className: "adm-hint"
+  }, /*#__PURE__*/React.createElement("strong", null, "Autom\xE1tico"), ": el sitio elige solo entre 4 y 6 productos al azar cada d\xEDa (prioriza los marcados como \"Destacado: S\xED\" en Productos).", " ", /*#__PURE__*/React.createElement("strong", null, "Manual"), ": t\xFA decides exactamente cu\xE1les se muestran, como al \"tomar control\" de un chat."), /*#__PURE__*/React.createElement("div", {
+    className: "adm-pills",
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: `adm-pill${mode === "auto" ? " adm-pill--on" : ""}`,
+    onClick: () => changeMode("auto")
+  }, "Autom\xE1tico"), /*#__PURE__*/React.createElement("button", {
+    className: `adm-pill${mode === "manual" ? " adm-pill--on" : ""}`,
+    onClick: () => changeMode("manual")
+  }, "Manual")), mode === "manual" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+    className: "adm-hint"
+  }, "Elige entre 4 y 6 productos (", manualIds.length, "/6 seleccionados)."), /*#__PURE__*/React.createElement("div", {
+    className: "adm-pills"
+  }, products.map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.id,
+    className: `adm-pill${manualIds.includes(p.id) ? " adm-pill--on" : ""}`,
+    onClick: () => toggleManual(p.id)
+  }, p.name)))));
+}
 function TabConfig({
   cfg,
   save,
   onLogout,
-  resetProducts
+  resetProducts,
+  products
 }) {
   var [phone, setPhone] = useState(cfg.wa_phone);
   var [savedPhone, setSavedPhone] = useState(false);
@@ -1106,6 +1166,10 @@ function TabConfig({
   }, "Contrase\xF1a por defecto: ", /*#__PURE__*/React.createElement("code", {
     className: "adm-code"
   }, "veta2026"), ". C\xE1mbiala tras el primer acceso."), /*#__PURE__*/React.createElement(ChangePwForm, null)), /*#__PURE__*/React.createElement("hr", {
+    className: "adm-hr"
+  }), /*#__PURE__*/React.createElement(FeaturedConfigSection, {
+    products: products
+  }), /*#__PURE__*/React.createElement("hr", {
     className: "adm-hr"
   }), /*#__PURE__*/React.createElement("div", {
     className: "adm-cfg-section"
@@ -2597,6 +2661,15 @@ function AdminShell({
       adminToast("No se pudo cambiar la visibilidad: " + e.message, true);
     }
   }, []);
+  var toggleFeatured = useCallback(async id => {
+    var p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
+    var currentlyFeatured = p ? p.featured === true : false;
+    try {
+      await window.VETA_DB.setFeatured(id, !currentlyFeatured);
+    } catch (e) {
+      adminToast("No se pudo cambiar el destacado: " + e.message, true);
+    }
+  }, []);
   var products = rawProducts.map(p => ({
     ...p,
     hidden: p.visible === false
@@ -2677,7 +2750,8 @@ function AdminShell({
     addProduct: add,
     updateProduct: update,
     removeProduct: remove,
-    toggleHidden: toggleHidden
+    toggleHidden: toggleHidden,
+    toggleFeatured: toggleFeatured
   }), tab === "stock" && /*#__PURE__*/React.createElement(TabStock, {
     products: products,
     get: getStock,
@@ -2687,7 +2761,8 @@ function AdminShell({
     cfg: cfg,
     save: saveCfg,
     onLogout: onLogout,
-    resetProducts: resetToSeed
+    resetProducts: resetToSeed,
+    products: products
   }))), /*#__PURE__*/React.createElement("div", {
     className: "adm-mob-menu",
     "data-on": menuOpen ? "1" : "0",

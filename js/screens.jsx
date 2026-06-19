@@ -15,6 +15,51 @@ function visibleProducts() {
 }
 
 /* ─────────────────────────────────────────────
+   Destacados del Home — rotación diaria con semilla
+   ───────────────────────────────────────────── */
+function dailySeed() {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+function seededRng(seed) {
+  let t = seed;
+  return function () {
+    t |= 0; t = (t + 0x6D2B79F5) | 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* Modo manual (admin elige) o automático (4-6 al azar, prioriza p.featured, se renueva cada día) */
+function pickDailyFeatured(products) {
+  const db = window.VETA_DB;
+  const mode = (db && db.getSetting("featured_mode", "auto")) || "auto";
+
+  if (mode === "manual") {
+    const ids = (db && db.getSetting("featured_manual_ids", [])) || [];
+    const picked = ids.map((id) => products.find((p) => p.id === id)).filter(Boolean);
+    if (picked.length) return picked.slice(0, 6);
+  }
+
+  const rng = seededRng(dailySeed());
+  const count = 4 + Math.floor(rng() * 3); // 4, 5 o 6
+  const marked = seededShuffle(products.filter((p) => p.featured === true), rng);
+  const rest = seededShuffle(products.filter((p) => p.featured !== true), rng);
+  return marked.concat(rest).slice(0, count);
+}
+
+/* ─────────────────────────────────────────────
    Búsqueda de productos
    ───────────────────────────────────────────── */
 function norm(s) {
@@ -72,7 +117,7 @@ function searchProducts(query, products) {
    ───────────────────────────────────────────── */
 function Home({ onNavigate, onAdd }) {
   const products = visibleProducts();
-  const featured = products.filter((p) => ["an-01", "co-01", "ar-02", "pu-01"].includes(p.id));
+  const featured = useMemo(() => pickDailyFeatured(products), [products]);
 
   return (
     <main className="page-enter">
