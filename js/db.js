@@ -192,6 +192,17 @@ window.VETA_DB = (function () {
     _notify();
   }
 
+  async function setFeatured(productId, featured) {
+    const { error } = await sb.from("products")
+      .update({ featured }).eq("id", productId);
+    if (error) throw error;
+    if (_products) {
+      _products = _products.map(p => p.id === productId ? { ...p, featured } : p);
+      window.VETA_PRODUCTS = _products;
+    }
+    _notify();
+  }
+
   async function upsertProduct(product) {
     const row = {
       id:          product.id,
@@ -507,7 +518,7 @@ window.VETA_DB = (function () {
     init, onReady, subscribe,
     getProducts, getStock, getSetting, isHidden,
     signIn, signOut, getSession, onAuthChange, changePassword,
-    setStock, clearStock, setVisible, upsertProduct, deleteProduct, saveSetting,
+    setStock, clearStock, setVisible, setFeatured, upsertProduct, deleteProduct, saveSetting,
     // descuentos
     getDiscountCodes, getPublicPromoCode, validateCode,
     upsertDiscountCode, deleteDiscountCode, incrementCodeUses,

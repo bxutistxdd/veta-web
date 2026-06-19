@@ -484,7 +484,7 @@ function ProductForm({ product, allProducts, onSave, onBack }) {
 }
 
 // ── Tab: Productos (CRUD) ─────────────────────────────────
-function TabProductos({ products, addProduct, updateProduct, removeProduct, toggleHidden }) {
+function TabProductos({ products, addProduct, updateProduct, removeProduct, toggleHidden, toggleFeatured }) {
   const [view, setView] = useState("list");  // "list" | "new" | <product-obj>
   const [q, setQ]       = useState("");
   const [cat, setCat]   = useState("todas");
@@ -538,7 +538,7 @@ function TabProductos({ products, addProduct, updateProduct, removeProduct, togg
           <thead>
             <tr>
               <th>Img.</th><th>Nombre</th><th>Cat.</th><th>Material</th>
-              <th>Precio</th><th>Tallas</th><th>Estado</th><th>Acciones</th>
+              <th>Precio</th><th>Tallas</th><th>Estado</th><th>Destacado</th><th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -563,6 +563,13 @@ function TabProductos({ products, addProduct, updateProduct, removeProduct, togg
                   <button className={`adm-badge${p.hidden?"":" adm-badge--on"}`}
                     onClick={() => toggleHidden(p.id)}>
                     {p.hidden ? "Oculto" : "Visible"}
+                  </button>
+                </td>
+                <td>
+                  <button className={`adm-badge${p.featured?" adm-badge--on":""}`}
+                    onClick={() => toggleFeatured(p.id)}
+                    title="Elegible para destacados del Home">
+                    {p.featured ? "Sí" : "No"}
                   </button>
                 </td>
                 <td>
@@ -691,7 +698,61 @@ function ChangePwForm() {
   );
 }
 
-function TabConfig({ cfg, save, onLogout, resetProducts }) {
+function FeaturedConfigSection({ products }) {
+  const [mode, setMode] = useState(() => (window.VETA_DB && window.VETA_DB.getSetting("featured_mode", "auto")) || "auto");
+  const [manualIds, setManualIds] = useState(() => (window.VETA_DB && window.VETA_DB.getSetting("featured_manual_ids", [])) || []);
+
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.subscribe(() => {
+      setMode(window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
+      setManualIds(window.VETA_DB.getSetting("featured_manual_ids", []) || []);
+    });
+  }, []);
+
+  const changeMode = async (m) => {
+    try { await window.VETA_DB.saveSetting("featured_mode", m); }
+    catch (e) { adminToast("No se pudo cambiar el modo: " + e.message, true); }
+  };
+
+  const toggleManual = async (id) => {
+    const next = manualIds.includes(id)
+      ? manualIds.filter(x => x !== id)
+      : (manualIds.length >= 6 ? manualIds : [...manualIds, id]);
+    try { await window.VETA_DB.saveSetting("featured_manual_ids", next); }
+    catch (e) { adminToast("No se pudo guardar: " + e.message, true); }
+  };
+
+  return (
+    <div className="adm-cfg-section">
+      <h3 className="adm-cfg-h">Destacados del inicio</h3>
+      <p className="adm-hint">
+        <strong>Automático</strong>: el sitio elige solo entre 4 y 6 productos al azar cada día (prioriza los marcados como "Destacado: Sí" en Productos).{" "}
+        <strong>Manual</strong>: tú decides exactamente cuáles se muestran, como al "tomar control" de un chat.
+      </p>
+      <div className="adm-pills" style={{ marginBottom: 10 }}>
+        <button className={`adm-pill${mode==="auto"?" adm-pill--on":""}`} onClick={() => changeMode("auto")}>Automático</button>
+        <button className={`adm-pill${mode==="manual"?" adm-pill--on":""}`} onClick={() => changeMode("manual")}>Manual</button>
+      </div>
+      {mode === "manual" && (
+        <>
+          <p className="adm-hint">Elige entre 4 y 6 productos ({manualIds.length}/6 seleccionados).</p>
+          <div className="adm-pills">
+            {products.map(p => (
+              <button key={p.id}
+                className={`adm-pill${manualIds.includes(p.id)?" adm-pill--on":""}`}
+                onClick={() => toggleManual(p.id)}>
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TabConfig({ cfg, save, onLogout, resetProducts, products }) {
   const [phone,setPhone]=useState(cfg.wa_phone);
   const [savedPhone,setSavedPhone]=useState(false);
   const [limit,setLimit]=useState(cfg.bot_daily_limit);
@@ -728,6 +789,8 @@ function TabConfig({ cfg, save, onLogout, resetProducts }) {
         <p className="adm-hint">Contraseña por defecto: <code className="adm-code">veta2026</code>. Cámbiala tras el primer acceso.</p>
         <ChangePwForm/>
       </div>
+      <hr className="adm-hr"/>
+      <FeaturedConfigSection products={products}/>
       <hr className="adm-hr"/>
       <div className="adm-cfg-section">
         <h3 className="adm-cfg-h">Datos de productos</h3>
@@ -1895,6 +1958,13 @@ function AdminShell({ onLogout }) {
     catch (e) { adminToast("No se pudo cambiar la visibilidad: " + e.message, true); }
   }, []);
 
+  const toggleFeatured = useCallback(async (id) => {
+    const p = (window.VETA_DB.getProducts() || []).find(x => x.id === id);
+    const currentlyFeatured = p ? p.featured === true : false;
+    try { await window.VETA_DB.setFeatured(id, !currentlyFeatured); }
+    catch (e) { adminToast("No se pudo cambiar el destacado: " + e.message, true); }
+  }, []);
+
   const products = rawProducts.map(p => ({ ...p, hidden: p.visible === false }));
 
   return (
@@ -1960,10 +2030,10 @@ function AdminShell({ onLogout }) {
           {tab==="despachos" && <TabDespachos />}
           {tab==="productos" && <TabProductos products={products}
             addProduct={add} updateProduct={update} removeProduct={remove}
-            toggleHidden={toggleHidden}/>}
+            toggleHidden={toggleHidden} toggleFeatured={toggleFeatured}/>}
           {tab==="stock"      && <TabStock      products={products} get={getStock} set={setStock} reset={resetStock}/>}
           {tab==="descuentos" && <TabDescuentos />}
-          {tab==="config"     && <TabConfig    cfg={cfg} save={saveCfg} onLogout={onLogout} resetProducts={resetToSeed}/>}
+          {tab==="config"     && <TabConfig    cfg={cfg} save={saveCfg} onLogout={onLogout} resetProducts={resetToSeed} products={products}/>}
         </div>
       </div>
 
