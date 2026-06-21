@@ -18,7 +18,7 @@ const FLOW_PATH = path.join(__dirname, 'veta-whatsapp-flow.json');
 // Nodo: "Notificar Pedido al Equipo" (id: 1048274f-413c-4ce4-9d88-d8fe874b3a02)
 // $json llega desde Supabase "Guardar Pedido" (Prefer: return=representation)
 const BODY_PEDIDO =
-  `={"messaging_product":"whatsapp","to":"{{$env.WA_NOTIFY_NUMBER}}","type":"template","template":{"name":"veta_pedido_nuevo","language":{"code":"es"},"components":[{"type":"body","parameters":[` +
+  `={"messaging_product":"whatsapp","to":"{{$env.WA_NOTIFY_NUMBER}}","type":"template","template":{"name":"veta_nuevo_pedido","language":{"code":"es"},"components":[{"type":"body","parameters":[` +
   `{"type":"text","text":"{{ $json.order_number }}"},` +
   `{"type":"text","text":"{{ $json.items }}"},` +
   `{"type":"text","text":"{{ $json.customer_name }} +{{ $json.phone }}"},` +
@@ -30,7 +30,7 @@ const BODY_PEDIDO =
 // Nodo: "Notificar Asesor (Escalamiento)" (id: c2000000-0000-0000-0000-000000000003)
 // $json.from y $json.userMessage vienen de Preparar Contexto
 const BODY_ASESOR =
-  `={"messaging_product":"whatsapp","to":"{{$env.WA_NOTIFY_NUMBER}}","type":"template","template":{"name":"veta_asesor_requerido","language":{"code":"es"},"components":[{"type":"body","parameters":[` +
+  `={"messaging_product":"whatsapp","to":"{{$env.WA_NOTIFY_NUMBER}}","type":"template","template":{"name":"veta_requiere_asesor","language":{"code":"es"},"components":[{"type":"body","parameters":[` +
   `{"type":"text","text":"{{ $json.from }}"},` +
   `{"type":"text","text":"{{ ($json.userMessage || '').slice(0, 150) }}"}` +
   `]}]}}`;
@@ -38,7 +38,7 @@ const BODY_ASESOR =
 // Nodo: "Notificar a Sebastian (límite)" (id: c5850f81-6e36-495c-a21d-20fb46a13ffa)
 // $json.from y $json.mensajesHoy vienen de "¿Límite alcanzado?"
 const BODY_LIMITE =
-  `={"messaging_product":"whatsapp","to":"{{$env.WA_NOTIFY_NUMBER}}","type":"template","template":{"name":"veta_limite_alcanzado","language":{"code":"es"},"components":[{"type":"body","parameters":[` +
+  `={"messaging_product":"whatsapp","to":"{{$env.WA_NOTIFY_NUMBER}}","type":"template","template":{"name":"veta_cliente_en_espera","language":{"code":"es"},"components":[{"type":"body","parameters":[` +
   `{"type":"text","text":"{{ $json.from }}"},` +
   `{"type":"text","text":"{{ $json.mensajesHoy }}"}` +
   `]}]}}`;

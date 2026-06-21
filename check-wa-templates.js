@@ -7,7 +7,7 @@ const https = require('https');
 const WA_TOKEN = process.env.WA_TOKEN || process.argv[2];
 const WABA_ID  = process.env.WABA_ID  || process.env.WA_WABA_ID || process.argv[3];
 
-const NAMES = ['veta_pedido_nuevo', 'veta_asesor_requerido', 'veta_limite_alcanzado'];
+const NAMES = ['veta_nuevo_pedido', 'veta_requiere_asesor', 'veta_cliente_en_espera'];
 
 function apiCall(path) {
   return new Promise((resolve, reject) => {
