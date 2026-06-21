@@ -1177,7 +1177,7 @@
         "path": "veta-agent-send",
         "responseMode": "responseNode",
         "options": {
-          "allowedOrigins": "*"
+          "allowedOrigins": "https://bxutistxdd.github.io"
         }
       },
       "id": "b1000000-0000-0000-0000-000000000001",
