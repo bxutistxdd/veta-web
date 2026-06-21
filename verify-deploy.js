@@ -1,5 +1,5 @@
 const { Client } = require('pg');
-const c = new Client({ host:'zephyr.proxy.rlwy.net', port:16721, user:'postgres', password:'***REMOVED_PG_PASSWORD***', database:'railway', ssl:{ rejectUnauthorized:false } });
+const c = new Client({ host:'zephyr.proxy.rlwy.net', port:16721, user:'postgres', password:process.env.RAILWAY_PG_PASSWORD, database:'railway', ssl:{ rejectUnauthorized:false } });
 (async () => {
   await c.connect();
   const { rows } = await c.query(

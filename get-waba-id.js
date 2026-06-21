@@ -3,10 +3,10 @@ const https = require('https');
 
 const CONN = {
   host: 'zephyr.proxy.rlwy.net', port: 16721, user: 'postgres',
-  password: '***REMOVED_PG_PASSWORD***', database: 'railway',
+  password: process.env.RAILWAY_PG_PASSWORD, database: 'railway',
   ssl: { rejectUnauthorized: false }
 };
-const WA_TOKEN = '***REMOVED_META_TOKEN***';
+const WA_TOKEN = (process.env.WA_TOKEN);
 const PHONE_ID = '1216679024851056';
 
 function get(url) {

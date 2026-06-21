@@ -6,7 +6,7 @@ const client = new Client({
   host: 'zephyr.proxy.rlwy.net',
   port: 16721,
   user: 'postgres',
-  password: '***REMOVED_PG_PASSWORD***',
+  password: process.env.RAILWAY_PG_PASSWORD,
   database: 'railway',
   ssl: { rejectUnauthorized: false }
 });

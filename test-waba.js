@@ -1,6 +1,6 @@
 const https = require('https');
 
-const WA_TOKEN = '***REMOVED_META_TOKEN***';
+const WA_TOKEN = (process.env.WA_TOKEN);
 const WABA_ID = '999855739698017';
 
 function call(method, path, body) {
