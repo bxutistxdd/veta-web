@@ -1,6 +1,6 @@
 // Mide el consumo REAL de tokens de Groq leyendo las ejecuciones de n8n.
 const { Client } = require('pg');
-const c = new Client({ host:'zephyr.proxy.rlwy.net', port:16721, user:'postgres', password:'***REMOVED_PG_PASSWORD***', database:'railway', ssl:{ rejectUnauthorized:false } });
+const c = new Client({ host:'zephyr.proxy.rlwy.net', port:16721, user:'postgres', password:process.env.RAILWAY_PG_PASSWORD, database:'railway', ssl:{ rejectUnauthorized:false } });
 
 (async () => {
   await c.connect();

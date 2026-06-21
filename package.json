@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "build": "babel js/app.jsx -o js/app.js && babel js/screens.jsx -o js/screens.js && babel js/components.jsx -o js/components.js && babel js/admin.jsx -o js/admin.js && babel js/tweaks-panel.jsx -o js/tweaks-panel.js"
+  },
   "devDependencies": {
     "@babel/cli": "^7.29.7",
     "@babel/core": "^7.29.7",
