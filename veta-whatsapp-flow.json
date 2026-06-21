@@ -39,7 +39,9 @@
         "httpMethod": "POST",
         "path": "whatsapp",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {
+          "rawBody": true
+        }
       },
       "id": "8bf7a12e-7d26-4f95-9ae6-99a3dc224d07",
       "name": "Webhook - Mensajes WhatsApp",
@@ -70,7 +72,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  const waMessageId = message.id || null;\n  const replyTo = message.context?.id || null;\n  const waTimestamp = message.timestamp || null;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = 'text';   // ruta del switch: 'audio' | 'image' | 'text'\n  let msgType = 'text';     // tipo guardado en BD: 'image' | 'text'\n  if (type === 'text') {\n    textContent = message.text.body;\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n    mediaType = 'image';\n    msgType = 'image';\n  } else {\n    textContent = '[Archivo no soportado]';\n  }\n  const RESET_KEYWORDS = ['nuevo chat', 'nueva sesion', 'nueva sesión', 'reiniciar'];\n  const normalized = textContent.toLowerCase().trim().replace(/[¡!¿?.,]/g, '');\n  const isReset = type === 'text' && RESET_KEYWORDS.some(k => normalized === k || normalized.includes(k));\n  const finalText = isReset ? 'Quiero iniciar una nueva sesión' : textContent;\n  const qMatch = type === 'text' ? textContent.match(/pedido\\s*#\\s*([a-z0-9]{4,10})/i) : null;\n  const quoteCode = qMatch ? qMatch[1].toUpperCase() : '';\n  return [{ json: { from, type, textContent: finalText, mediaId, mediaType, msgType, waMessageId, replyTo, waTimestamp, phoneNumberId, skip: false, isReset, quoteCode } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
+        "jsCode": "const __wa = $input.first().json;\nif (__wa.__sigEnforce === true && __wa.__sigValid !== true) { return [{ json: { skip: true } }]; }\nconst body = $input.first().json.body;\ntry {\n  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];\n  if (!message) return [{ json: { skip: true } }];\n  const meta = body.entry[0].changes[0].value.metadata;\n  const from = message.from;\n  const type = message.type;\n  const phoneNumberId = meta.phone_number_id;\n  const waMessageId = message.id || null;\n  const replyTo = message.context?.id || null;\n  const waTimestamp = message.timestamp || null;\n  let textContent = '';\n  let mediaId = null;\n  let mediaType = 'text';   // ruta del switch: 'audio' | 'image' | 'text'\n  let msgType = 'text';     // tipo guardado en BD: 'image' | 'text'\n  if (type === 'text') {\n    textContent = message.text.body;\n  } else if (type === 'audio' || type === 'voice') {\n    mediaId = message.audio?.id || message.voice?.id;\n    mediaType = 'audio';\n  } else if (type === 'image') {\n    mediaId = message.image.id;\n    textContent = message.image.caption || '[imagen]';\n    mediaType = 'image';\n    msgType = 'image';\n  } else {\n    textContent = '[Archivo no soportado]';\n  }\n  const RESET_KEYWORDS = ['nuevo chat', 'nueva sesion', 'nueva sesión', 'reiniciar'];\n  const normalized = textContent.toLowerCase().trim().replace(/[¡!¿?.,]/g, '');\n  const isReset = type === 'text' && RESET_KEYWORDS.some(k => normalized === k || normalized.includes(k));\n  const finalText = isReset ? 'Quiero iniciar una nueva sesión' : textContent;\n  const qMatch = type === 'text' ? textContent.match(/pedido\\s*#\\s*([a-z0-9]{4,10})/i) : null;\n  const quoteCode = qMatch ? qMatch[1].toUpperCase() : '';\n  return [{ json: { from, type, textContent: finalText, mediaId, mediaType, msgType, waMessageId, replyTo, waTimestamp, phoneNumberId, skip: false, isReset, quoteCode } }];\n} catch (err) {\n  return [{ json: { skip: true } }];\n}"
       },
       "id": "1ae7bd57-6afd-482b-8659-02fa96b397a2",
       "name": "Parsear Mensaje WA",
@@ -2045,6 +2047,19 @@
         580
       ],
       "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst bin  = $input.first().binary;\nconst crypto = require('crypto');\n\nlet secret = '';\ntry { secret = $env.APP_SECRET || ''; } catch (e) {}\nlet enforce = false;\ntry { enforce = String($env.WA_SIG_ENFORCE || '').toLowerCase() === 'true'; } catch (e) {}\n\n// Cuerpo crudo exacto que firmó Meta (binary 'data' o item.rawBody)\nlet raw = '';\nif (bin && bin.data && bin.data.data) {\n  raw = Buffer.from(bin.data.data, 'base64').toString('utf8');\n} else if (typeof item.rawBody === 'string') {\n  raw = item.rawBody;\n}\n\nlet body = item.body;\nif (raw) { try { body = JSON.parse(raw); } catch (e) {} }\n\nconst headers   = item.headers || {};\nconst sigHeader = headers['x-hub-signature-256'] || headers['X-Hub-Signature-256'] || '';\n\nlet sigValid = false;\nif (secret && raw && sigHeader.indexOf('sha256=') === 0) {\n  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(raw, 'utf8').digest('hex');\n  try {\n    const a = Buffer.from(expected);\n    const b = Buffer.from(sigHeader);\n    sigValid = a.length === b.length && crypto.timingSafeEqual(a, b);\n  } catch (e) { sigValid = false; }\n}\n\nif (sigValid) {\n  console.log('[VETA][B1] Firma válida ✓');\n} else {\n  console.warn('[VETA][B1] Firma inválida/ausente. enforce=' + enforce +\n    ' header=' + (sigHeader ? 'sí' : 'no') + ' raw=' + (raw ? raw.length + 'b' : 'no') +\n    ' secret=' + (secret ? 'sí' : 'no'));\n}\n\nreturn [{ json: Object.assign({}, item, { body: body, __sigValid: sigValid, __sigEnforce: enforce }) }];"
+      },
+      "id": "b1516a7u-0000-0000-0000-000000000001",
+      "name": "Validar Firma Meta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        80
+      ]
     }
   ],
   "connections": {
@@ -2063,7 +2078,7 @@
       "main": [
         [
           {
-            "node": "Responder 200 OK a Meta",
+            "node": "Validar Firma Meta",
             "type": "main",
             "index": 0
           }
@@ -2673,6 +2688,17 @@
         [
           {
             "node": "Cargar Pedidos Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Firma Meta": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 OK a Meta",
             "type": "main",
             "index": 0
           }
