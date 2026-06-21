@@ -488,6 +488,19 @@ function TabProductos({ products, addProduct, updateProduct, removeProduct, togg
   const [view, setView] = useState("list");  // "list" | "new" | <product-obj>
   const [q, setQ]       = useState("");
   const [cat, setCat]   = useState("todas");
+  const [featuredMode, setFeaturedMode] = useState(() => (window.VETA_DB && window.VETA_DB.getSetting("featured_mode", "auto")) || "auto");
+
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.subscribe(() => {
+      setFeaturedMode(window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
+    });
+  }, []);
+
+  const changeFeaturedMode = async (m) => {
+    try { await window.VETA_DB.saveSetting("featured_mode", m); }
+    catch (e) { adminToast("No se pudo cambiar el modo de destacados: " + e.message, true); }
+  };
 
   const cats = ["todas", ...VETA_DATA.categories.map(c => c.id)];
   const filtered = products.filter(p => {
@@ -531,6 +544,27 @@ function TabProductos({ products, addProduct, updateProduct, removeProduct, togg
           onClick={() => setView("new")}>
           + Nuevo producto
         </button>
+      </div>
+
+      <div className="adm-toolbar">
+        <span className="adm-hint" style={{ margin:0 }}>Destacados del inicio:</span>
+        <div className="adm-pills">
+          <button className={`adm-pill${featuredMode==="auto"?" adm-pill--on":""}`}
+            onClick={() => changeFeaturedMode("auto")}
+            title="El sitio elige 4-6 productos al azar cada día, priorizando los marcados Destacado: Sí">
+            🎲 Aleatorio
+          </button>
+          <button className={`adm-pill${featuredMode==="manual"?" adm-pill--on":""}`}
+            onClick={() => changeFeaturedMode("manual")}
+            title='Se muestran en el inicio exactamente los productos marcados "Destacado: Sí" abajo'>
+            🎯 Tomar control
+          </button>
+        </div>
+        {featuredMode === "manual" && (
+          <span className="adm-hint" style={{ margin:0 }}>
+            Se muestran los marcados "Destacado: Sí" ({products.filter(p=>p.featured).length}/6 recomendado).
+          </span>
+        )}
       </div>
 
       <div className="adm-table-wrap">
@@ -698,61 +732,7 @@ function ChangePwForm() {
   );
 }
 
-function FeaturedConfigSection({ products }) {
-  const [mode, setMode] = useState(() => (window.VETA_DB && window.VETA_DB.getSetting("featured_mode", "auto")) || "auto");
-  const [manualIds, setManualIds] = useState(() => (window.VETA_DB && window.VETA_DB.getSetting("featured_manual_ids", [])) || []);
-
-  useEffect(() => {
-    if (!window.VETA_DB) return;
-    return window.VETA_DB.subscribe(() => {
-      setMode(window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
-      setManualIds(window.VETA_DB.getSetting("featured_manual_ids", []) || []);
-    });
-  }, []);
-
-  const changeMode = async (m) => {
-    try { await window.VETA_DB.saveSetting("featured_mode", m); }
-    catch (e) { adminToast("No se pudo cambiar el modo: " + e.message, true); }
-  };
-
-  const toggleManual = async (id) => {
-    const next = manualIds.includes(id)
-      ? manualIds.filter(x => x !== id)
-      : (manualIds.length >= 6 ? manualIds : [...manualIds, id]);
-    try { await window.VETA_DB.saveSetting("featured_manual_ids", next); }
-    catch (e) { adminToast("No se pudo guardar: " + e.message, true); }
-  };
-
-  return (
-    <div className="adm-cfg-section">
-      <h3 className="adm-cfg-h">Destacados del inicio</h3>
-      <p className="adm-hint">
-        <strong>Automático</strong>: el sitio elige solo entre 4 y 6 productos al azar cada día (prioriza los marcados como "Destacado: Sí" en Productos).{" "}
-        <strong>Manual</strong>: tú decides exactamente cuáles se muestran, como al "tomar control" de un chat.
-      </p>
-      <div className="adm-pills" style={{ marginBottom: 10 }}>
-        <button className={`adm-pill${mode==="auto"?" adm-pill--on":""}`} onClick={() => changeMode("auto")}>Automático</button>
-        <button className={`adm-pill${mode==="manual"?" adm-pill--on":""}`} onClick={() => changeMode("manual")}>Manual</button>
-      </div>
-      {mode === "manual" && (
-        <>
-          <p className="adm-hint">Elige entre 4 y 6 productos ({manualIds.length}/6 seleccionados).</p>
-          <div className="adm-pills">
-            {products.map(p => (
-              <button key={p.id}
-                className={`adm-pill${manualIds.includes(p.id)?" adm-pill--on":""}`}
-                onClick={() => toggleManual(p.id)}>
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function TabConfig({ cfg, save, onLogout, resetProducts, products }) {
+function TabConfig({ cfg, save, onLogout, resetProducts }) {
   const [phone,setPhone]=useState(cfg.wa_phone);
   const [savedPhone,setSavedPhone]=useState(false);
   const [limit,setLimit]=useState(cfg.bot_daily_limit);
@@ -789,8 +769,6 @@ function TabConfig({ cfg, save, onLogout, resetProducts, products }) {
         <p className="adm-hint">Contraseña por defecto: <code className="adm-code">veta2026</code>. Cámbiala tras el primer acceso.</p>
         <ChangePwForm/>
       </div>
-      <hr className="adm-hr"/>
-      <FeaturedConfigSection products={products}/>
       <hr className="adm-hr"/>
       <div className="adm-cfg-section">
         <h3 className="adm-cfg-h">Datos de productos</h3>
@@ -2033,7 +2011,7 @@ function AdminShell({ onLogout }) {
             toggleHidden={toggleHidden} toggleFeatured={toggleFeatured}/>}
           {tab==="stock"      && <TabStock      products={products} get={getStock} set={setStock} reset={resetStock}/>}
           {tab==="descuentos" && <TabDescuentos />}
-          {tab==="config"     && <TabConfig    cfg={cfg} save={saveCfg} onLogout={onLogout} resetProducts={resetToSeed} products={products}/>}
+          {tab==="config"     && <TabConfig    cfg={cfg} save={saveCfg} onLogout={onLogout} resetProducts={resetToSeed}/>}
         </div>
       </div>
 

@@ -729,6 +729,20 @@ function TabProductos({
   var [view, setView] = useState("list"); // "list" | "new" | <product-obj>
   var [q, setQ] = useState("");
   var [cat, setCat] = useState("todas");
+  var [featuredMode, setFeaturedMode] = useState(() => window.VETA_DB && window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
+  useEffect(() => {
+    if (!window.VETA_DB) return;
+    return window.VETA_DB.subscribe(() => {
+      setFeaturedMode(window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
+    });
+  }, []);
+  var changeFeaturedMode = async m => {
+    try {
+      await window.VETA_DB.saveSetting("featured_mode", m);
+    } catch (e) {
+      adminToast("No se pudo cambiar el modo de destacados: " + e.message, true);
+    }
+  };
   var cats = ["todas", ...VETA_DATA.categories.map(c => c.id)];
   var filtered = products.filter(p => {
     var mq = !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.id.includes(q);
@@ -776,6 +790,28 @@ function TabProductos({
     },
     onClick: () => setView("new")
   }, "+ Nuevo producto")), /*#__PURE__*/React.createElement("div", {
+    className: "adm-toolbar"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-hint",
+    style: {
+      margin: 0
+    }
+  }, "Destacados del inicio:"), /*#__PURE__*/React.createElement("div", {
+    className: "adm-pills"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: `adm-pill${featuredMode === "auto" ? " adm-pill--on" : ""}`,
+    onClick: () => changeFeaturedMode("auto"),
+    title: "El sitio elige 4-6 productos al azar cada d\xEDa, priorizando los marcados Destacado: S\xED"
+  }, "\uD83C\uDFB2 Aleatorio"), /*#__PURE__*/React.createElement("button", {
+    className: `adm-pill${featuredMode === "manual" ? " adm-pill--on" : ""}`,
+    onClick: () => changeFeaturedMode("manual"),
+    title: "Se muestran en el inicio exactamente los productos marcados \"Destacado: S\xED\" abajo"
+  }, "\uD83C\uDFAF Tomar control")), featuredMode === "manual" && /*#__PURE__*/React.createElement("span", {
+    className: "adm-hint",
+    style: {
+      margin: 0
+    }
+  }, "Se muestran los marcados \"Destacado: S\xED\" (", products.filter(p => p.featured).length, "/6 recomendado).")), /*#__PURE__*/React.createElement("div", {
     className: "adm-table-wrap"
   }, /*#__PURE__*/React.createElement("table", {
     className: "adm-table"
@@ -1029,66 +1065,11 @@ function ChangePwForm() {
     disabled: busy || !cur || !nxt || !rep
   }, busy ? "Guardando…" : "Cambiar contraseña"));
 }
-function FeaturedConfigSection({
-  products
-}) {
-  var [mode, setMode] = useState(() => window.VETA_DB && window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
-  var [manualIds, setManualIds] = useState(() => window.VETA_DB && window.VETA_DB.getSetting("featured_manual_ids", []) || []);
-  useEffect(() => {
-    if (!window.VETA_DB) return;
-    return window.VETA_DB.subscribe(() => {
-      setMode(window.VETA_DB.getSetting("featured_mode", "auto") || "auto");
-      setManualIds(window.VETA_DB.getSetting("featured_manual_ids", []) || []);
-    });
-  }, []);
-  var changeMode = async m => {
-    try {
-      await window.VETA_DB.saveSetting("featured_mode", m);
-    } catch (e) {
-      adminToast("No se pudo cambiar el modo: " + e.message, true);
-    }
-  };
-  var toggleManual = async id => {
-    var next = manualIds.includes(id) ? manualIds.filter(x => x !== id) : manualIds.length >= 6 ? manualIds : [...manualIds, id];
-    try {
-      await window.VETA_DB.saveSetting("featured_manual_ids", next);
-    } catch (e) {
-      adminToast("No se pudo guardar: " + e.message, true);
-    }
-  };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "adm-cfg-section"
-  }, /*#__PURE__*/React.createElement("h3", {
-    className: "adm-cfg-h"
-  }, "Destacados del inicio"), /*#__PURE__*/React.createElement("p", {
-    className: "adm-hint"
-  }, /*#__PURE__*/React.createElement("strong", null, "Autom\xE1tico"), ": el sitio elige solo entre 4 y 6 productos al azar cada d\xEDa (prioriza los marcados como \"Destacado: S\xED\" en Productos).", " ", /*#__PURE__*/React.createElement("strong", null, "Manual"), ": t\xFA decides exactamente cu\xE1les se muestran, como al \"tomar control\" de un chat."), /*#__PURE__*/React.createElement("div", {
-    className: "adm-pills",
-    style: {
-      marginBottom: 10
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: `adm-pill${mode === "auto" ? " adm-pill--on" : ""}`,
-    onClick: () => changeMode("auto")
-  }, "Autom\xE1tico"), /*#__PURE__*/React.createElement("button", {
-    className: `adm-pill${mode === "manual" ? " adm-pill--on" : ""}`,
-    onClick: () => changeMode("manual")
-  }, "Manual")), mode === "manual" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
-    className: "adm-hint"
-  }, "Elige entre 4 y 6 productos (", manualIds.length, "/6 seleccionados)."), /*#__PURE__*/React.createElement("div", {
-    className: "adm-pills"
-  }, products.map(p => /*#__PURE__*/React.createElement("button", {
-    key: p.id,
-    className: `adm-pill${manualIds.includes(p.id) ? " adm-pill--on" : ""}`,
-    onClick: () => toggleManual(p.id)
-  }, p.name)))));
-}
 function TabConfig({
   cfg,
   save,
   onLogout,
-  resetProducts,
-  products
+  resetProducts
 }) {
   var [phone, setPhone] = useState(cfg.wa_phone);
   var [savedPhone, setSavedPhone] = useState(false);
@@ -1166,10 +1147,6 @@ function TabConfig({
   }, "Contrase\xF1a por defecto: ", /*#__PURE__*/React.createElement("code", {
     className: "adm-code"
   }, "veta2026"), ". C\xE1mbiala tras el primer acceso."), /*#__PURE__*/React.createElement(ChangePwForm, null)), /*#__PURE__*/React.createElement("hr", {
-    className: "adm-hr"
-  }), /*#__PURE__*/React.createElement(FeaturedConfigSection, {
-    products: products
-  }), /*#__PURE__*/React.createElement("hr", {
     className: "adm-hr"
   }), /*#__PURE__*/React.createElement("div", {
     className: "adm-cfg-section"
@@ -2761,8 +2738,7 @@ function AdminShell({
     cfg: cfg,
     save: saveCfg,
     onLogout: onLogout,
-    resetProducts: resetToSeed,
-    products: products
+    resetProducts: resetToSeed
   }))), /*#__PURE__*/React.createElement("div", {
     className: "adm-mob-menu",
     "data-on": menuOpen ? "1" : "0",

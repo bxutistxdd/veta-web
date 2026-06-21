@@ -47,8 +47,7 @@ function pickDailyFeatured(products) {
   const mode = (db && db.getSetting("featured_mode", "auto")) || "auto";
 
   if (mode === "manual") {
-    const ids = (db && db.getSetting("featured_manual_ids", [])) || [];
-    const picked = ids.map((id) => products.find((p) => p.id === id)).filter(Boolean);
+    const picked = products.filter((p) => p.featured === true);
     if (picked.length) return picked.slice(0, 6);
   }
 
