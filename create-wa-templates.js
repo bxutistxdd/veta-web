@@ -11,24 +11,28 @@ const PHONE_NUMBER_ID  = process.env.WA_PHONE_NUMER_ID || '1216679024851056';
 let   WABA_ID          = process.env.WABA_ID || process.env.WA_WABA_ID || process.argv[3];
 
 // ── Templates ──────────────────────────────────────────────────────────────
+// example.body_text es obligatorio para que Meta apruebe variables {{n}}.
 const TEMPLATES = [
   {
-    name: 'veta_pedido_nuevo',
+    name: 'veta_nuevo_pedido',
     category: 'UTILITY',
     language: 'es',
-    body: '🛒 Nuevo pedido VETA #{{1}}\n\nProducto: {{2}}\nCliente: {{3}}\nCiudad: {{4}}\nPago: {{5}}\n{{6}}\n\nGestiona en #admin → Despachos.',
+    body: '🛒 Nuevo pedido VETA #{{1}}\n\nProducto: {{2}}\nCliente: {{3}}\nCiudad: {{4}}\nPago: {{5}}\nNotas: {{6}}\n\nGestiona en #admin → Despachos.',
+    example: ['1042', 'Anillo Vena (talla 7) x1', 'Maria Gomez +573001234567', 'Bogota, Cra 13 #45-67', 'Nequi', 'Para: Laura. Empaque de regalo'],
   },
   {
-    name: 'veta_asesor_requerido',
+    name: 'veta_requiere_asesor',
     category: 'UTILITY',
     language: 'es',
     body: '🔔 Cliente pide asesor\n\nNúmero: +{{1}}\nÚltimo mensaje: {{2}}\n\nAbre #admin > Chats para atenderlo.',
+    example: ['573001234567', 'Tengo un problema con mi pedido'],
   },
   {
-    name: 'veta_limite_alcanzado',
+    name: 'veta_cliente_en_espera',
     category: 'UTILITY',
     language: 'es',
     body: '👤 Cliente esperando asesor\n\nNúmero: +{{1}}\nMensajes usados: {{2}}/10\n\nYa fue avisado y te está esperando.',
+    example: ['573001234567', '10'],
   },
 ];
 
@@ -79,8 +83,17 @@ async function createTemplate(wabaId, tpl) {
     name: tpl.name,
     category: tpl.category,
     language: tpl.language,
-    components: [{ type: 'BODY', text: tpl.body }],
+    components: [{
+      type: 'BODY',
+      text: tpl.body,
+      example: { body_text: [tpl.example] },
+    }],
   });
+}
+
+// Borra cualquier versión previa (p.ej. REJECTED) para poder recrear con el mismo nombre.
+async function deleteTemplate(wabaId, name) {
+  return apiCall('DELETE', `/v21.0/${wabaId}/message_templates?name=${encodeURIComponent(name)}`, null);
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -107,6 +120,7 @@ async function main() {
   console.log('\nCreando plantillas...\n');
 
   for (const tpl of TEMPLATES) {
+    await deleteTemplate(WABA_ID, tpl.name); // limpia versión rechazada previa
     const r = await createTemplate(WABA_ID, tpl);
     if (r.status === 200 && r.data.id) {
       console.log(`✅ ${tpl.name} → ID ${r.data.id} | estado: ${r.data.status}`);

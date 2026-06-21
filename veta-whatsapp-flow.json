@@ -548,11 +548,14 @@
       "position": [
         3360,
         320
-      ]
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
-        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData    = $('Preparar Contexto').first().json;\n\n// Gemini: candidates[0].content.parts[0].text\nconst assistantMessage = geminiResponse.choices?.[0]?.message?.content\n  || 'Hubo un error procesando tu mensaje. Int\\u00e9ntalo de nuevo.';\n\nconst needsHuman = /\\[ESCALAR\\]/i.test(assistantMessage);\n\nconst orderMatch =\n  assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]\\n]+?)\\]?(?=\\s*$|\\n)/m) ||\n  assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]]+?)\\]?/);\n\nlet orderData = null;\nlet cleanMessage = assistantMessage\n  .replace(/\\[?PEDIDO_CONFIRMADO:[^\\]\\n]*\\]?/g, '')\n  .replace(/\\[ESCALAR\\]/ig, '')\n  .trim();\n\nif (orderMatch) {\n  const parts = {};\n  orderMatch[1].split('|').forEach(p => {\n    const idx = p.indexOf('=');\n    if (idx > 0) parts[p.slice(0, idx).trim()] = p.slice(idx + 1).trim();\n  });\n  // Compatibilidad formato antiguo\n  if (!parts['pago'] && parts['notas']) {\n    const m = (parts['notas'] || '').match(/pago:\\s*([^.]+)/i);\n    if (m) parts['pago'] = m[1].trim();\n  }\n  if (!parts['dir'] && parts['notas']) {\n    const dIdx = (parts['notas'] || '').search(/dir:/i);\n    if (dIdx >= 0) parts['dir'] = parts['notas'].slice(dIdx + 4).trim();\n  }\n  const { nombre='', ciudad='', items='', pago='', dir='' } = parts;\n  if (nombre.length > 1 && ciudad.length > 1 && items.length > 1 && pago.length > 1 && dir.length > 3) {\n    parts['notas'] = 'Pago: ' + pago + '. Dir: ' + dir +\n      (parts['barrio'] ? '. Barrio: ' + parts['barrio'] : '') +\n      (parts['ref']    ? '. Ref: '    + parts['ref']    : '');\n    parts['client_notes'] = parts['notes_cliente'] || '';\n    orderData = parts;\n  }\n}\n\nreturn [{ json: {\n  from:             contextData.from,\n  phoneNumberId:    contextData.phoneNumberId,\n  userMessage:      contextData.userMessage,\n  assistantMessage: cleanMessage,\n  hasOrder:         !!orderData,\n  orderData,\n  needsHuman,\n} }];"
+        "jsCode": "const geminiResponse = $input.first().json;\nconst contextData    = $('Preparar Contexto').first().json;\n\nconst assistantMessage = geminiResponse.choices?.[0]?.message?.content\n  || 'Hubo un error procesando tu mensaje. Int\\u00e9ntalo de nuevo.';\n\nconst needsHuman = /\\[ESCALAR\\]/i.test(assistantMessage);\n\nconst orderMatch =\n  assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]\\n]+?)\\]?(?=\\s*$|\\n)/m) ||\n  assistantMessage.match(/\\[?PEDIDO_CONFIRMADO:\\s*([^\\]]+?)\\]?/);\n\nlet orderData = null;\nlet orderRejected = null;   // razón de rechazo (para log), si el tag vino mal\nlet cleanMessage = assistantMessage\n  .replace(/\\[?PEDIDO_CONFIRMADO:[^\\]\\n]*\\]?/g, '')\n  .replace(/\\[ESCALAR\\]/ig, '')\n  .trim();\n\nif (orderMatch) {\n  const parts = {};\n  orderMatch[1].split('|').forEach(p => {\n    const idx = p.indexOf('=');\n    if (idx > 0) parts[p.slice(0, idx).trim()] = p.slice(idx + 1).trim();\n  });\n  // Compatibilidad formato antiguo\n  if (!parts['pago'] && parts['notas']) {\n    const m = (parts['notas'] || '').match(/pago:\\s*([^.]+)/i);\n    if (m) parts['pago'] = m[1].trim();\n  }\n  if (!parts['dir'] && parts['notas']) {\n    const dIdx = (parts['notas'] || '').search(/dir:/i);\n    if (dIdx >= 0) parts['dir'] = parts['notas'].slice(dIdx + 4).trim();\n  }\n  const nombre = (parts['nombre'] || '').trim();\n  const ciudad = (parts['ciudad'] || '').trim();\n  const items  = (parts['items']  || '').trim();\n  const pago   = (parts['pago']   || '').trim();\n  const dir    = (parts['dir']    || '').trim();\n\n  // Validación estricta: campos reales, no marcadores ni basura del LLM.\n  const PAGO_RE  = /(transfer|nequi|daviplata|contra\\s*entrega|contraentrega|efectivo|consignaci)/i;\n  const LETRA_RE = /[a-záéíóúñ]/i;\n  const checks = {\n    nombre: nombre.length >= 3 && LETRA_RE.test(nombre),\n    ciudad: ciudad.length >= 3 && LETRA_RE.test(ciudad),\n    items:  items.length  >= 3,\n    pago:   PAGO_RE.test(pago),\n    dir:    dir.length    >= 5,\n  };\n  const fallidos = Object.keys(checks).filter(k => !checks[k]);\n\n  if (fallidos.length === 0) {\n    parts['notas'] = 'Pago: ' + pago + '. Dir: ' + dir +\n      (parts['barrio'] ? '. Barrio: ' + parts['barrio'] : '') +\n      (parts['ref']    ? '. Ref: '    + parts['ref']    : '');\n    parts['client_notes'] = parts['notes_cliente'] || '';\n    orderData = parts;\n  } else {\n    orderRejected = 'Campos inválidos: ' + fallidos.join(', ');\n    console.warn('[VETA] PEDIDO_CONFIRMADO descartado →', orderRejected, '| crudo:', orderMatch[1]);\n  }\n}\n\nreturn [{ json: {\n  from:             contextData.from,\n  phoneNumberId:    contextData.phoneNumberId,\n  userMessage:      contextData.userMessage,\n  assistantMessage: cleanMessage,\n  hasOrder:         !!orderData,\n  orderData,\n  orderRejected,\n  needsHuman,\n} }];"
       },
       "id": "75f0ee87-2e0c-46be-883f-3837bd900c2d",
       "name": "Procesar Respuesta",
@@ -594,7 +597,10 @@
         224
       ],
       "onError": "continueRegularOutput",
-      "alwaysOutputData": true
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
