@@ -45,8 +45,7 @@ function pickDailyFeatured(products) {
   var db = window.VETA_DB;
   var mode = db && db.getSetting("featured_mode", "auto") || "auto";
   if (mode === "manual") {
-    var ids = db && db.getSetting("featured_manual_ids", []) || [];
-    var picked = ids.map(id => products.find(p => p.id === id)).filter(Boolean);
+    var picked = products.filter(p => p.featured === true);
     if (picked.length) return picked.slice(0, 6);
   }
   var rng = seededRng(dailySeed());
