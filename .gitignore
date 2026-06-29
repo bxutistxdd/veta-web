@@ -9,6 +9,9 @@ node_modules/
 .env.local
 _*.js
 
+# succ — base de datos local de memoria semantica
+.succ/
+
 # Scripts de despliegue con credenciales (Supabase / Railway) — NO subir
 apply-chat-sql.js
 apply-chat-upgrades.js
