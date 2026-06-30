@@ -179,7 +179,7 @@ function useCart() {
         size: opts.size,
         finish: opts.finish,
         qty: newQty,
-        img: product.images?.main || null,
+        img: VETA_DATA.productImages(product)[0] || null,
         shape: VETA_DATA.shapes[product.cat]?.kind || "ring"
       }];
     });
@@ -691,8 +691,9 @@ function SearchOverlay({
   }, results.length, " ", results.length === 1 ? "resultado" : "resultados"), /*#__PURE__*/React.createElement("div", {
     className: "search-results-list"
   }, top.map(p => {
-    var cat = VETA_DATA.categories.find(c => c.id === p.cat);
+    var catLabel = window.VETA_DB && window.VETA_DB.getCategoryLabel(p.cat) || VETA_DATA.categories.find(c => c.id === p.cat)?.label;
     var shape = VETA_DATA.shapes[p.cat]?.kind || "ring";
+    var thumb = VETA_DATA.productImages(p)[0];
     return /*#__PURE__*/React.createElement("button", {
       key: p.id,
       className: "search-result-item",
@@ -702,8 +703,8 @@ function SearchOverlay({
       })
     }, /*#__PURE__*/React.createElement("div", {
       className: "search-result-thumb"
-    }, p.images?.main ? /*#__PURE__*/React.createElement("img", {
-      src: p.images.main,
+    }, thumb ? /*#__PURE__*/React.createElement("img", {
+      src: thumb,
       alt: "",
       loading: "lazy"
     }) : /*#__PURE__*/React.createElement(PHShape, {
@@ -714,7 +715,7 @@ function SearchOverlay({
       className: "search-result-name"
     }, p.name), /*#__PURE__*/React.createElement("span", {
       className: "search-result-meta"
-    }, p.material, " \xB7 ", cat?.label)), /*#__PURE__*/React.createElement("span", {
+    }, p.material, " \xB7 ", catLabel)), /*#__PURE__*/React.createElement("span", {
       className: "search-result-price"
     }, VETA_DATA.fmtPrice(p.price)));
   })), results.length > 6 && /*#__PURE__*/React.createElement("button", {

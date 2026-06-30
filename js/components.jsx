@@ -460,7 +460,7 @@ function isProductSoldOut(product) {
    ───────────────────────────────────────────── */
 function ProductCard({ product, onOpen, delay = 0 }) {
   const shape = VETA_DATA.shapes[product.cat]?.kind || "ring";
-  const img = product.images?.main || (window.VETA_IMG || {})[product.id];
+  const img = VETA_DATA.productImages(product)[0] || (window.VETA_IMG || {})[product.id];
   const soldOut = isProductSoldOut(product);
   return (
     <Reveal delay={delay}>

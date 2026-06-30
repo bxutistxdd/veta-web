@@ -57,7 +57,20 @@ window.VETA_DATA = (function () {
   // Formato Colombia: $180.000 (punto como separador de miles, sin decimales)
   const fmtPrice = (n) => "$" + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
-  return { products, categories, materials, finishes, shapes, fmtPrice };
+  // Normaliza product.images a un array ordenado de URLs, soportando tanto el
+  // formato nuevo (array dinámico de 3-10) como el legacy ({main,profile,detail,context}).
+  // El índice 0 es la imagen principal (catálogo / carrito / búsqueda).
+  const productImages = (p) => {
+    if (!p) return [];
+    const im = p.images;
+    if (Array.isArray(im)) return im.filter(Boolean);
+    if (im && typeof im === "object") {
+      return [im.main, im.profile, im.detail, im.context].filter(Boolean);
+    }
+    return [];
+  };
+
+  return { products, categories, materials, finishes, shapes, fmtPrice, productImages };
 })();
 
 /* ─────────────────────────────────────────────

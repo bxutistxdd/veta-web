@@ -91,8 +91,8 @@ function searchProducts(query, products) {
   if (!tokens.length) return products;
 
   const score = (p) => {
-    const catLabel = (VETA_DATA.categories.find(c => c.id === p.cat)?.label) || "";
-    const raw = [p.name, p.material, p.finish, p.cat, catLabel, p.blurb, p.desc, p.id]
+    const lbl = (id) => (window.VETA_DB && window.VETA_DB.getCategoryLabel(id)) || (VETA_DATA.categories.find(c => c.id === id)?.label) || "";
+    const raw = [p.name, p.material, p.finish, p.cat, lbl(p.cat), lbl(p.subcat), lbl(p.ref), p.blurb, p.desc, p.id]
       .map(norm).join(" ");
     const words = raw.split(/\s+/);
     let s = 0;
@@ -387,7 +387,7 @@ function CatSlot({ cat, index, onNavigate }) {
             tabIndex={i === idx ? 0 : -1}
             aria-hidden={i !== idx}
           >
-            <Placeholder shape={shape} label={p.name} tag={`0${i + 1}`} />
+            <Placeholder shape={shape} label={p.name} tag={`0${i + 1}`} img={VETA_DATA.productImages(p)[0] || undefined} />
           </button>
         ))}
         {products.length > 1 && (
@@ -432,7 +432,7 @@ function HomeCategories({ onNavigate }) {
       </div>
       <div className="section-body">
         <div className="cat-gallery">
-          {VETA_DATA.categories.map((cat, i) => (
+          {((window.VETA_DB && window.VETA_DB.getCategories(1)) || VETA_DATA.categories).map((cat, i) => (
             <CatSlot key={cat.id} cat={cat} index={i} onNavigate={onNavigate} />
           ))}
         </div>
@@ -520,30 +520,36 @@ function HomeNumbers() {
 function Catalog({ filter, search, onNavigate }) {
   const all = useMemo(() => visibleProducts(), []);
   const [cat, setCat] = useState(filter || "all");
+  const [subcat, setSubcat] = useState("all");
   const [mat, setMat] = useState("all");
   const [sort, setSort] = useState("default");
   const [q, setQ] = useState(search || "");
 
-  useEffect(() => { setCat(filter || "all"); }, [filter]);
+  useEffect(() => { setCat(filter || "all"); setSubcat("all"); }, [filter]);
   useEffect(() => { setQ(search || ""); }, [search]);
+  useEffect(() => { setSubcat("all"); }, [cat]);
+
+  const catList    = (window.VETA_DB && window.VETA_DB.getCategories(1)) || VETA_DATA.categories;
+  const subcatList = (cat !== "all" && window.VETA_DB) ? window.VETA_DB.getChildren(cat) : [];
 
   const filtered = useMemo(() => {
     let list = all;
-    if (cat !== "all") list = list.filter((p) => p.cat === cat);
-    if (mat !== "all") list = list.filter((p) => p.material === mat);
+    if (cat !== "all")    list = list.filter((p) => p.cat === cat);
+    if (subcat !== "all") list = list.filter((p) => p.subcat === subcat);
+    if (mat !== "all")    list = list.filter((p) => p.material === mat);
     if (q.trim()) return searchProducts(q, list);
     if (sort === "price-asc")  list = [...list].sort((a, b) => a.price - b.price);
     if (sort === "price-desc") list = [...list].sort((a, b) => b.price - a.price);
     if (sort === "name")       list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     return list;
-  }, [all, cat, mat, q, sort]);
+  }, [all, cat, subcat, mat, q, sort]);
 
   return (
     <main className="page-enter">
       <header className="cat-head">
         <div>
           <span className="eyebrow">— Catálogo</span>
-          <h1 className="h-1">{cat === "all" ? <>Todas las piezas</> : VETA_DATA.categories.find((c) => c.id === cat)?.label}</h1>
+          <h1 className="h-1">{cat === "all" ? <>Todas las piezas</> : (catList.find((c) => c.id === cat)?.label || (window.VETA_DB && window.VETA_DB.getCategoryLabel(cat)))}</h1>
         </div>
         <span className="count">{String(filtered.length).padStart(2, "0")} piezas</span>
       </header>
@@ -566,12 +572,23 @@ function Catalog({ filter, search, onNavigate }) {
           <div className="filter-group">
             <span className="filter-group-label">Familia</span>
             <button className="chip" data-on={cat === "all" ? "1" : "0"} onClick={() => setCat("all")}>Todas</button>
-            {VETA_DATA.categories.map((c) => (
+            {catList.map((c) => (
               <button key={c.id} className="chip" data-on={cat === c.id ? "1" : "0"} onClick={() => setCat(c.id)}>
                 {c.label}
               </button>
             ))}
           </div>
+          {subcatList.length > 0 && (
+            <div className="filter-group">
+              <span className="filter-group-label">Subcategoría</span>
+              <button className="chip" data-on={subcat === "all" ? "1" : "0"} onClick={() => setSubcat("all")}>Todas</button>
+              {subcatList.map((c) => (
+                <button key={c.id} className="chip" data-on={subcat === c.id ? "1" : "0"} onClick={() => setSubcat(c.id)}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="filter-group">
             <span className="filter-group-label">Material</span>
             <button className="chip" data-on={mat === "all" ? "1" : "0"} onClick={() => setMat("all")}>Todos</button>
@@ -618,12 +635,8 @@ function PDP({ id, onNavigate, onAdd }) {
   const product = allProducts.find((p) => p.id === id) || allProducts[0];
   const shape = VETA_DATA.shapes[product.cat]?.kind || "ring";
 
-  const views = useMemo(() => ([
-    { tag: "01 · frontal",   label: "vista frontal",      imgKey: "main"    },
-    { tag: "02 · perfil",    label: "vista de perfil",    imgKey: "profile" },
-    { tag: "03 · detalle",   label: "detalle de acabado", imgKey: "detail"  },
-    { tag: "04 · contexto",  label: "en uso",             imgKey: "context" },
-  ]), []);
+  // Galería dinámica: tantas vistas como imágenes tenga el producto (3-10).
+  const imgs = useMemo(() => VETA_DATA.productImages(product), [product]);
 
   const [view, setView] = useState(0);
   const [size, setSize] = useState(() => {
@@ -647,8 +660,12 @@ function PDP({ id, onNavigate, onAdd }) {
     if (st.qty !== null && qty > st.qty) setQty(Math.max(1, st.qty));
   };
 
+  const gallery  = imgs.length ? imgs : [null];           // al menos un placeholder
+  const safeView = Math.min(view, gallery.length - 1);
+
   const [animKey, setAnimKey] = useState(0);
   useEffect(() => { setAnimKey((k) => k + 1); }, [view]);
+  useEffect(() => { setView(0); }, [id]);
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [id]);
 
   const related = visibleProducts().filter((p) => p.cat === product.cat && p.id !== product.id).slice(0, 4);
@@ -658,20 +675,24 @@ function PDP({ id, onNavigate, onAdd }) {
       <section className="pdp">
         <div className="pdp-gallery">
           <div className="pdp-thumbs">
-            {views.map((v, i) => (
-              <button key={i} className="pdp-thumb" data-on={view === i ? "1" : "0"} onClick={() => setView(i)} aria-label={`Vista ${i+1}`}>
-                <Placeholder shape={shape} tag={v.tag.split(" ")[0]} img={product.images?.[v.imgKey] || undefined} />
+            {gallery.map((src, i) => (
+              <button key={i} className="pdp-thumb" data-on={safeView === i ? "1" : "0"} onClick={() => setView(i)} aria-label={`Vista ${i+1}`}>
+                <Placeholder shape={shape} tag={String(i + 1).padStart(2, "0")} img={src || undefined} />
               </button>
             ))}
           </div>
           <div className="pdp-main-img" key={animKey}>
-            <Placeholder shape={shape} label={views[view].label} tag={`${product.id.toUpperCase()} · ${views[view].tag}`} ratio="4 / 5" img={product.images?.[views[view].imgKey] || undefined} />
+            <Placeholder shape={shape} label={`vista ${safeView + 1}`} tag={`${product.id.toUpperCase()} · ${String(safeView + 1).padStart(2, "0")}`} ratio="4 / 5" img={gallery[safeView] || undefined} />
           </div>
         </div>
 
         <div className="pdp-info">
           <Reveal>
-            <div className="pdp-cat">{VETA_DATA.categories.find((c) => c.id === product.cat)?.label} · {product.material}</div>
+            <div className="pdp-cat">{[
+              (window.VETA_DB && window.VETA_DB.getCategoryLabel(product.cat)) || VETA_DATA.categories.find((c) => c.id === product.cat)?.label,
+              product.subcat && window.VETA_DB && window.VETA_DB.getCategoryLabel(product.subcat),
+              product.ref && window.VETA_DB && window.VETA_DB.getCategoryLabel(product.ref),
+            ].filter(Boolean).join(" › ")} · {product.material}</div>
           </Reveal>
           <Reveal delay={100}>
             <h1 className="pdp-title">{product.name}</h1>

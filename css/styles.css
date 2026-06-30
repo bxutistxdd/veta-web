@@ -4696,3 +4696,118 @@ img { max-width: 100%; display: block; }
   .adm-disc-table-wrap { display: none; }
   .adm-disc-cards      { display: flex; }
 }
+
+/* ── Gestor nativo de imágenes (admin) ─────────────────────── */
+.adm-dropzone {
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  background: var(--bg-elev);
+  padding: 28px 18px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color .15s ease, background .15s ease;
+}
+.adm-dropzone--over { border-color: var(--accent); background: var(--bg-soft); }
+.adm-dropzone--disabled { cursor: not-allowed; opacity: .6; }
+.adm-dropzone-ico { font-size: 26px; line-height: 1; color: var(--accent); }
+
+.adm-img-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.adm-img-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-elev);
+  cursor: grab;
+}
+.adm-img-card:active { cursor: grabbing; }
+.adm-img-card-thumb { aspect-ratio: 4 / 5; background: var(--bg-soft); }
+.adm-img-card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adm-img-card-badge {
+  position: absolute; top: 6px; left: 6px;
+  background: var(--accent); color: #fff;
+  font-size: 10px; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 20px;
+}
+.adm-img-card-num {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(0,0,0,.55); color: #fff;
+  font-size: 11px; width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.adm-img-card-actions {
+  display: flex; gap: 6px; padding: 7px;
+  justify-content: space-between; align-items: center;
+}
+.adm-mini-btn {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.adm-mini-btn:hover { border-color: var(--accent); }
+.adm-mini-btn--del { color: #b3261e; }
+
+/* ── Modal genérico (recorte / editor de categoría) ────────── */
+.adm-modal-ov {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.adm-crop {
+  background: var(--bg-elev);
+  border-radius: 14px;
+  padding: 22px;
+  width: 100%; max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+.adm-crop-frame {
+  position: relative;
+  margin: 4px auto 0;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg-soft);
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+.adm-crop-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.35) 1px, transparent 1px);
+  background-size: 33.33% 33.33%;
+}
+
+/* ── Árbol de categorías (admin) ───────────────────────────── */
+.adm-cat-tree { display: flex; flex-direction: column; gap: 12px; }
+.adm-cat-node--1 {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--bg-elev);
+}
+.adm-cat-node--2 { margin: 8px 0 0 18px; padding-left: 14px; border-left: 2px solid var(--line); }
+.adm-cat-node--3 { margin: 6px 0 0 18px; padding-left: 14px; border-left: 2px dotted var(--line); }
+.adm-cat-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 4px 0;
+}
+.adm-cat-node--1 > .adm-cat-row .adm-cat-label { font-weight: 600; font-size: 15px; }
+.adm-cat-label { color: var(--ink); }
+.adm-cat-blurb { color: var(--ink-faint); font-size: 12px; }
+.adm-cat-row-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }

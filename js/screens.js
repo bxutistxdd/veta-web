@@ -87,8 +87,8 @@ function searchProducts(query, products) {
   var tokens = norm(query).split(/\s+/).filter(Boolean);
   if (!tokens.length) return products;
   var score = p => {
-    var catLabel = VETA_DATA.categories.find(c => c.id === p.cat)?.label || "";
-    var raw = [p.name, p.material, p.finish, p.cat, catLabel, p.blurb, p.desc, p.id].map(norm).join(" ");
+    var lbl = id => window.VETA_DB && window.VETA_DB.getCategoryLabel(id) || VETA_DATA.categories.find(c => c.id === id)?.label || "";
+    var raw = [p.name, p.material, p.finish, p.cat, lbl(p.cat), lbl(p.subcat), lbl(p.ref), p.blurb, p.desc, p.id].map(norm).join(" ");
     var words = raw.split(/\s+/);
     var s = 0;
     for (var t of tokens) {
@@ -461,7 +461,8 @@ function CatSlot({
   }, /*#__PURE__*/React.createElement(Placeholder, {
     shape: shape,
     label: p.name,
-    tag: `0${i + 1}`
+    tag: `0${i + 1}`,
+    img: VETA_DATA.productImages(p)[0] || undefined
   }))), products.length > 1 && /*#__PURE__*/React.createElement("div", {
     className: "cat-slot-dots",
     "aria-hidden": "true"
@@ -503,7 +504,7 @@ function HomeCategories({
     className: "section-body"
   }, /*#__PURE__*/React.createElement("div", {
     className: "cat-gallery"
-  }, VETA_DATA.categories.map((cat, i) => /*#__PURE__*/React.createElement(CatSlot, {
+  }, (window.VETA_DB && window.VETA_DB.getCategories(1) || VETA_DATA.categories).map((cat, i) => /*#__PURE__*/React.createElement(CatSlot, {
     key: cat.id,
     cat: cat,
     index: i,
@@ -599,25 +600,33 @@ function Catalog({
 }) {
   var all = useMemo(() => visibleProducts(), []);
   var [cat, setCat] = useState(filter || "all");
+  var [subcat, setSubcat] = useState("all");
   var [mat, setMat] = useState("all");
   var [sort, setSort] = useState("default");
   var [q, setQ] = useState(search || "");
   useEffect(() => {
     setCat(filter || "all");
+    setSubcat("all");
   }, [filter]);
   useEffect(() => {
     setQ(search || "");
   }, [search]);
+  useEffect(() => {
+    setSubcat("all");
+  }, [cat]);
+  var catList = window.VETA_DB && window.VETA_DB.getCategories(1) || VETA_DATA.categories;
+  var subcatList = cat !== "all" && window.VETA_DB ? window.VETA_DB.getChildren(cat) : [];
   var filtered = useMemo(() => {
     var list = all;
     if (cat !== "all") list = list.filter(p => p.cat === cat);
+    if (subcat !== "all") list = list.filter(p => p.subcat === subcat);
     if (mat !== "all") list = list.filter(p => p.material === mat);
     if (q.trim()) return searchProducts(q, list);
     if (sort === "price-asc") list = [...list].sort((a, b) => a.price - b.price);
     if (sort === "price-desc") list = [...list].sort((a, b) => b.price - a.price);
     if (sort === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     return list;
-  }, [all, cat, mat, q, sort]);
+  }, [all, cat, subcat, mat, q, sort]);
   return /*#__PURE__*/React.createElement("main", {
     className: "page-enter"
   }, /*#__PURE__*/React.createElement("header", {
@@ -626,7 +635,7 @@ function Catalog({
     className: "eyebrow"
   }, "\u2014 Cat\xE1logo"), /*#__PURE__*/React.createElement("h1", {
     className: "h-1"
-  }, cat === "all" ? /*#__PURE__*/React.createElement(React.Fragment, null, "Todas las piezas") : VETA_DATA.categories.find(c => c.id === cat)?.label)), /*#__PURE__*/React.createElement("span", {
+  }, cat === "all" ? /*#__PURE__*/React.createElement(React.Fragment, null, "Todas las piezas") : catList.find(c => c.id === cat)?.label || window.VETA_DB && window.VETA_DB.getCategoryLabel(cat))), /*#__PURE__*/React.createElement("span", {
     className: "count"
   }, String(filtered.length).padStart(2, "0"), " piezas")), /*#__PURE__*/React.createElement("div", {
     className: "filters"
@@ -668,11 +677,24 @@ function Catalog({
     className: "chip",
     "data-on": cat === "all" ? "1" : "0",
     onClick: () => setCat("all")
-  }, "Todas"), VETA_DATA.categories.map(c => /*#__PURE__*/React.createElement("button", {
+  }, "Todas"), catList.map(c => /*#__PURE__*/React.createElement("button", {
     key: c.id,
     className: "chip",
     "data-on": cat === c.id ? "1" : "0",
     onClick: () => setCat(c.id)
+  }, c.label))), subcatList.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "filter-group"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "filter-group-label"
+  }, "Subcategor\xEDa"), /*#__PURE__*/React.createElement("button", {
+    className: "chip",
+    "data-on": subcat === "all" ? "1" : "0",
+    onClick: () => setSubcat("all")
+  }, "Todas"), subcatList.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c.id,
+    className: "chip",
+    "data-on": subcat === c.id ? "1" : "0",
+    onClick: () => setSubcat(c.id)
   }, c.label))), /*#__PURE__*/React.createElement("div", {
     className: "filter-group"
   }, /*#__PURE__*/React.createElement("span", {
@@ -738,23 +760,9 @@ function PDP({
   var allProducts = window.VETA_ADMIN ? window.VETA_ADMIN.getProducts() : VETA_DATA.products;
   var product = allProducts.find(p => p.id === id) || allProducts[0];
   var shape = VETA_DATA.shapes[product.cat]?.kind || "ring";
-  var views = useMemo(() => [{
-    tag: "01 · frontal",
-    label: "vista frontal",
-    imgKey: "main"
-  }, {
-    tag: "02 · perfil",
-    label: "vista de perfil",
-    imgKey: "profile"
-  }, {
-    tag: "03 · detalle",
-    label: "detalle de acabado",
-    imgKey: "detail"
-  }, {
-    tag: "04 · contexto",
-    label: "en uso",
-    imgKey: "context"
-  }], []);
+
+  // Galería dinámica: tantas vistas como imágenes tenga el producto (3-10).
+  var imgs = useMemo(() => VETA_DATA.productImages(product), [product]);
   var [view, setView] = useState(0);
   var [size, setSize] = useState(() => {
     var adm = window.VETA_ADMIN;
@@ -776,10 +784,15 @@ function PDP({
     setSize(s);
     if (st.qty !== null && qty > st.qty) setQty(Math.max(1, st.qty));
   };
+  var gallery = imgs.length ? imgs : [null]; // al menos un placeholder
+  var safeView = Math.min(view, gallery.length - 1);
   var [animKey, setAnimKey] = useState(0);
   useEffect(() => {
     setAnimKey(k => k + 1);
   }, [view]);
+  useEffect(() => {
+    setView(0);
+  }, [id]);
   useEffect(() => {
     window.scrollTo({
       top: 0,
@@ -795,30 +808,30 @@ function PDP({
     className: "pdp-gallery"
   }, /*#__PURE__*/React.createElement("div", {
     className: "pdp-thumbs"
-  }, views.map((v, i) => /*#__PURE__*/React.createElement("button", {
+  }, gallery.map((src, i) => /*#__PURE__*/React.createElement("button", {
     key: i,
     className: "pdp-thumb",
-    "data-on": view === i ? "1" : "0",
+    "data-on": safeView === i ? "1" : "0",
     onClick: () => setView(i),
     "aria-label": `Vista ${i + 1}`
   }, /*#__PURE__*/React.createElement(Placeholder, {
     shape: shape,
-    tag: v.tag.split(" ")[0],
-    img: product.images?.[v.imgKey] || undefined
+    tag: String(i + 1).padStart(2, "0"),
+    img: src || undefined
   })))), /*#__PURE__*/React.createElement("div", {
     className: "pdp-main-img",
     key: animKey
   }, /*#__PURE__*/React.createElement(Placeholder, {
     shape: shape,
-    label: views[view].label,
-    tag: `${product.id.toUpperCase()} · ${views[view].tag}`,
+    label: `vista ${safeView + 1}`,
+    tag: `${product.id.toUpperCase()} · ${String(safeView + 1).padStart(2, "0")}`,
     ratio: "4 / 5",
-    img: product.images?.[views[view].imgKey] || undefined
+    img: gallery[safeView] || undefined
   }))), /*#__PURE__*/React.createElement("div", {
     className: "pdp-info"
   }, /*#__PURE__*/React.createElement(Reveal, null, /*#__PURE__*/React.createElement("div", {
     className: "pdp-cat"
-  }, VETA_DATA.categories.find(c => c.id === product.cat)?.label, " \xB7 ", product.material)), /*#__PURE__*/React.createElement(Reveal, {
+  }, [window.VETA_DB && window.VETA_DB.getCategoryLabel(product.cat) || VETA_DATA.categories.find(c => c.id === product.cat)?.label, product.subcat && window.VETA_DB && window.VETA_DB.getCategoryLabel(product.subcat), product.ref && window.VETA_DB && window.VETA_DB.getCategoryLabel(product.ref)].filter(Boolean).join(" › "), " \xB7 ", product.material)), /*#__PURE__*/React.createElement(Reveal, {
     delay: 100
   }, /*#__PURE__*/React.createElement("h1", {
     className: "pdp-title"
