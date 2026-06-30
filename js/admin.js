@@ -349,7 +349,7 @@ function TabInicio({
     style: {
       textTransform: "capitalize"
     }
-  }, cat), /*#__PURE__*/React.createElement("td", null, n)))))), agotados > 0 && /*#__PURE__*/React.createElement("div", {
+  }, window.VETA_DB && window.VETA_DB.getCategoryLabel(cat) || cat), /*#__PURE__*/React.createElement("td", null, n)))))), agotados > 0 && /*#__PURE__*/React.createElement("div", {
     className: "adm-alert"
   }, "\u26A0 ", agotados, " talla(s) con stock en cero. Revisa la pesta\xF1a ", /*#__PURE__*/React.createElement("strong", null, "Stock"), "."), /*#__PURE__*/React.createElement("p", {
     className: "adm-note"
@@ -382,24 +382,386 @@ function ImgPreview({
   }));
 }
 
+// ── Imágenes: cantidad dinámica + utilidades de canvas ─────
+var MIN_IMAGES = 3;
+var MAX_IMAGES = 10;
+var CROP_AR = 4 / 5; // ancho / alto del marco de recorte (igual que el PDP)
+var CROP_OUT_W = 1200;
+var CROP_OUT_H = 1500;
+
+// slug a partir de un texto (para ids de categoría).
+function slugify(s) {
+  return (s || "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// canvas.toBlob como promesa, con respaldo a JPEG si el navegador no codifica WebP.
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(b => {
+      if (b) return resolve(b);
+      if (type === "image/webp") canvas.toBlob(b2 => b2 ? resolve(b2) : reject(new Error("No se pudo procesar la imagen.")), "image/jpeg", quality);else reject(new Error("No se pudo procesar la imagen."));
+    }, type, quality);
+  });
+}
+
+// Comprime/redimensiona manteniendo proporción (borde máx. `maxEdge`). Devuelve un Blob.
+async function compressImage(fileOrBlob, {
+  maxEdge = 1600,
+  type = "image/webp",
+  quality = 0.85
+} = {}) {
+  var bitmap = await createImageBitmap(fileOrBlob);
+  var w = bitmap.width,
+    h = bitmap.height;
+  var scale = Math.min(1, maxEdge / Math.max(w, h));
+  w = Math.round(w * scale);
+  h = Math.round(h * scale);
+  var canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+  return canvasToBlob(canvas, type, quality);
+}
+
+// Carga una imagen lista para canvas (CORS-clean para drawImage en Storage público).
+function loadImg(src) {
+  return new Promise((resolve, reject) => {
+    var img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("No se pudo cargar la imagen."));
+    img.src = src;
+  });
+}
+
+// ── Editor de recorte/encuadre 4:5 (estilo foto de perfil) ──
+function ImageCropper({
+  url,
+  onCancel,
+  onSave
+}) {
+  var FRAME_W = 320,
+    FRAME_H = Math.round(FRAME_W / CROP_AR); // 320 × 400
+  var [img, setImg] = useState(null);
+  var [base, setBase] = useState(1);
+  var [zoom, setZoom] = useState(1);
+  var [off, setOff] = useState({
+    x: 0,
+    y: 0
+  });
+  var [busy, setBusy] = useState(false);
+  var drag = useRef(null);
+  var s = base * zoom;
+  var clamp = useCallback((o, sc) => {
+    if (!img) return o;
+    var dw = img.naturalWidth * sc,
+      dh = img.naturalHeight * sc;
+    return {
+      x: Math.min(0, Math.max(FRAME_W - dw, o.x)),
+      y: Math.min(0, Math.max(FRAME_H - dh, o.y))
+    };
+  }, [img]);
+  useEffect(() => {
+    var alive = true;
+    loadImg(url).then(im => {
+      if (!alive) return;
+      var b = Math.max(FRAME_W / im.naturalWidth, FRAME_H / im.naturalHeight);
+      setImg(im);
+      setBase(b);
+      setZoom(1);
+      var dw = im.naturalWidth * b,
+        dh = im.naturalHeight * b;
+      setOff({
+        x: (FRAME_W - dw) / 2,
+        y: (FRAME_H - dh) / 2
+      });
+    }).catch(() => {
+      adminToast("No se pudo abrir el editor de recorte.", true);
+      onCancel();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  useEffect(() => {
+    setOff(o => clamp(o, base * zoom));
+  }, [zoom, base, clamp]);
+  var onDown = e => {
+    var p = e.touches ? e.touches[0] : e;
+    drag.current = {
+      sx: p.clientX,
+      sy: p.clientY,
+      ox: off.x,
+      oy: off.y
+    };
+  };
+  var onMove = e => {
+    if (!drag.current) return;
+    var p = e.touches ? e.touches[0] : e;
+    setOff(clamp({
+      x: drag.current.ox + (p.clientX - drag.current.sx),
+      y: drag.current.oy + (p.clientY - drag.current.sy)
+    }, s));
+  };
+  var onUp = () => {
+    drag.current = null;
+  };
+  var save = async () => {
+    if (!img) return;
+    setBusy(true);
+    try {
+      var canvas = document.createElement("canvas");
+      canvas.width = CROP_OUT_W;
+      canvas.height = CROP_OUT_H;
+      var sx = -off.x / s,
+        sy = -off.y / s,
+        sw = FRAME_W / s,
+        sh = FRAME_H / s;
+      canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, CROP_OUT_W, CROP_OUT_H);
+      var blob = await canvasToBlob(canvas, "image/webp", 0.85);
+      await onSave(blob);
+    } catch (e) {
+      adminToast("No se pudo recortar: " + e.message, true);
+    }
+    setBusy(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-modal-ov",
+    onMouseMove: onMove,
+    onMouseUp: onUp,
+    onMouseLeave: onUp,
+    onTouchMove: onMove,
+    onTouchEnd: onUp
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-crop",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-form-card-h"
+  }, "Recortar imagen (4:5)"), /*#__PURE__*/React.createElement("p", {
+    className: "adm-hint",
+    style: {
+      marginBottom: 12
+    }
+  }, "Arrastra para reposicionar y usa el zoom. Se recorta al marco vertical."), /*#__PURE__*/React.createElement("div", {
+    className: "adm-crop-frame",
+    style: {
+      width: FRAME_W,
+      height: FRAME_H
+    },
+    onMouseDown: onDown,
+    onTouchStart: onDown
+  }, img && /*#__PURE__*/React.createElement("img", {
+    src: url,
+    draggable: false,
+    alt: "",
+    style: {
+      position: "absolute",
+      left: off.x,
+      top: off.y,
+      width: img.naturalWidth * s,
+      height: img.naturalHeight * s,
+      maxWidth: "none",
+      userSelect: "none",
+      pointerEvents: "none"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adm-crop-grid"
+  })), /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl",
+    style: {
+      marginTop: 12
+    }
+  }, "Zoom"), /*#__PURE__*/React.createElement("input", {
+    type: "range",
+    min: "1",
+    max: "3",
+    step: "0.01",
+    value: zoom,
+    onChange: e => setZoom(parseFloat(e.target.value)),
+    style: {
+      width: "100%"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-actions",
+    style: {
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-btn adm-btn--ghost",
+    onClick: onCancel,
+    disabled: busy
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-btn adm-btn--primary",
+    onClick: save,
+    disabled: busy || !img
+  }, busy ? "Guardando…" : "Aplicar recorte"))));
+}
+
+// ── Gestor nativo de imágenes (arrastrar, comprimir, reordenar, recortar) ──
+function ImageManager({
+  images,
+  setImages,
+  productId,
+  sessionUrls
+}) {
+  var [uploading, setUploading] = useState(0);
+  var [cropIdx, setCropIdx] = useState(-1);
+  var [over, setOver] = useState(false);
+  var inputRef = useRef(null);
+  var dragFrom = useRef(null);
+  var ingest = useCallback(async fileList => {
+    var files = Array.from(fileList || []).filter(f => /^image\//.test(f.type || ""));
+    if (!files.length) return;
+    var slots = MAX_IMAGES - images.length;
+    if (slots <= 0) {
+      adminToast(`Máximo ${MAX_IMAGES} imágenes.`, true);
+      return;
+    }
+    var take = files.slice(0, slots);
+    if (files.length > slots) adminToast(`Solo se agregaron ${slots}; el máximo es ${MAX_IMAGES}.`, true);
+    setUploading(u => u + take.length);
+    var _loop = async function () {
+      try {
+        var blob = await compressImage(f);
+        var url = await window.VETA_DB.uploadProductImage(blob, productId, Math.floor(Math.random() * 1e6));
+        sessionUrls.current.add(url);
+        setImages(prev => prev.length >= MAX_IMAGES ? prev : [...prev, url]);
+      } catch (e) {
+        adminToast("No se pudo subir una imagen: " + e.message, true);
+      } finally {
+        setUploading(u => u - 1);
+      }
+    };
+    for (var f of take) {
+      await _loop();
+    }
+  }, [images.length, productId, setImages, sessionUrls]);
+  var onDrop = e => {
+    e.preventDefault();
+    setOver(false);
+    ingest(e.dataTransfer.files);
+  };
+  var removeAt = i => {
+    var url = images[i];
+    setImages(prev => prev.filter((_, idx) => idx !== i));
+    if (url && sessionUrls.current.has(url)) {
+      window.VETA_DB.deleteStorageImage(url);
+      sessionUrls.current.delete(url);
+    }
+  };
+  var moveTo = (from, to) => {
+    if (from == null || from === to) return;
+    setImages(prev => {
+      var arr = prev.slice();
+      var [m] = arr.splice(from, 1);
+      arr.splice(to, 0, m);
+      return arr;
+    });
+  };
+  var onCropSave = async blob => {
+    var i = cropIdx,
+      old = images[i];
+    try {
+      var url = await window.VETA_DB.uploadProductImage(blob, productId, Math.floor(Math.random() * 1e6));
+      sessionUrls.current.add(url);
+      setImages(prev => prev.map((u, idx) => idx === i ? url : u));
+      if (old && sessionUrls.current.has(old)) {
+        window.VETA_DB.deleteStorageImage(old);
+        sessionUrls.current.delete(old);
+      }
+      adminToast("Imagen recortada.");
+    } catch (e) {
+      adminToast("No se pudo guardar el recorte: " + e.message, true);
+    }
+    setCropIdx(-1);
+  };
+  var full = images.length >= MAX_IMAGES;
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: `adm-dropzone${over ? " adm-dropzone--over" : ""}${full ? " adm-dropzone--disabled" : ""}`,
+    onDragOver: e => {
+      if (full) return;
+      e.preventDefault();
+      setOver(true);
+    },
+    onDragLeave: () => setOver(false),
+    onDrop: e => {
+      if (full) {
+        e.preventDefault();
+        return;
+      }
+      onDrop(e);
+    },
+    onClick: () => {
+      if (!full) inputRef.current?.click();
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    ref: inputRef,
+    type: "file",
+    accept: "image/*",
+    multiple: true,
+    hidden: true,
+    onChange: e => {
+      ingest(e.target.files);
+      e.target.value = "";
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "adm-dropzone-ico"
+  }, "\u2B07"), /*#__PURE__*/React.createElement("div", null, full ? `Llegaste al máximo de ${MAX_IMAGES} imágenes` : /*#__PURE__*/React.createElement(React.Fragment, null, "Arrastra im\xE1genes aqu\xED o ", /*#__PURE__*/React.createElement("strong", null, "haz clic para elegir"))), /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint"
+  }, "JPG/PNG \xB7 se comprimen autom\xE1ticamente \xB7 ", images.length, "/", MAX_IMAGES), uploading > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint"
+  }, "Subiendo ", uploading, "\u2026")), images.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "adm-img-grid"
+  }, images.map((url, i) => /*#__PURE__*/React.createElement("div", {
+    key: url,
+    className: "adm-img-card",
+    draggable: true,
+    onDragStart: () => {
+      dragFrom.current = i;
+    },
+    onDragOver: e => e.preventDefault(),
+    onDrop: () => {
+      moveTo(dragFrom.current, i);
+      dragFrom.current = null;
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-img-card-thumb"
+  }, /*#__PURE__*/React.createElement("img", {
+    src: url,
+    alt: "",
+    draggable: false
+  })), i === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "adm-img-card-badge"
+  }, "Principal"), /*#__PURE__*/React.createElement("span", {
+    className: "adm-img-card-num"
+  }, i + 1), /*#__PURE__*/React.createElement("div", {
+    className: "adm-img-card-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-mini-btn",
+    onClick: () => setCropIdx(i),
+    title: "Recortar / encuadrar"
+  }, "\u270E Editar"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-mini-btn adm-mini-btn--del",
+    onClick: () => removeAt(i),
+    title: "Eliminar"
+  }, "\u2715"))))), /*#__PURE__*/React.createElement("p", {
+    className: "adm-field-hint",
+    style: {
+      marginTop: 8
+    }
+  }, "Arrastra las miniaturas para reordenar \u2014 la primera es la imagen principal del cat\xE1logo. M\xEDnimo ", MIN_IMAGES, ", m\xE1ximo ", MAX_IMAGES, "."), cropIdx >= 0 && images[cropIdx] && /*#__PURE__*/React.createElement(ImageCropper, {
+    url: images[cropIdx],
+    onCancel: () => setCropIdx(-1),
+    onSave: onCropSave
+  }));
+}
+
 // ── Formulario de producto (crear / editar) ────────────────
-var IMG_VIEWS = [{
-  key: "main",
-  label: "Principal",
-  hint: "Imagen principal — aparece en el catálogo y como vista 1 en PDP"
-}, {
-  key: "profile",
-  label: "Perfil (vista 2)",
-  hint: "Vista de perfil o ángulo lateral"
-}, {
-  key: "detail",
-  label: "Detalle de acabado (vista 3)",
-  hint: "Macro del acabado o textura"
-}, {
-  key: "context",
-  label: "En uso / contexto (vista 4)",
-  hint: "Foto de la pieza siendo usada"
-}];
 function ProductForm({
   product,
   allProducts,
@@ -407,9 +769,12 @@ function ProductForm({
   onBack
 }) {
   var isNew = !product;
+  var catList0 = window.VETA_DB && window.VETA_DB.getCategories(1) || VETA_DATA.categories;
   var initForm = useCallback(p => ({
     name: p?.name || "",
-    cat: p?.cat || VETA_DATA.categories[0].id,
+    cat: p?.cat || catList0[0] && catList0[0].id || "",
+    subcat: p?.subcat || "",
+    ref: p?.ref || "",
     material: p?.material || VETA_DATA.materials[0],
     matMode: p?.material && !VETA_DATA.materials.includes(p.material) ? "custom" : "preset",
     finish: p?.finish || VETA_DATA.finishes[0],
@@ -418,29 +783,32 @@ function ProductForm({
     sizesStr: (p?.sizes || []).join(", "),
     blurb: p?.blurb || "",
     desc: p?.desc || "",
-    imgMain: p?.images?.main || "",
-    imgProfile: p?.images?.profile || "",
-    imgDetail: p?.images?.detail || "",
-    imgContext: p?.images?.context || ""
+    images: VETA_DATA.productImages(p) // array dinámico de URLs (0 = principal)
   }), []);
   var [form, setFormRaw] = useState(() => initForm(product));
   var [id, setId] = useState(product?.id || "");
   var [errors, setErrors] = useState({});
+  var sessionUrls = useRef(new Set());
   var set = useCallback((k, v) => setFormRaw(f => ({
     ...f,
     [k]: v
   })), []);
+  // setImages compatible con actualizaciones funcionales (lo usa ImageManager).
+  var setImages = useCallback(updater => {
+    setFormRaw(f => ({
+      ...f,
+      images: typeof updater === "function" ? updater(f.images) : updater
+    }));
+  }, []);
+
+  // Re-render cuando las categorías cargan/cambian desde Supabase.
+  var [, forceTick] = useState(0);
+  useEffect(() => window.VETA_DB ? window.VETA_DB.subscribe(() => forceTick(n => n + 1)) : undefined, []);
 
   // Auto-generar ID cuando cambia la categoría (solo productos nuevos)
   useEffect(() => {
     if (!isNew) return;
-    var pfx = {
-      anillos: "an",
-      collares: "co",
-      aretes: "ar",
-      pulseras: "pu",
-      piercings: "pi"
-    }[form.cat] || "prod";
+    var pfx = (window.VETA_DB ? window.VETA_DB.getCategoryPrefix(form.cat) : null) || "prod";
     var nums = allProducts.filter(p => p.id.startsWith(pfx + "-")).map(p => {
       var n = parseInt(p.id.split("-")[1], 10);
       return isNaN(n) ? 0 : n;
@@ -453,6 +821,7 @@ function ProductForm({
     if (!form.name.trim()) e.name = "El nombre es obligatorio.";
     if (!form.price || Number(form.price) <= 0) e.price = "El precio debe ser mayor a 0.";
     if (!form.sizesStr.trim()) e.sizes = "Agrega al menos una talla.";
+    if (!form.images || form.images.length < MIN_IMAGES) e.images = `Agrega al menos ${MIN_IMAGES} imágenes.`;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -464,22 +833,21 @@ function ProductForm({
       id,
       name: form.name.trim(),
       cat: form.cat,
+      subcat: form.subcat || null,
+      ref: form.ref || null,
       material: form.material,
       finish: form.finish,
       price: parseInt(form.price, 10),
       sizes,
       blurb: form.blurb.trim(),
       desc: form.desc.trim(),
-      images: {
-        main: form.imgMain.trim(),
-        profile: form.imgProfile.trim(),
-        detail: form.imgDetail.trim(),
-        context: form.imgContext.trim()
-      }
+      images: form.images
     });
   };
   var sizeChips = form.sizesStr.split(",").map(s => s.trim()).filter(Boolean);
-  var imgKeys = ["imgMain", "imgProfile", "imgDetail", "imgContext"];
+  var catList = window.VETA_DB && window.VETA_DB.getCategories(1) || VETA_DATA.categories;
+  var subcats = window.VETA_DB ? window.VETA_DB.getChildren(form.cat) : [];
+  var refs = window.VETA_DB ? window.VETA_DB.getChildren(form.subcat) : [];
   return /*#__PURE__*/React.createElement("div", {
     className: "adm-page"
   }, /*#__PURE__*/React.createElement("div", {
@@ -532,8 +900,49 @@ function ProductForm({
   }, "Categor\xEDa"), /*#__PURE__*/React.createElement("select", {
     className: "adm-input",
     value: form.cat,
-    onChange: e => set("cat", e.target.value)
-  }, VETA_DATA.categories.map(c => /*#__PURE__*/React.createElement("option", {
+    onChange: e => setFormRaw(f => ({
+      ...f,
+      cat: e.target.value,
+      subcat: "",
+      ref: ""
+    }))
+  }, catList.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Subcategor\xEDa ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint-inline"
+  }, "\u2014 opcional")), /*#__PURE__*/React.createElement("select", {
+    className: "adm-input",
+    value: form.subcat,
+    disabled: subcats.length === 0,
+    onChange: e => setFormRaw(f => ({
+      ...f,
+      subcat: e.target.value,
+      ref: ""
+    }))
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, subcats.length ? "— Sin subcategoría —" : "— No hay subcategorías —"), subcats.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Referencia ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint-inline"
+  }, "\u2014 opcional")), /*#__PURE__*/React.createElement("select", {
+    className: "adm-input",
+    value: form.ref,
+    disabled: refs.length === 0,
+    onChange: e => set("ref", e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, refs.length ? "— Sin referencia —" : "— No hay referencias —"), refs.map(c => /*#__PURE__*/React.createElement("option", {
     key: c.id,
     value: c.id
   }, c.label)))), /*#__PURE__*/React.createElement("div", {
@@ -677,35 +1086,14 @@ function ProductForm({
     style: {
       marginBottom: 14
     }
-  }, "Sube las fotos a ", /*#__PURE__*/React.createElement("strong", null, "Cloudinary"), " (gratis en ", /*#__PURE__*/React.createElement("code", {
-    className: "adm-code"
-  }, "cloudinary.com"), ") y pega aqu\xED el URL directo de cada imagen. Si no hay imagen, se muestra el placeholder SVG."), /*#__PURE__*/React.createElement("div", {
-    className: "adm-img-fields"
-  }, IMG_VIEWS.map(({
-    key,
-    label,
-    hint
-  }, i) => /*#__PURE__*/React.createElement("div", {
-    key: key,
-    className: "adm-img-field-row"
-  }, /*#__PURE__*/React.createElement(ImgPreview, {
-    url: form[imgKeys[i]]
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "adm-img-field-inputs"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "adm-lbl"
-  }, label), /*#__PURE__*/React.createElement("span", {
-    className: "adm-field-hint",
-    style: {
-      marginBottom: 4
-    }
-  }, hint), /*#__PURE__*/React.createElement("input", {
-    className: "adm-input adm-input--sm",
-    type: "url",
-    value: form[imgKeys[i]],
-    onChange: e => set(imgKeys[i], e.target.value),
-    placeholder: "https://res.cloudinary.com/tu-cuenta/\u2026"
-  })))))), /*#__PURE__*/React.createElement("div", {
+  }, "Arrastra las fotos desde tu computador. Se comprimen autom\xE1ticamente sin perder calidad y se suben a la nube. Reord\xE9nalas para elegir cu\xE1l va primero y usa ", /*#__PURE__*/React.createElement("strong", null, "Editar"), "para recortar cada una al marco vertical."), /*#__PURE__*/React.createElement(ImageManager, {
+    images: form.images,
+    setImages: setImages,
+    productId: id,
+    sessionUrls: sessionUrls
+  }), errors.images && /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-err"
+  }, errors.images)), /*#__PURE__*/React.createElement("div", {
     className: "adm-form-actions"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -743,7 +1131,7 @@ function TabProductos({
       adminToast("No se pudo cambiar el modo de destacados: " + e.message, true);
     }
   };
-  var cats = ["todas", ...VETA_DATA.categories.map(c => c.id)];
+  var cats = ["todas", ...(window.VETA_DB && window.VETA_DB.getCategories(1) || VETA_DATA.categories).map(c => c.id)];
   var filtered = products.filter(p => {
     var mq = !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.id.includes(q);
     var mc = cat === "todas" || p.cat === cat;
@@ -820,8 +1208,8 @@ function TabProductos({
     className: p.hidden ? "adm-row--dim" : ""
   }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("div", {
     className: "adm-prod-thumb"
-  }, p.images?.main ? /*#__PURE__*/React.createElement("img", {
-    src: p.images.main,
+  }, VETA_DATA.productImages(p)[0] ? /*#__PURE__*/React.createElement("img", {
+    src: VETA_DATA.productImages(p)[0],
     alt: p.name
   }) : /*#__PURE__*/React.createElement(PHShape, {
     kind: VETA_DATA.shapes[p.cat]?.kind || "ring"
@@ -912,7 +1300,7 @@ function TabStock({
   reset
 }) {
   var [cat, setCat] = useState("todas");
-  var cats = ["todas", ...VETA_DATA.categories.map(c => c.id)];
+  var cats = ["todas", ...(window.VETA_DB && window.VETA_DB.getCategories(1) || VETA_DATA.categories).map(c => c.id)];
   var filtered = cat === "todas" ? products : products.filter(p => p.cat === cat);
   return /*#__PURE__*/React.createElement("div", {
     className: "adm-page"
@@ -2546,6 +2934,267 @@ function TabDespachos() {
   }))));
 }
 
+// ── Tab: Categorías (jerarquía Categoría → Subcategoría → Referencia) ──
+var CAT_LEVEL_LABEL = {
+  1: "categoría",
+  2: "subcategoría",
+  3: "referencia"
+};
+function CatEditor({
+  editing,
+  onSave,
+  onCancel
+}) {
+  var [label, setLabel] = useState(editing.label || "");
+  var [blurb, setBlurb] = useState(editing.blurb || "");
+  var ref = useRef(null);
+  useEffect(() => ref.current?.focus(), []);
+  var lvlName = CAT_LEVEL_LABEL[editing.level] || "categoría";
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-modal-ov",
+    onClick: onCancel
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-crop",
+    style: {
+      maxWidth: 440
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-form-card-h",
+    style: {
+      textTransform: "capitalize"
+    }
+  }, editing.mode === "new" ? `Nueva ${lvlName}` : `Editar ${lvlName}`), /*#__PURE__*/React.createElement("form", {
+    onSubmit: e => {
+      e.preventDefault();
+      onSave(label, blurb);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Nombre ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-required"
+  }, "*")), /*#__PURE__*/React.createElement("input", {
+    ref: ref,
+    className: "adm-input",
+    value: label,
+    onChange: e => setLabel(e.target.value),
+    placeholder: editing.level === 3 ? "Ej: Herradura con esmeralda" : editing.level === 2 ? "Ej: Trenzado" : "Ej: Anillos Plata"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Descripci\xF3n ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint-inline"
+  }, "\u2014 opcional")), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: blurb,
+    onChange: e => setBlurb(e.target.value),
+    placeholder: "Frase corta que describe esta categor\xEDa"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-actions",
+    style: {
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-btn adm-btn--ghost",
+    onClick: onCancel
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "adm-btn adm-btn--primary"
+  }, "Guardar")))));
+}
+function TabCategorias() {
+  var db = window.VETA_DB;
+  var [, force] = useState(0);
+  useEffect(() => db ? db.subscribe(() => force(n => n + 1)) : undefined, []);
+  var [editing, setEditing] = useState(null); // { mode, level, parentId, id?, label, blurb }
+
+  var all = db ? db.getCategories() : VETA_DATA.categories;
+  var byParent = pid => all.filter(c => c.parent_id === pid).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+  var cats = all.filter(c => c.level === 1).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+  var save = async (label, blurb) => {
+    var lbl = (label || "").trim();
+    if (!lbl) {
+      adminToast("El nombre es obligatorio.", true);
+      return;
+    }
+    try {
+      if (editing.mode === "edit") {
+        var ex = all.find(c => c.id === editing.id) || {};
+        await db.upsertCategory({
+          id: editing.id,
+          parent_id: editing.parentId || null,
+          level: editing.level,
+          label: lbl,
+          blurb: (blurb || "").trim(),
+          prefix: ex.prefix || null,
+          sort: ex.sort || 0
+        });
+      } else {
+        var base = slugify(lbl) || "cat";
+        var slug = editing.level === 1 ? base : `${editing.parentId}-${base}`;
+        var cand = slug,
+          n = 2;
+        while (all.some(c => c.id === cand)) cand = `${slug}-${n++}`;
+        var siblings = editing.level === 1 ? cats : byParent(editing.parentId);
+        await db.upsertCategory({
+          id: cand,
+          parent_id: editing.parentId || null,
+          level: editing.level,
+          label: lbl,
+          blurb: (blurb || "").trim(),
+          prefix: editing.level === 1 ? base.slice(0, 2) : null,
+          sort: siblings.length + 1
+        });
+      }
+      adminToast("Categoría guardada.");
+      setEditing(null);
+    } catch (e) {
+      adminToast("No se pudo guardar: " + e.message, true);
+    }
+  };
+  var del = async c => {
+    var childCount = all.filter(x => x.parent_id === c.id).length;
+    var prodCount = db ? db.countProductsInCategory(c.id) : 0;
+    var msg = `¿Eliminar "${c.label}"?`;
+    if (childCount) msg += ` Se eliminarán también sus ${childCount} sub-elemento(s).`;
+    if (prodCount) msg += ` ${prodCount} producto(s) quedarán sin esta clasificación.`;
+    if (!window.confirm(msg)) return;
+    try {
+      await db.deleteCategory(c.id);
+      adminToast("Categoría eliminada.");
+    } catch (e) {
+      adminToast("No se pudo eliminar: " + e.message, true);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-page"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-toolbar"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-hint",
+    style: {
+      margin: 0
+    }
+  }, "Organiza el cat\xE1logo en 3 niveles: ", /*#__PURE__*/React.createElement("strong", null, "Categor\xEDa \u2192 Subcategor\xEDa \u2192 Referencia"), "."), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--primary adm-btn--sm",
+    style: {
+      marginLeft: "auto"
+    },
+    onClick: () => setEditing({
+      mode: "new",
+      level: 1,
+      parentId: null
+    })
+  }, "+ Nueva categor\xEDa")), /*#__PURE__*/React.createElement("div", {
+    className: "adm-cat-tree"
+  }, cats.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "adm-empty"
+  }, "No hay categor\xEDas. Crea la primera."), cats.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.id,
+    className: "adm-cat-node adm-cat-node--1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-cat-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-cat-label"
+  }, c.label), c.blurb && /*#__PURE__*/React.createElement("span", {
+    className: "adm-cat-blurb"
+  }, c.blurb), /*#__PURE__*/React.createElement("div", {
+    className: "adm-cat-row-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "adm-mini-btn",
+    onClick: () => setEditing({
+      mode: "new",
+      level: 2,
+      parentId: c.id
+    })
+  }, "+ Subcategor\xEDa"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-action-btn",
+    title: "Editar",
+    onClick: () => setEditing({
+      mode: "edit",
+      level: 1,
+      parentId: null,
+      id: c.id,
+      label: c.label,
+      blurb: c.blurb
+    })
+  }, "\u270F"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-action-btn adm-action-btn--del",
+    title: "Eliminar",
+    onClick: () => del(c)
+  }, "\u2715"))), byParent(c.id).map(sc => /*#__PURE__*/React.createElement("div", {
+    key: sc.id,
+    className: "adm-cat-node adm-cat-node--2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-cat-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-cat-label"
+  }, sc.label), sc.blurb && /*#__PURE__*/React.createElement("span", {
+    className: "adm-cat-blurb"
+  }, sc.blurb), /*#__PURE__*/React.createElement("div", {
+    className: "adm-cat-row-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "adm-mini-btn",
+    onClick: () => setEditing({
+      mode: "new",
+      level: 3,
+      parentId: sc.id
+    })
+  }, "+ Referencia"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-action-btn",
+    title: "Editar",
+    onClick: () => setEditing({
+      mode: "edit",
+      level: 2,
+      parentId: c.id,
+      id: sc.id,
+      label: sc.label,
+      blurb: sc.blurb
+    })
+  }, "\u270F"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-action-btn adm-action-btn--del",
+    title: "Eliminar",
+    onClick: () => del(sc)
+  }, "\u2715"))), byParent(sc.id).map(rf => /*#__PURE__*/React.createElement("div", {
+    key: rf.id,
+    className: "adm-cat-node adm-cat-node--3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-cat-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "adm-cat-label"
+  }, rf.label), rf.blurb && /*#__PURE__*/React.createElement("span", {
+    className: "adm-cat-blurb"
+  }, rf.blurb), /*#__PURE__*/React.createElement("div", {
+    className: "adm-cat-row-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "adm-action-btn",
+    title: "Editar",
+    onClick: () => setEditing({
+      mode: "edit",
+      level: 3,
+      parentId: sc.id,
+      id: rf.id,
+      label: rf.label,
+      blurb: rf.blurb
+    })
+  }, "\u270F"), /*#__PURE__*/React.createElement("button", {
+    className: "adm-action-btn adm-action-btn--del",
+    title: "Eliminar",
+    onClick: () => del(rf)
+  }, "\u2715")))))))))), editing && /*#__PURE__*/React.createElement(CatEditor, {
+    editing: editing,
+    onSave: save,
+    onCancel: () => setEditing(null)
+  }));
+}
+
 // ── Shell con sidebar ─────────────────────────────────────
 var ADMIN_TABS = [{
   id: "inicio",
@@ -2567,6 +3216,11 @@ var ADMIN_TABS = [{
   label: "Productos",
   desc: "Catálogo y visibilidad",
   icon: "◈"
+}, {
+  id: "categorias",
+  label: "Categorías",
+  desc: "Categorías y referencias",
+  icon: "❏"
 }, {
   id: "stock",
   label: "Stock",
@@ -2729,7 +3383,7 @@ function AdminShell({
     removeProduct: remove,
     toggleHidden: toggleHidden,
     toggleFeatured: toggleFeatured
-  }), tab === "stock" && /*#__PURE__*/React.createElement(TabStock, {
+  }), tab === "categorias" && /*#__PURE__*/React.createElement(TabCategorias, null), tab === "stock" && /*#__PURE__*/React.createElement(TabStock, {
     products: products,
     get: getStock,
     set: setStock,

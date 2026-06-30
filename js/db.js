@@ -20,6 +20,7 @@ window.VETA_DB = (function () {
   let _stock         = {};
   let _settings      = {};
   let _discountCodes = [];
+  let _categories    = [];
   let _ready         = false;
   let _listeners     = [];
 
@@ -31,6 +32,8 @@ window.VETA_DB = (function () {
       id:       row.id,
       name:     row.name,
       cat:      row.cat,
+      subcat:   row.subcat || null,
+      ref:      row.ref || null,
       material: row.material,
       finish:   row.finish,
       price:    row.price,
@@ -72,8 +75,15 @@ window.VETA_DB = (function () {
     _discountCodes = data || [];
   }
 
+  async function loadCategories() {
+    const { data, error } = await sb.from("categories").select("*").order("level").order("sort");
+    if (error) { console.warn("[VETA_DB] categories:", error.message); return; }
+    _categories = data || [];
+    window.VETA_CATEGORIES = _categories;
+  }
+
   async function init() {
-    await Promise.all([loadProducts(), loadStock(), loadSettings(), loadDiscountCodes()]);
+    await Promise.all([loadProducts(), loadStock(), loadSettings(), loadDiscountCodes(), loadCategories()]);
     _ready = true;
     _notify();
 
@@ -101,6 +111,14 @@ window.VETA_DB = (function () {
       })
       .subscribe();
 
+    // Suscripción en tiempo real — categories
+    sb.channel("categories-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, async () => {
+        await loadCategories();
+        _notify();
+      })
+      .subscribe();
+
     return { products: _products, stock: _stock, settings: _settings };
   }
 
@@ -116,6 +134,48 @@ window.VETA_DB = (function () {
 
   function getSetting(key, fallback) {
     return _settings[key] !== undefined ? _settings[key] : fallback;
+  }
+
+  /* ── categorías (lecturas) ── */
+  // level: 1=categoría, 2=subcategoría, 3=referencia. Sin level → todas.
+  function getCategories(level) {
+    if (!_categories || _categories.length === 0) {
+      // Fallback al seed estático (solo nivel 1) mientras la tabla no carga.
+      return (level == null || level === 1) ? VETA_DATA.categories : [];
+    }
+    return level == null ? _categories : _categories.filter(c => c.level === level);
+  }
+  function getChildren(parentId) {
+    return (_categories || [])
+      .filter(c => c.parent_id === parentId)
+      .sort((a, b) => (a.sort || 0) - (b.sort || 0));
+  }
+  function getCategoryLabel(id) {
+    if (!id) return "";
+    const c = (_categories || []).find(x => x.id === id);
+    if (c) return c.label;
+    const seed = VETA_DATA.categories.find(x => x.id === id);
+    return seed ? seed.label : id;
+  }
+  function getCategoryPrefix(catId) {
+    const c = (_categories || []).find(x => x.id === catId && x.level === 1);
+    if (c && c.prefix) return c.prefix;
+    const seed = { anillos: "an", collares: "co", aretes: "ar", pulseras: "pu", piercings: "pi" }[catId];
+    if (seed) return seed;
+    return (catId || "prod").replace(/[^a-z0-9]/gi, "").slice(0, 2).toLowerCase() || "pr";
+  }
+  // Cuenta productos que referencian una categoría o cualquiera de sus
+  // descendientes (en cat/subcat/ref). Para advertir antes de eliminar.
+  function countProductsInCategory(id) {
+    const ids = new Set([id]);
+    let added = true;
+    while (added) {
+      added = false;
+      (_categories || []).forEach(c => {
+        if (c.parent_id && ids.has(c.parent_id) && !ids.has(c.id)) { ids.add(c.id); added = true; }
+      });
+    }
+    return (_products || []).filter(p => ids.has(p.cat) || ids.has(p.subcat) || ids.has(p.ref)).length;
   }
 
   function isHidden(id) {
@@ -204,34 +264,105 @@ window.VETA_DB = (function () {
   }
 
   async function upsertProduct(product) {
+    const prev = (_products || []).find(p => p.id === product.id);
     const row = {
       id:          product.id,
       name:        product.name,
       cat:         product.cat,
+      subcat:      product.subcat || null,
+      ref:         product.ref || null,
       material:    product.material,
       finish:      product.finish,
       price:       Number(product.price),
       sizes:       product.sizes,
       blurb:       product.blurb || "",
       description: product.desc || "",
-      images:      product.images || {},
+      images:      Array.isArray(product.images) ? product.images : (product.images || {}),
       visible:     product.visible !== false,
       featured:    product.featured || false,
     };
     const { error } = await sb.from("products").upsert(row, { onConflict: "id" });
     if (error) throw error;
+    // Borrar de Storage las imágenes que el admin quitó o reemplazó.
+    if (prev) {
+      const oldUrls = VETA_DATA.productImages(prev);
+      const newUrls = VETA_DATA.productImages(product);
+      const removed = oldUrls.filter(u => !newUrls.includes(u));
+      for (const u of removed) await deleteStorageImage(u);
+    }
     await loadProducts();
     _notify();
   }
 
   async function deleteProduct(id) {
+    const prev = (_products || []).find(p => p.id === id);
     const { error } = await sb.from("products").delete().eq("id", id);
     if (error) throw error;
+    if (prev) { for (const u of VETA_DATA.productImages(prev)) await deleteStorageImage(u); }
     if (_products) {
       _products = _products.filter(p => p.id !== id);
       window.VETA_PRODUCTS = _products;
     }
     _notify();
+  }
+
+  /* ── categorías (escrituras, requieren sesión) ── */
+  async function upsertCategory(cat) {
+    const row = {
+      id:        cat.id,
+      parent_id: cat.parent_id || null,
+      level:     cat.level,
+      label:     cat.label,
+      blurb:     cat.blurb || "",
+      prefix:    cat.prefix || null,
+      sort:      cat.sort || 0,
+    };
+    const { error } = await sb.from("categories").upsert(row, { onConflict: "id" });
+    if (error) throw error;
+    await loadCategories();
+    _notify();
+  }
+
+  async function deleteCategory(id) {
+    // El cascade en DB elimina subcategorías/referencias hijas; los productos
+    // referenciados quedan con cat/subcat/ref en null (FK on delete set null).
+    const { error } = await sb.from("categories").delete().eq("id", id);
+    if (error) throw error;
+    await Promise.all([loadCategories(), loadProducts()]);
+    _notify();
+  }
+
+  /* ── imágenes de producto en Supabase Storage (bucket product-images) ──
+     Subida nativa: el admin arrastra archivos, se comprimen en el navegador
+     (canvas) y se suben aquí. Solo se borran objetos de ESTE bucket; las URLs
+     externas/legacy (Cloudinary, Unsplash, assets/) se ignoran.            */
+  function _productImgPath(url) {
+    if (typeof url !== "string") return null;
+    const marker = "/product-images/";
+    const i = url.indexOf(marker);
+    if (i === -1) return null;
+    return decodeURIComponent(url.slice(i + marker.length).split("?")[0]);
+  }
+
+  async function uploadProductImage(file, productId, idx) {
+    const session = await getSession();
+    if (!session) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+    if (!file) throw new Error("No hay imagen para subir.");
+    const type = file.type || "image/webp";
+    const ext  = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";
+    const path = `${(productId || "tmp").replace(/[^a-z0-9-]/gi, "")}-${idx}-${Date.now()}.${ext}`;
+    const { error } = await sb.storage.from("product-images")
+      .upload(path, file, { contentType: type, upsert: true });
+    if (error) throw new Error("No se pudo subir la imagen: " + error.message);
+    const { data } = sb.storage.from("product-images").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function deleteStorageImage(url) {
+    const path = _productImgPath(url);
+    if (!path) return; // URL externa/legacy: no se toca
+    try { await sb.storage.from("product-images").remove([path]); }
+    catch (e) { console.warn("[VETA_DB] deleteStorageImage:", e.message); }
   }
 
   async function saveSetting(key, value) {
@@ -517,6 +648,11 @@ window.VETA_DB = (function () {
   return {
     init, onReady, subscribe,
     getProducts, getStock, getSetting, isHidden,
+    // categorías
+    getCategories, getChildren, getCategoryLabel, getCategoryPrefix, countProductsInCategory,
+    upsertCategory, deleteCategory,
+    // imágenes
+    uploadProductImage, deleteStorageImage,
     signIn, signOut, getSession, onAuthChange, changePassword,
     setStock, clearStock, setVisible, setFeatured, upsertProduct, deleteProduct, saveSetting,
     // descuentos

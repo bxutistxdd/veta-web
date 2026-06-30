@@ -734,7 +734,7 @@ function ProductCard({
   delay = 0
 }) {
   var shape = VETA_DATA.shapes[product.cat]?.kind || "ring";
-  var img = product.images?.main || (window.VETA_IMG || {})[product.id];
+  var img = VETA_DATA.productImages(product)[0] || (window.VETA_IMG || {})[product.id];
   var soldOut = isProductSoldOut(product);
   return /*#__PURE__*/React.createElement(Reveal, {
     delay: delay

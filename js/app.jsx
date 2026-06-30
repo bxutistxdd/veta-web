@@ -93,7 +93,7 @@ function useCart() {
         next[idx] = { ...next[idx], qty: newQty };
         return next;
       }
-      return [...prev, { key, id: product.id, name: product.name, price: product.price, material: product.material, size: opts.size, finish: opts.finish, qty: newQty, img: product.images?.main || null, shape: VETA_DATA.shapes[product.cat]?.kind || "ring" }];
+      return [...prev, { key, id: product.id, name: product.name, price: product.price, material: product.material, size: opts.size, finish: opts.finish, qty: newQty, img: VETA_DATA.productImages(product)[0] || null, shape: VETA_DATA.shapes[product.cat]?.kind || "ring" }];
     });
   }, []);
   const remove = useCallback((key) => setItems((prev) => prev.filter((it) => it.key !== key)), []);
@@ -475,18 +475,19 @@ function SearchOverlay({ open, onClose, onNavigate }) {
                 <p className="search-count">{results.length} {results.length === 1 ? "resultado" : "resultados"}</p>
                 <div className="search-results-list">
                   {top.map(p => {
-                    const cat = VETA_DATA.categories.find(c => c.id === p.cat);
+                    const catLabel = (window.VETA_DB && window.VETA_DB.getCategoryLabel(p.cat)) || VETA_DATA.categories.find(c => c.id === p.cat)?.label;
                     const shape = VETA_DATA.shapes[p.cat]?.kind || "ring";
+                    const thumb = VETA_DATA.productImages(p)[0];
                     return (
                       <button key={p.id} className="search-result-item" onClick={() => goTo({ name: "pdp", id: p.id })}>
                         <div className="search-result-thumb">
-                          {p.images?.main
-                            ? <img src={p.images.main} alt="" loading="lazy" />
+                          {thumb
+                            ? <img src={thumb} alt="" loading="lazy" />
                             : <PHShape kind={shape} />}
                         </div>
                         <div className="search-result-body">
                           <span className="search-result-name">{p.name}</span>
-                          <span className="search-result-meta">{p.material} · {cat?.label}</span>
+                          <span className="search-result-meta">{p.material} · {catLabel}</span>
                         </div>
                         <span className="search-result-price">{VETA_DATA.fmtPrice(p.price)}</span>
                       </button>

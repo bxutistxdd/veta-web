@@ -201,7 +201,7 @@ function TabInicio({ products, stock }) {
           <thead><tr><th>Categoría</th><th>Productos</th></tr></thead>
           <tbody>
             {Object.entries(bycat).map(([cat, n]) => (
-              <tr key={cat}><td style={{ textTransform:"capitalize" }}>{cat}</td><td>{n}</td></tr>
+              <tr key={cat}><td style={{ textTransform:"capitalize" }}>{(window.VETA_DB && window.VETA_DB.getCategoryLabel(cat)) || cat}</td><td>{n}</td></tr>
             ))}
           </tbody>
         </table>
@@ -237,20 +237,260 @@ function ImgPreview({ url }) {
   );
 }
 
-// ── Formulario de producto (crear / editar) ────────────────
-const IMG_VIEWS = [
-  { key: "main",    label: "Principal",                  hint: "Imagen principal — aparece en el catálogo y como vista 1 en PDP" },
-  { key: "profile", label: "Perfil (vista 2)",           hint: "Vista de perfil o ángulo lateral" },
-  { key: "detail",  label: "Detalle de acabado (vista 3)", hint: "Macro del acabado o textura" },
-  { key: "context", label: "En uso / contexto (vista 4)", hint: "Foto de la pieza siendo usada" },
-];
+// ── Imágenes: cantidad dinámica + utilidades de canvas ─────
+const MIN_IMAGES = 3;
+const MAX_IMAGES = 10;
+const CROP_AR    = 4 / 5;   // ancho / alto del marco de recorte (igual que el PDP)
+const CROP_OUT_W = 1200;
+const CROP_OUT_H = 1500;
 
+// slug a partir de un texto (para ids de categoría).
+function slugify(s) {
+  return (s || "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// canvas.toBlob como promesa, con respaldo a JPEG si el navegador no codifica WebP.
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(b => {
+      if (b) return resolve(b);
+      if (type === "image/webp")
+        canvas.toBlob(b2 => b2 ? resolve(b2) : reject(new Error("No se pudo procesar la imagen.")), "image/jpeg", quality);
+      else reject(new Error("No se pudo procesar la imagen."));
+    }, type, quality);
+  });
+}
+
+// Comprime/redimensiona manteniendo proporción (borde máx. `maxEdge`). Devuelve un Blob.
+async function compressImage(fileOrBlob, { maxEdge = 1600, type = "image/webp", quality = 0.85 } = {}) {
+  const bitmap = await createImageBitmap(fileOrBlob);
+  let w = bitmap.width, h = bitmap.height;
+  const scale = Math.min(1, maxEdge / Math.max(w, h));
+  w = Math.round(w * scale); h = Math.round(h * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+  if (bitmap.close) bitmap.close();
+  return canvasToBlob(canvas, type, quality);
+}
+
+// Carga una imagen lista para canvas (CORS-clean para drawImage en Storage público).
+function loadImg(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("No se pudo cargar la imagen."));
+    img.src = src;
+  });
+}
+
+// ── Editor de recorte/encuadre 4:5 (estilo foto de perfil) ──
+function ImageCropper({ url, onCancel, onSave }) {
+  const FRAME_W = 320, FRAME_H = Math.round(FRAME_W / CROP_AR); // 320 × 400
+  const [img, setImg]   = useState(null);
+  const [base, setBase] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [off, setOff]   = useState({ x: 0, y: 0 });
+  const [busy, setBusy] = useState(false);
+  const drag = useRef(null);
+  const s = base * zoom;
+
+  const clamp = useCallback((o, sc) => {
+    if (!img) return o;
+    const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+    return {
+      x: Math.min(0, Math.max(FRAME_W - dw, o.x)),
+      y: Math.min(0, Math.max(FRAME_H - dh, o.y)),
+    };
+  }, [img]);
+
+  useEffect(() => {
+    let alive = true;
+    loadImg(url).then(im => {
+      if (!alive) return;
+      const b = Math.max(FRAME_W / im.naturalWidth, FRAME_H / im.naturalHeight);
+      setImg(im); setBase(b); setZoom(1);
+      const dw = im.naturalWidth * b, dh = im.naturalHeight * b;
+      setOff({ x: (FRAME_W - dw) / 2, y: (FRAME_H - dh) / 2 });
+    }).catch(() => { adminToast("No se pudo abrir el editor de recorte.", true); onCancel(); });
+    return () => { alive = false; };
+  }, [url]);
+
+  useEffect(() => { setOff(o => clamp(o, base * zoom)); }, [zoom, base, clamp]);
+
+  const onDown = (e) => {
+    const p = e.touches ? e.touches[0] : e;
+    drag.current = { sx: p.clientX, sy: p.clientY, ox: off.x, oy: off.y };
+  };
+  const onMove = (e) => {
+    if (!drag.current) return;
+    const p = e.touches ? e.touches[0] : e;
+    setOff(clamp({ x: drag.current.ox + (p.clientX - drag.current.sx), y: drag.current.oy + (p.clientY - drag.current.sy) }, s));
+  };
+  const onUp = () => { drag.current = null; };
+
+  const save = async () => {
+    if (!img) return;
+    setBusy(true);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = CROP_OUT_W; canvas.height = CROP_OUT_H;
+      const sx = -off.x / s, sy = -off.y / s, sw = FRAME_W / s, sh = FRAME_H / s;
+      canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, CROP_OUT_W, CROP_OUT_H);
+      const blob = await canvasToBlob(canvas, "image/webp", 0.85);
+      await onSave(blob);
+    } catch (e) { adminToast("No se pudo recortar: " + e.message, true); }
+    setBusy(false);
+  };
+
+  return (
+    <div className="adm-modal-ov"
+      onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+      onTouchMove={onMove} onTouchEnd={onUp}>
+      <div className="adm-crop" onClick={e => e.stopPropagation()}>
+        <h3 className="adm-form-card-h">Recortar imagen (4:5)</h3>
+        <p className="adm-hint" style={{ marginBottom: 12 }}>Arrastra para reposicionar y usa el zoom. Se recorta al marco vertical.</p>
+        <div className="adm-crop-frame" style={{ width: FRAME_W, height: FRAME_H }}
+          onMouseDown={onDown} onTouchStart={onDown}>
+          {img && (
+            <img src={url} draggable={false} alt=""
+              style={{ position: "absolute", left: off.x, top: off.y,
+                width: img.naturalWidth * s, height: img.naturalHeight * s,
+                maxWidth: "none", userSelect: "none", pointerEvents: "none" }} />
+          )}
+          <div className="adm-crop-grid" />
+        </div>
+        <label className="adm-lbl" style={{ marginTop: 12 }}>Zoom</label>
+        <input type="range" min="1" max="3" step="0.01" value={zoom}
+          onChange={e => setZoom(parseFloat(e.target.value))} style={{ width: "100%" }} />
+        <div className="adm-form-actions" style={{ marginTop: 16 }}>
+          <button type="button" className="adm-btn adm-btn--ghost" onClick={onCancel} disabled={busy}>Cancelar</button>
+          <button type="button" className="adm-btn adm-btn--primary" onClick={save} disabled={busy || !img}>
+            {busy ? "Guardando…" : "Aplicar recorte"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Gestor nativo de imágenes (arrastrar, comprimir, reordenar, recortar) ──
+function ImageManager({ images, setImages, productId, sessionUrls }) {
+  const [uploading, setUploading] = useState(0);
+  const [cropIdx, setCropIdx]     = useState(-1);
+  const [over, setOver]           = useState(false);
+  const inputRef = useRef(null);
+  const dragFrom = useRef(null);
+
+  const ingest = useCallback(async (fileList) => {
+    const files = Array.from(fileList || []).filter(f => /^image\//.test(f.type || ""));
+    if (!files.length) return;
+    let slots = MAX_IMAGES - images.length;
+    if (slots <= 0) { adminToast(`Máximo ${MAX_IMAGES} imágenes.`, true); return; }
+    const take = files.slice(0, slots);
+    if (files.length > slots) adminToast(`Solo se agregaron ${slots}; el máximo es ${MAX_IMAGES}.`, true);
+    setUploading(u => u + take.length);
+    for (const f of take) {
+      try {
+        const blob = await compressImage(f);
+        const url  = await window.VETA_DB.uploadProductImage(blob, productId, Math.floor(Math.random() * 1e6));
+        sessionUrls.current.add(url);
+        setImages(prev => prev.length >= MAX_IMAGES ? prev : [...prev, url]);
+      } catch (e) { adminToast("No se pudo subir una imagen: " + e.message, true); }
+      finally { setUploading(u => u - 1); }
+    }
+  }, [images.length, productId, setImages, sessionUrls]);
+
+  const onDrop = (e) => { e.preventDefault(); setOver(false); ingest(e.dataTransfer.files); };
+
+  const removeAt = (i) => {
+    const url = images[i];
+    setImages(prev => prev.filter((_, idx) => idx !== i));
+    if (url && sessionUrls.current.has(url)) { window.VETA_DB.deleteStorageImage(url); sessionUrls.current.delete(url); }
+  };
+
+  const moveTo = (from, to) => {
+    if (from == null || from === to) return;
+    setImages(prev => {
+      const arr = prev.slice();
+      const [m] = arr.splice(from, 1);
+      arr.splice(to, 0, m);
+      return arr;
+    });
+  };
+
+  const onCropSave = async (blob) => {
+    const i = cropIdx, old = images[i];
+    try {
+      const url = await window.VETA_DB.uploadProductImage(blob, productId, Math.floor(Math.random() * 1e6));
+      sessionUrls.current.add(url);
+      setImages(prev => prev.map((u, idx) => idx === i ? url : u));
+      if (old && sessionUrls.current.has(old)) { window.VETA_DB.deleteStorageImage(old); sessionUrls.current.delete(old); }
+      adminToast("Imagen recortada.");
+    } catch (e) { adminToast("No se pudo guardar el recorte: " + e.message, true); }
+    setCropIdx(-1);
+  };
+
+  const full = images.length >= MAX_IMAGES;
+
+  return (
+    <>
+      <div className={`adm-dropzone${over ? " adm-dropzone--over" : ""}${full ? " adm-dropzone--disabled" : ""}`}
+        onDragOver={e => { if (full) return; e.preventDefault(); setOver(true); }}
+        onDragLeave={() => setOver(false)}
+        onDrop={e => { if (full) { e.preventDefault(); return; } onDrop(e); }}
+        onClick={() => { if (!full) inputRef.current?.click(); }}>
+        <input ref={inputRef} type="file" accept="image/*" multiple hidden
+          onChange={e => { ingest(e.target.files); e.target.value = ""; }} />
+        <div className="adm-dropzone-ico">⬇</div>
+        <div>{full ? `Llegaste al máximo de ${MAX_IMAGES} imágenes` : <>Arrastra imágenes aquí o <strong>haz clic para elegir</strong></>}</div>
+        <span className="adm-field-hint">JPG/PNG · se comprimen automáticamente · {images.length}/{MAX_IMAGES}</span>
+        {uploading > 0 && <span className="adm-field-hint">Subiendo {uploading}…</span>}
+      </div>
+
+      {images.length > 0 && (
+        <div className="adm-img-grid">
+          {images.map((url, i) => (
+            <div key={url} className="adm-img-card" draggable
+              onDragStart={() => { dragFrom.current = i; }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => { moveTo(dragFrom.current, i); dragFrom.current = null; }}>
+              <div className="adm-img-card-thumb"><img src={url} alt="" draggable={false} /></div>
+              {i === 0 && <span className="adm-img-card-badge">Principal</span>}
+              <span className="adm-img-card-num">{i + 1}</span>
+              <div className="adm-img-card-actions">
+                <button type="button" className="adm-mini-btn" onClick={() => setCropIdx(i)} title="Recortar / encuadrar">✎ Editar</button>
+                <button type="button" className="adm-mini-btn adm-mini-btn--del" onClick={() => removeAt(i)} title="Eliminar">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="adm-field-hint" style={{ marginTop: 8 }}>
+        Arrastra las miniaturas para reordenar — la primera es la imagen principal del catálogo.
+        Mínimo {MIN_IMAGES}, máximo {MAX_IMAGES}.
+      </p>
+
+      {cropIdx >= 0 && images[cropIdx] && (
+        <ImageCropper url={images[cropIdx]} onCancel={() => setCropIdx(-1)} onSave={onCropSave} />
+      )}
+    </>
+  );
+}
+
+// ── Formulario de producto (crear / editar) ────────────────
 function ProductForm({ product, allProducts, onSave, onBack }) {
   const isNew = !product;
 
+  const catList0 = (window.VETA_DB && window.VETA_DB.getCategories(1)) || VETA_DATA.categories;
+
   const initForm = useCallback((p) => ({
     name:     p?.name || "",
-    cat:      p?.cat  || VETA_DATA.categories[0].id,
+    cat:      p?.cat  || (catList0[0] && catList0[0].id) || "",
+    subcat:   p?.subcat || "",
+    ref:      p?.ref    || "",
     material: p?.material || VETA_DATA.materials[0],
     matMode:  (p?.material && !VETA_DATA.materials.includes(p.material)) ? "custom" : "preset",
     finish:   p?.finish || VETA_DATA.finishes[0],
@@ -259,22 +499,28 @@ function ProductForm({ product, allProducts, onSave, onBack }) {
     sizesStr: (p?.sizes || []).join(", "),
     blurb:    p?.blurb  || "",
     desc:     p?.desc   || "",
-    imgMain:    p?.images?.main    || "",
-    imgProfile: p?.images?.profile || "",
-    imgDetail:  p?.images?.detail  || "",
-    imgContext: p?.images?.context || "",
+    images:   VETA_DATA.productImages(p),   // array dinámico de URLs (0 = principal)
   }), []);
 
   const [form, setFormRaw] = useState(() => initForm(product));
   const [id, setId] = useState(product?.id || "");
   const [errors, setErrors] = useState({});
+  const sessionUrls = useRef(new Set());
 
   const set = useCallback((k, v) => setFormRaw(f => ({ ...f, [k]: v })), []);
+  // setImages compatible con actualizaciones funcionales (lo usa ImageManager).
+  const setImages = useCallback((updater) => {
+    setFormRaw(f => ({ ...f, images: typeof updater === "function" ? updater(f.images) : updater }));
+  }, []);
+
+  // Re-render cuando las categorías cargan/cambian desde Supabase.
+  const [, forceTick] = useState(0);
+  useEffect(() => (window.VETA_DB ? window.VETA_DB.subscribe(() => forceTick(n => n + 1)) : undefined), []);
 
   // Auto-generar ID cuando cambia la categoría (solo productos nuevos)
   useEffect(() => {
     if (!isNew) return;
-    const pfx = { anillos:"an", collares:"co", aretes:"ar", pulseras:"pu", piercings:"pi" }[form.cat] || "prod";
+    const pfx = (window.VETA_DB ? window.VETA_DB.getCategoryPrefix(form.cat) : null) || "prod";
     const nums = allProducts
       .filter(p => p.id.startsWith(pfx + "-"))
       .map(p => { const n = parseInt(p.id.split("-")[1], 10); return isNaN(n) ? 0 : n; });
@@ -287,6 +533,7 @@ function ProductForm({ product, allProducts, onSave, onBack }) {
     if (!form.name.trim())           e.name  = "El nombre es obligatorio.";
     if (!form.price || Number(form.price) <= 0) e.price = "El precio debe ser mayor a 0.";
     if (!form.sizesStr.trim())       e.sizes = "Agrega al menos una talla.";
+    if (!form.images || form.images.length < MIN_IMAGES) e.images = `Agrega al menos ${MIN_IMAGES} imágenes.`;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -299,23 +546,22 @@ function ProductForm({ product, allProducts, onSave, onBack }) {
       id,
       name:     form.name.trim(),
       cat:      form.cat,
+      subcat:   form.subcat || null,
+      ref:      form.ref || null,
       material: form.material,
       finish:   form.finish,
       price:    parseInt(form.price, 10),
       sizes,
       blurb:    form.blurb.trim(),
       desc:     form.desc.trim(),
-      images: {
-        main:    form.imgMain.trim(),
-        profile: form.imgProfile.trim(),
-        detail:  form.imgDetail.trim(),
-        context: form.imgContext.trim(),
-      },
+      images:   form.images,
     });
   };
 
   const sizeChips = form.sizesStr.split(",").map(s => s.trim()).filter(Boolean);
-  const imgKeys   = ["imgMain", "imgProfile", "imgDetail", "imgContext"];
+  const catList   = (window.VETA_DB && window.VETA_DB.getCategories(1)) || VETA_DATA.categories;
+  const subcats   = window.VETA_DB ? window.VETA_DB.getChildren(form.cat) : [];
+  const refs      = window.VETA_DB ? window.VETA_DB.getChildren(form.subcat) : [];
 
   return (
     <div className="adm-page">
@@ -351,10 +597,30 @@ function ProductForm({ product, allProducts, onSave, onBack }) {
             <div className="adm-form-field">
               <label className="adm-lbl">Categoría</label>
               <select className="adm-input" value={form.cat}
-                onChange={e => set("cat", e.target.value)}>
-                {VETA_DATA.categories.map(c => (
+                onChange={e => setFormRaw(f => ({ ...f, cat: e.target.value, subcat: "", ref: "" }))}>
+                {catList.map(c => (
                   <option key={c.id} value={c.id}>{c.label}</option>
                 ))}
+              </select>
+            </div>
+
+            <div className="adm-form-field">
+              <label className="adm-lbl">Subcategoría <span className="adm-field-hint-inline">— opcional</span></label>
+              <select className="adm-input" value={form.subcat}
+                disabled={subcats.length === 0}
+                onChange={e => setFormRaw(f => ({ ...f, subcat: e.target.value, ref: "" }))}>
+                <option value="">{subcats.length ? "— Sin subcategoría —" : "— No hay subcategorías —"}</option>
+                {subcats.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+
+            <div className="adm-form-field">
+              <label className="adm-lbl">Referencia <span className="adm-field-hint-inline">— opcional</span></label>
+              <select className="adm-input" value={form.ref}
+                disabled={refs.length === 0}
+                onChange={e => set("ref", e.target.value)}>
+                <option value="">{refs.length ? "— Sin referencia —" : "— No hay referencias —"}</option>
+                {refs.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
             </div>
 
@@ -450,24 +716,12 @@ function ProductForm({ product, allProducts, onSave, onBack }) {
         <div className="adm-form-card">
           <h3 className="adm-form-card-h">Imágenes</h3>
           <p className="adm-hint" style={{ marginBottom:14 }}>
-            Sube las fotos a <strong>Cloudinary</strong> (gratis en <code className="adm-code">cloudinary.com</code>)
-            y pega aquí el URL directo de cada imagen. Si no hay imagen, se muestra el placeholder SVG.
+            Arrastra las fotos desde tu computador. Se comprimen automáticamente sin perder calidad
+            y se suben a la nube. Reordénalas para elegir cuál va primero y usa <strong>Editar</strong>
+            para recortar cada una al marco vertical.
           </p>
-          <div className="adm-img-fields">
-            {IMG_VIEWS.map(({ key, label, hint }, i) => (
-              <div key={key} className="adm-img-field-row">
-                <ImgPreview url={form[imgKeys[i]]} />
-                <div className="adm-img-field-inputs">
-                  <label className="adm-lbl">{label}</label>
-                  <span className="adm-field-hint" style={{ marginBottom:4 }}>{hint}</span>
-                  <input className="adm-input adm-input--sm" type="url"
-                    value={form[imgKeys[i]]}
-                    onChange={e => set(imgKeys[i], e.target.value)}
-                    placeholder="https://res.cloudinary.com/tu-cuenta/…" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <ImageManager images={form.images} setImages={setImages} productId={id} sessionUrls={sessionUrls} />
+          {errors.images && <span className="adm-field-err">{errors.images}</span>}
         </div>
 
         {/* ── Acciones ── */}
@@ -502,7 +756,7 @@ function TabProductos({ products, addProduct, updateProduct, removeProduct, togg
     catch (e) { adminToast("No se pudo cambiar el modo de destacados: " + e.message, true); }
   };
 
-  const cats = ["todas", ...VETA_DATA.categories.map(c => c.id)];
+  const cats = ["todas", ...((window.VETA_DB && window.VETA_DB.getCategories(1)) || VETA_DATA.categories).map(c => c.id)];
   const filtered = products.filter(p => {
     const mq = !q || p.name.toLowerCase().includes(q.toLowerCase()) || p.id.includes(q);
     const mc = cat === "todas" || p.cat === cat;
@@ -580,8 +834,8 @@ function TabProductos({ products, addProduct, updateProduct, removeProduct, togg
               <tr key={p.id} className={p.hidden ? "adm-row--dim" : ""}>
                 <td>
                   <div className="adm-prod-thumb">
-                    {p.images?.main
-                      ? <img src={p.images.main} alt={p.name} />
+                    {VETA_DATA.productImages(p)[0]
+                      ? <img src={VETA_DATA.productImages(p)[0]} alt={p.name} />
                       : <PHShape kind={VETA_DATA.shapes[p.cat]?.kind || "ring"} />}
                   </div>
                 </td>
@@ -654,7 +908,7 @@ function StockCell({ pid, sz, get, set }) {
 
 function TabStock({ products, get, set, reset }) {
   const [cat, setCat] = useState("todas");
-  const cats = ["todas", ...VETA_DATA.categories.map(c => c.id)];
+  const cats = ["todas", ...((window.VETA_DB && window.VETA_DB.getCategories(1)) || VETA_DATA.categories).map(c => c.id)];
   const filtered = cat==="todas" ? products : products.filter(p=>p.cat===cat);
   return (
     <div className="adm-page">
@@ -1893,12 +2147,154 @@ function TabDespachos() {
   );
 }
 
+// ── Tab: Categorías (jerarquía Categoría → Subcategoría → Referencia) ──
+const CAT_LEVEL_LABEL = { 1: "categoría", 2: "subcategoría", 3: "referencia" };
+
+function CatEditor({ editing, onSave, onCancel }) {
+  const [label, setLabel] = useState(editing.label || "");
+  const [blurb, setBlurb] = useState(editing.blurb || "");
+  const ref = useRef(null);
+  useEffect(() => ref.current?.focus(), []);
+  const lvlName = CAT_LEVEL_LABEL[editing.level] || "categoría";
+  return (
+    <div className="adm-modal-ov" onClick={onCancel}>
+      <div className="adm-crop" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+        <h3 className="adm-form-card-h" style={{ textTransform: "capitalize" }}>
+          {editing.mode === "new" ? `Nueva ${lvlName}` : `Editar ${lvlName}`}
+        </h3>
+        <form onSubmit={e => { e.preventDefault(); onSave(label, blurb); }}>
+          <div className="adm-form-field">
+            <label className="adm-lbl">Nombre <span className="adm-required">*</span></label>
+            <input ref={ref} className="adm-input" value={label} onChange={e => setLabel(e.target.value)}
+              placeholder={editing.level === 3 ? "Ej: Herradura con esmeralda" : editing.level === 2 ? "Ej: Trenzado" : "Ej: Anillos Plata"} />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Descripción <span className="adm-field-hint-inline">— opcional</span></label>
+            <input className="adm-input" value={blurb} onChange={e => setBlurb(e.target.value)}
+              placeholder="Frase corta que describe esta categoría" />
+          </div>
+          <div className="adm-form-actions" style={{ marginTop: 16 }}>
+            <button type="button" className="adm-btn adm-btn--ghost" onClick={onCancel}>Cancelar</button>
+            <button type="submit" className="adm-btn adm-btn--primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function TabCategorias() {
+  const db = window.VETA_DB;
+  const [, force] = useState(0);
+  useEffect(() => (db ? db.subscribe(() => force(n => n + 1)) : undefined), []);
+  const [editing, setEditing] = useState(null); // { mode, level, parentId, id?, label, blurb }
+
+  const all  = db ? db.getCategories() : VETA_DATA.categories;
+  const byParent = (pid) => all.filter(c => c.parent_id === pid).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+  const cats = all.filter(c => c.level === 1).sort((a, b) => (a.sort || 0) - (b.sort || 0));
+
+  const save = async (label, blurb) => {
+    const lbl = (label || "").trim();
+    if (!lbl) { adminToast("El nombre es obligatorio.", true); return; }
+    try {
+      if (editing.mode === "edit") {
+        const ex = all.find(c => c.id === editing.id) || {};
+        await db.upsertCategory({ id: editing.id, parent_id: editing.parentId || null, level: editing.level,
+          label: lbl, blurb: (blurb || "").trim(), prefix: ex.prefix || null, sort: ex.sort || 0 });
+      } else {
+        const base = slugify(lbl) || "cat";
+        let slug = editing.level === 1 ? base : `${editing.parentId}-${base}`;
+        let cand = slug, n = 2;
+        while (all.some(c => c.id === cand)) cand = `${slug}-${n++}`;
+        const siblings = editing.level === 1 ? cats : byParent(editing.parentId);
+        await db.upsertCategory({ id: cand, parent_id: editing.parentId || null, level: editing.level,
+          label: lbl, blurb: (blurb || "").trim(),
+          prefix: editing.level === 1 ? base.slice(0, 2) : null, sort: siblings.length + 1 });
+      }
+      adminToast("Categoría guardada.");
+      setEditing(null);
+    } catch (e) { adminToast("No se pudo guardar: " + e.message, true); }
+  };
+
+  const del = async (c) => {
+    const childCount = all.filter(x => x.parent_id === c.id).length;
+    const prodCount  = db ? db.countProductsInCategory(c.id) : 0;
+    let msg = `¿Eliminar "${c.label}"?`;
+    if (childCount) msg += ` Se eliminarán también sus ${childCount} sub-elemento(s).`;
+    if (prodCount)  msg += ` ${prodCount} producto(s) quedarán sin esta clasificación.`;
+    if (!window.confirm(msg)) return;
+    try { await db.deleteCategory(c.id); adminToast("Categoría eliminada."); }
+    catch (e) { adminToast("No se pudo eliminar: " + e.message, true); }
+  };
+
+  return (
+    <div className="adm-page">
+      <div className="adm-toolbar">
+        <span className="adm-hint" style={{ margin: 0 }}>
+          Organiza el catálogo en 3 niveles: <strong>Categoría → Subcategoría → Referencia</strong>.
+        </span>
+        <button className="adm-btn adm-btn--primary adm-btn--sm" style={{ marginLeft: "auto" }}
+          onClick={() => setEditing({ mode: "new", level: 1, parentId: null })}>
+          + Nueva categoría
+        </button>
+      </div>
+
+      <div className="adm-cat-tree">
+        {cats.length === 0 && <p className="adm-empty">No hay categorías. Crea la primera.</p>}
+        {cats.map(c => (
+          <div key={c.id} className="adm-cat-node adm-cat-node--1">
+            <div className="adm-cat-row">
+              <span className="adm-cat-label">{c.label}</span>
+              {c.blurb && <span className="adm-cat-blurb">{c.blurb}</span>}
+              <div className="adm-cat-row-actions">
+                <button className="adm-mini-btn" onClick={() => setEditing({ mode: "new", level: 2, parentId: c.id })}>+ Subcategoría</button>
+                <button className="adm-action-btn" title="Editar" onClick={() => setEditing({ mode: "edit", level: 1, parentId: null, id: c.id, label: c.label, blurb: c.blurb })}>✏</button>
+                <button className="adm-action-btn adm-action-btn--del" title="Eliminar" onClick={() => del(c)}>✕</button>
+              </div>
+            </div>
+
+            {byParent(c.id).map(sc => (
+              <div key={sc.id} className="adm-cat-node adm-cat-node--2">
+                <div className="adm-cat-row">
+                  <span className="adm-cat-label">{sc.label}</span>
+                  {sc.blurb && <span className="adm-cat-blurb">{sc.blurb}</span>}
+                  <div className="adm-cat-row-actions">
+                    <button className="adm-mini-btn" onClick={() => setEditing({ mode: "new", level: 3, parentId: sc.id })}>+ Referencia</button>
+                    <button className="adm-action-btn" title="Editar" onClick={() => setEditing({ mode: "edit", level: 2, parentId: c.id, id: sc.id, label: sc.label, blurb: sc.blurb })}>✏</button>
+                    <button className="adm-action-btn adm-action-btn--del" title="Eliminar" onClick={() => del(sc)}>✕</button>
+                  </div>
+                </div>
+
+                {byParent(sc.id).map(rf => (
+                  <div key={rf.id} className="adm-cat-node adm-cat-node--3">
+                    <div className="adm-cat-row">
+                      <span className="adm-cat-label">{rf.label}</span>
+                      {rf.blurb && <span className="adm-cat-blurb">{rf.blurb}</span>}
+                      <div className="adm-cat-row-actions">
+                        <button className="adm-action-btn" title="Editar" onClick={() => setEditing({ mode: "edit", level: 3, parentId: sc.id, id: rf.id, label: rf.label, blurb: rf.blurb })}>✏</button>
+                        <button className="adm-action-btn adm-action-btn--del" title="Eliminar" onClick={() => del(rf)}>✕</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {editing && <CatEditor editing={editing} onSave={save} onCancel={() => setEditing(null)} />}
+    </div>
+  );
+}
+
 // ── Shell con sidebar ─────────────────────────────────────
 const ADMIN_TABS = [
   { id:"inicio",     label:"Inicio",      desc:"Resumen general",      icon:"▦" },
   { id:"chats",      label:"Chats",       desc:"Mensajes de clientes", icon:"✉" },
   { id:"despachos",  label:"Despachos",   desc:"Pedidos y envíos",     icon:"⬡" },
   { id:"productos",  label:"Productos",   desc:"Catálogo y visibilidad",icon:"◈" },
+  { id:"categorias", label:"Categorías",  desc:"Categorías y referencias", icon:"❏" },
   { id:"stock",      label:"Stock",       desc:"Inventario por talla", icon:"◫" },
   { id:"descuentos", label:"Descuentos",  desc:"Códigos promocionales", icon:"◎" },
   { id:"config",     label:"Config.",     desc:"Ajustes del sistema",  icon:"◉" },
@@ -2009,6 +2405,7 @@ function AdminShell({ onLogout }) {
           {tab==="productos" && <TabProductos products={products}
             addProduct={add} updateProduct={update} removeProduct={remove}
             toggleHidden={toggleHidden} toggleFeatured={toggleFeatured}/>}
+          {tab==="categorias" && <TabCategorias />}
           {tab==="stock"      && <TabStock      products={products} get={getStock} set={setStock} reset={resetStock}/>}
           {tab==="descuentos" && <TabDescuentos />}
           {tab==="config"     && <TabConfig    cfg={cfg} save={saveCfg} onLogout={onLogout} resetProducts={resetToSeed}/>}
