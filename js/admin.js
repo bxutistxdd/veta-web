@@ -2492,24 +2492,78 @@ function TabDescuentos() {
 // Formulario compartido para registrar a mano un pedido cerrado por un
 // asesor (fuera de la detección automática de Luna). Se usa desde Chats
 // (teléfono precargado) y desde Despachos (en blanco).
+// Borrador persistente: si el asesor cierra el modal sin querer (clic afuera,
+// cambia de chat, recarga), lo que ya diligenció sigue ahí al reabrir.
+function orderDraftKey(fixedPhone) {
+  return "veta_order_draft_" + (fixedPhone || "blank");
+}
+function loadOrderDraft(fixedPhone, fixedName) {
+  try {
+    var raw = localStorage.getItem(orderDraftKey(fixedPhone));
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return {
+    phone: fixedPhone || "",
+    customer: fixedName || "",
+    city: "",
+    neighborhood: "",
+    address: "",
+    aptRef: "",
+    payment: "",
+    recipient: "",
+    items: "",
+    notes: ""
+  };
+}
 function OrderForm({
   phone: fixedPhone,
   customerName: fixedName,
   onClose,
   onCreated
 }) {
-  var [phone, setPhone] = useState(fixedPhone || "");
-  var [customer, setCustomer] = useState(fixedName || "");
-  var [city, setCity] = useState("");
-  var [neighborhood, setNbhd] = useState("");
-  var [address, setAddress] = useState("");
-  var [aptRef, setAptRef] = useState("");
-  var [payment, setPayment] = useState("");
-  var [recipient, setRecipient] = useState("");
-  var [items, setItems] = useState("");
-  var [notes, setNotes] = useState("");
+  var draftKey = orderDraftKey(fixedPhone);
+  var init = () => loadOrderDraft(fixedPhone, fixedName);
+  var [phone, setPhone] = useState(() => init().phone);
+  var [customer, setCustomer] = useState(() => init().customer);
+  var [city, setCity] = useState(() => init().city);
+  var [neighborhood, setNbhd] = useState(() => init().neighborhood);
+  var [address, setAddress] = useState(() => init().address);
+  var [aptRef, setAptRef] = useState(() => init().aptRef);
+  var [payment, setPayment] = useState(() => init().payment);
+  var [recipient, setRecipient] = useState(() => init().recipient);
+  var [items, setItems] = useState(() => init().items);
+  var [notes, setNotes] = useState(() => init().notes);
   var [saving, setSaving] = useState(false);
   var canSave = phone.trim() && items.trim() && !saving;
+  var hasContent = [customer, city, neighborhood, address, aptRef, payment, recipient, items, notes].some(v => v.trim()) || !fixedPhone && phone.trim();
+
+  // Guarda el borrador en cada cambio; así sobrevive a un clic afuera o a un cambio de chat.
+  useEffect(() => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        phone,
+        customer,
+        city,
+        neighborhood,
+        address,
+        aptRef,
+        payment,
+        recipient,
+        items,
+        notes
+      }));
+    } catch (e) {}
+  }, [phone, customer, city, neighborhood, address, aptRef, payment, recipient, items, notes]);
+  var discardDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch (e) {}
+  };
+  var cancelOrder = () => {
+    if (hasContent && !confirm("¿Descartar este pedido? Se perderá la información que ya diligenciaste.")) return;
+    discardDraft();
+    onClose();
+  };
   var save = async e => {
     e.preventDefault();
     if (!canSave) return;
@@ -2525,9 +2579,10 @@ function OrderForm({
         payment_method: payment.trim(),
         recipient_name: recipient.trim(),
         items: items.trim(),
-        notes: notes.trim()
+        delivery_notes: notes.trim()
       });
       window.VETA_DB.notifyOrderCreated(order.id);
+      discardDraft();
       adminToast("Pedido registrado. Ya está en Despachos.");
       onCreated && onCreated(order);
       onClose();
@@ -2540,20 +2595,27 @@ function OrderForm({
     className: "adm-modal-ov",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
-    className: "adm-crop",
+    className: "adm-crop adm-order-form",
     style: {
       maxWidth: 480
     },
     onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("h3", {
+  }, /*#__PURE__*/React.createElement("header", {
+    className: "adm-order-form-hdr"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h3", {
     className: "adm-form-card-h"
   }, "Registrar pedido"), /*#__PURE__*/React.createElement("p", {
-    className: "adm-hint",
-    style: {
-      marginBottom: 12
-    }
-  }, "Para ventas cerradas por un asesor que Luna no haya detectado. Queda visible en Despachos y avisa al equipo por WhatsApp."), /*#__PURE__*/React.createElement("form", {
-    onSubmit: save
+    className: "adm-hint"
+  }, "Para ventas cerradas por un asesor que Luna no haya detectado. Queda visible en Despachos y avisa al equipo por WhatsApp.")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-modal-x",
+    onClick: onClose,
+    title: "Cerrar (tu borrador queda guardado)"
+  }, "\xD7")), /*#__PURE__*/React.createElement("form", {
+    onSubmit: save,
+    className: "adm-order-form-body"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-order-form-scroll"
   }, /*#__PURE__*/React.createElement("div", {
     className: "adm-form-field"
   }, /*#__PURE__*/React.createElement("label", {
@@ -2667,25 +2729,25 @@ function OrderForm({
     }
   }, /*#__PURE__*/React.createElement("label", {
     className: "adm-lbl"
-  }, "Notas"), /*#__PURE__*/React.createElement("input", {
+  }, "Instrucciones de entrega ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint-inline"
+  }, "\u2014 opcional")), /*#__PURE__*/React.createElement("input", {
     className: "adm-input",
     value: notes,
-    onChange: e => setNotes(e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "adm-form-actions",
-    style: {
-      marginTop: 16
-    }
+    onChange: e => setNotes(e.target.value),
+    placeholder: "Llamar a tal hora, dejar en porter\xEDa, instrucciones especiales de entrega\u2026"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-actions adm-order-form-footer"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "adm-btn adm-btn--ghost",
-    onClick: onClose,
+    onClick: cancelOrder,
     disabled: saving
-  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+  }, "Cancelar pedido"), /*#__PURE__*/React.createElement("button", {
     type: "submit",
     className: "adm-btn adm-btn--primary",
     disabled: !canSave
-  }, saving ? "Guardando…" : "Registrar pedido")))));
+  }, saving ? "Guardando…" : "Guardar pedido")))));
 }
 var DESP_LABELS = {
   pending: "Pendiente",

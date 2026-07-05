@@ -4775,6 +4775,46 @@ img { max-width: 100%; display: block; }
   width: 100%; max-width: 380px;
   box-shadow: 0 20px 60px rgba(0,0,0,.35);
 }
+
+/* Formulario de "Registrar pedido": header y botones fijos, solo el
+   cuerpo del formulario hace scroll — así no se corta en pantallas bajas. */
+.adm-order-form {
+  max-height: 90vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.adm-order-form-hdr {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 22px 0;
+}
+.adm-order-form-hdr .adm-hint { margin: 4px 0 0; }
+.adm-modal-x {
+  flex: none;
+  width: 30px; height: 30px;
+  border: none; background: transparent;
+  color: var(--ink-faint);
+  font-size: 20px; line-height: 1;
+  cursor: pointer; border-radius: 8px;
+}
+.adm-modal-x:hover { background: var(--bg-soft); color: var(--ink); }
+.adm-order-form-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.adm-order-form-scroll {
+  overflow-y: auto;
+  padding: 14px 22px 4px;
+}
+.adm-order-form-footer {
+  padding: 14px 22px 20px;
+  margin-top: 0 !important;
+}
 .adm-crop-frame {
   position: relative;
   margin: 4px auto 0;
