@@ -570,6 +570,39 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "send-gate-check",
+              "leftValue": "={{ $('Evaluar Pausa').item.json.botPaused }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1000000-0000-0000-0000-000000000011",
+      "name": "¿Enviar Respuesta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3720,
+        320
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "=https://graph.facebook.com/v21.0/{{ $json.phoneNumberId }}/messages",
         "sendHeaders": true,
@@ -703,7 +736,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"phone\":\"{{ $('Procesar Respuesta').first().json.from }}\",\"customer_name\":\"{{ $('Procesar Respuesta').first().json.orderData.nombre }}\",\"city\":\"{{ $('Procesar Respuesta').first().json.orderData.ciudad }}\",\"items\":\"{{ $('Procesar Respuesta').first().json.orderData.items }}\",\"notes\":\"{{ $('Procesar Respuesta').first().json.orderData.notas }}\",\"address\":\"{{ $('Procesar Respuesta').first().json.orderData.dir }}\",\"neighborhood\":\"{{ $('Procesar Respuesta').first().json.orderData.barrio }}\",\"apt_ref\":\"{{ $('Procesar Respuesta').first().json.orderData.ref }}\",\"payment_method\":\"{{ $('Procesar Respuesta').first().json.orderData.pago }}\",\"recipient_name\":\"{{ $('Procesar Respuesta').first().json.orderData.destinatario }}\",\"delivery_notes\":\"{{ $('Procesar Respuesta').first().json.orderData.client_notes }}\",\"status\":\"pending\",\"subtotal\":{{ $('Combinar Pedido y Cotización').first().json.subtotal != null ? $('Combinar Pedido y Cotización').first().json.subtotal : 'null' }},\"discount_code\":{{ $('Combinar Pedido y Cotización').first().json.discount_code ? JSON.stringify($('Combinar Pedido y Cotización').first().json.discount_code) : 'null' }},\"discount_amount\":{{ $('Combinar Pedido y Cotización').first().json.discount_amount != null ? $('Combinar Pedido y Cotización').first().json.discount_amount : 'null' }},\"total\":{{ $('Combinar Pedido y Cotización').first().json.total != null ? $('Combinar Pedido y Cotización').first().json.total : 'null' }},\"quote_code\":{{ $('Combinar Pedido y Cotización').first().json.quote_code ? JSON.stringify($('Combinar Pedido y Cotización').first().json.quote_code) : 'null' }}}",
+        "jsonBody": "={\"phone\":\"{{ $('Procesar Respuesta').first().json.from }}\",\"customer_name\":\"{{ $('Procesar Respuesta').first().json.orderData.nombre }}\",\"city\":\"{{ $('Procesar Respuesta').first().json.orderData.ciudad }}\",\"items\":\"{{ $('Procesar Respuesta').first().json.orderData.items }}\",\"notes\":\"{{ $('Procesar Respuesta').first().json.orderData.notas }}\",\"address\":\"{{ $('Procesar Respuesta').first().json.orderData.dir }}\",\"neighborhood\":\"{{ $('Procesar Respuesta').first().json.orderData.barrio }}\",\"apt_ref\":\"{{ $('Procesar Respuesta').first().json.orderData.ref }}\",\"payment_method\":\"{{ $('Procesar Respuesta').first().json.orderData.pago }}\",\"recipient_name\":\"{{ $('Procesar Respuesta').first().json.orderData.destinatario }}\",\"delivery_notes\":\"{{ $('Procesar Respuesta').first().json.orderData.client_notes }}\",\"status\":\"pending\",\"subtotal\":{{ $('Combinar Pedido y Cotización').first().json.subtotal != null ? $('Combinar Pedido y Cotización').first().json.subtotal : 'null' }},\"discount_code\":{{ $('Combinar Pedido y Cotización').first().json.discount_code ? JSON.stringify($('Combinar Pedido y Cotización').first().json.discount_code) : 'null' }},\"discount_amount\":{{ $('Combinar Pedido y Cotización').first().json.discount_amount != null ? $('Combinar Pedido y Cotización').first().json.discount_amount : 'null' }},\"total\":{{ $('Combinar Pedido y Cotización').first().json.total != null ? $('Combinar Pedido y Cotización').first().json.total : 'null' }},\"quote_code\":{{ $('Combinar Pedido y Cotización').first().json.quote_code ? JSON.stringify($('Combinar Pedido y Cotización').first().json.quote_code) : 'null' }},\"source\":\"{{ $('Evaluar Pausa').item.json.botPaused ? 'auto-pausado' : 'bot' }}\"}",
         "options": {}
       },
       "id": "ab6e5542-6715-4d30-8cfb-dd856b5163d1",
@@ -1088,6 +1121,15 @@
                 "type": "boolean",
                 "operation": "equals"
               }
+            },
+            {
+              "id": "escalate-not-paused",
+              "leftValue": "={{ $('Evaluar Pausa').item.json.botPaused }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
             }
           ],
           "combinator": "and"
@@ -1356,6 +1398,111 @@
       "position": [
         720,
         820
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "notify-order-check",
+              "leftValue": "={{ $('Recibir Envío Asesor').first().json.body.action }}",
+              "rightValue": "notify_order",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1000000-0000-0000-0000-000000000008",
+      "name": "¿Es Notificación de Pedido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/wa_orders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_KEY}}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $('Recibir Envío Asesor').first().json.body.order_id }}"
+            },
+            {
+              "name": "select",
+              "value": "*"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1000000-0000-0000-0000-000000000009",
+      "name": "Buscar Pedido (Manual)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{$env.WA_PHONE_NUMER_ID}}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.WA_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"messaging_product\":\"whatsapp\",\"to\":\"{{$env.WA_NOTIFY_NUMBER}}\",\"type\":\"text\",\"text\":{\"body\":\"🛒 *Nuevo pedido VETA (manual) — #{{ $json.order_number }}*\n\n🔹 Producto: {{ $json.items }}\n\n👤 {{ $json.customer_name }} (+{{ $json.phone }})\n📍 {{ $json.city }}{{ $json.neighborhood ? \", \" + $json.neighborhood : \"\" }}\n🏠 {{ $json.address }}{{ $json.apt_ref ? \" — \" + $json.apt_ref : \"\" }}\n💳 Pago: {{ $json.payment_method }}{{ $json.recipient_name ? \"\n🎁 Regalo para: \" + $json.recipient_name : \"\" }}{{ $json.delivery_notes ? \"\n📝 \" + $json.delivery_notes : \"\" }}\n\nRegistrado por un asesor. Gestiónalo en #admin → Despachos.\"}}",
+        "options": {}
+      },
+      "id": "b100000a-0000-0000-0000-00000000000a",
+      "onError": "continueRegularOutput",
+      "name": "Notificar Pedido Manual al Equipo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        380
       ]
     },
     {
@@ -2299,7 +2446,7 @@
       "main": [
         [
           {
-            "node": "Enviar Respuesta por WA",
+            "node": "¿Enviar Respuesta?",
             "type": "main",
             "index": 0
           },
@@ -2310,6 +2457,18 @@
           },
           {
             "node": "¿Escalar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Enviar Respuesta?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Enviar Respuesta por WA",
             "type": "main",
             "index": 0
           }
@@ -2456,6 +2615,11 @@
             "node": "Marcar Actividad (Pausa)",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Detectar Intención",
+            "type": "main",
+            "index": 0
           }
         ],
         [
@@ -2516,7 +2680,7 @@
       "main": [
         [
           {
-            "node": "Enviar WA (Asesor)",
+            "node": "¿Es Notificación de Pedido?",
             "type": "main",
             "index": 0
           }
@@ -2524,6 +2688,46 @@
         [
           {
             "node": "Responder No Autorizado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Notificación de Pedido?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Pedido (Manual)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar WA (Asesor)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Pedido (Manual)": {
+      "main": [
+        [
+          {
+            "node": "Notificar Pedido Manual al Equipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Pedido Manual al Equipo": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
             "type": "main",
             "index": 0
           }

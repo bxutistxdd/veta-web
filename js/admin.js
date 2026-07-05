@@ -1740,7 +1740,7 @@ function TabChats({
   var [sending, setSending] = useState(false);
   var [orders, setOrders] = useState([]);
   var [pendingImg, setPendingImg] = useState(null); // { file, url } imagen a enviar
-
+  var [showOrderForm, setShowOrderForm] = useState(false);
   var activeRef = useRef(active);
   activeRef.current = active;
   var endRef = useRef(null);
@@ -1992,11 +1992,19 @@ function TabChats({
   }, activeName || fmtPhone(active)), /*#__PURE__*/React.createElement("span", {
     className: "adm-chat-thread-sub"
   }, fmtPhone(active), paused ? " · IA en pausa" : " · IA activa", orders.length > 0 ? ` · ${orders.length} pedido${orders.length > 1 ? "s" : ""}` : "")), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--sm adm-btn--ghost",
+    onClick: () => setShowOrderForm(true)
+  }, "Registrar pedido"), /*#__PURE__*/React.createElement("button", {
     className: `adm-btn adm-btn--sm ${paused ? "adm-btn--primary" : "adm-btn--ghost"}`,
     onClick: toggleControl
   }, paused ? "Devolver a la IA" : "Tomar control")), paused && /*#__PURE__*/React.createElement("div", {
     className: "adm-chat-banner"
-  }, "Est\xE1s atendiendo este chat \u2014 la IA no responder\xE1 hasta que lo devuelvas."), /*#__PURE__*/React.createElement("div", {
+  }, "Est\xE1s atendiendo este chat \u2014 la IA no responder\xE1 hasta que lo devuelvas."), showOrderForm && /*#__PURE__*/React.createElement(OrderForm, {
+    phone: active,
+    customerName: activeName,
+    onClose: () => setShowOrderForm(false),
+    onCreated: o => setOrders(prev => [o, ...prev])
+  }), /*#__PURE__*/React.createElement("div", {
     className: "adm-chat-scroll"
   }, msgLoading && /*#__PURE__*/React.createElement("p", {
     className: "adm-empty"
@@ -2481,6 +2489,204 @@ function TabDescuentos() {
 }
 
 // ── Tab: Despachos ────────────────────────────────────────
+// Formulario compartido para registrar a mano un pedido cerrado por un
+// asesor (fuera de la detección automática de Luna). Se usa desde Chats
+// (teléfono precargado) y desde Despachos (en blanco).
+function OrderForm({
+  phone: fixedPhone,
+  customerName: fixedName,
+  onClose,
+  onCreated
+}) {
+  var [phone, setPhone] = useState(fixedPhone || "");
+  var [customer, setCustomer] = useState(fixedName || "");
+  var [city, setCity] = useState("");
+  var [neighborhood, setNbhd] = useState("");
+  var [address, setAddress] = useState("");
+  var [aptRef, setAptRef] = useState("");
+  var [payment, setPayment] = useState("");
+  var [recipient, setRecipient] = useState("");
+  var [items, setItems] = useState("");
+  var [notes, setNotes] = useState("");
+  var [saving, setSaving] = useState(false);
+  var canSave = phone.trim() && items.trim() && !saving;
+  var save = async e => {
+    e.preventDefault();
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      var order = await window.VETA_DB.createOrder({
+        phone: phone.trim(),
+        customer_name: customer.trim(),
+        city: city.trim(),
+        neighborhood: neighborhood.trim(),
+        address: address.trim(),
+        apt_ref: aptRef.trim(),
+        payment_method: payment.trim(),
+        recipient_name: recipient.trim(),
+        items: items.trim(),
+        notes: notes.trim()
+      });
+      window.VETA_DB.notifyOrderCreated(order.id);
+      adminToast("Pedido registrado. Ya está en Despachos.");
+      onCreated && onCreated(order);
+      onClose();
+    } catch (e2) {
+      adminToast("No se pudo registrar: " + e2.message, true);
+    }
+    setSaving(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "adm-modal-ov",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-crop",
+    style: {
+      maxWidth: 480
+    },
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("h3", {
+    className: "adm-form-card-h"
+  }, "Registrar pedido"), /*#__PURE__*/React.createElement("p", {
+    className: "adm-hint",
+    style: {
+      marginBottom: 12
+    }
+  }, "Para ventas cerradas por un asesor que Luna no haya detectado. Queda visible en Despachos y avisa al equipo por WhatsApp."), /*#__PURE__*/React.createElement("form", {
+    onSubmit: save
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Tel\xE9fono ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-required"
+  }, "*")), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: phone,
+    onChange: e => setPhone(e.target.value),
+    disabled: !!fixedPhone,
+    placeholder: "573001234567"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Cliente"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: customer,
+    onChange: e => setCustomer(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Productos ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-required"
+  }, "*")), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: items,
+    onChange: e => setItems(e.target.value),
+    placeholder: "Anillo Vena(talla 7)x1, Aretes Sol(14mm)x1"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Ciudad"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: city,
+    onChange: e => setCity(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Barrio"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: neighborhood,
+    onChange: e => setNbhd(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Direcci\xF3n"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: address,
+    onChange: e => setAddress(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Referencia / apto"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: aptRef,
+    onChange: e => setAptRef(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "M\xE9todo de pago"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: payment,
+    onChange: e => setPayment(e.target.value),
+    placeholder: "Transferencia, Nequi, contra entrega\u2026"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Regalo para ", /*#__PURE__*/React.createElement("span", {
+    className: "adm-field-hint-inline"
+  }, "\u2014 opcional")), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: recipient,
+    onChange: e => setRecipient(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-field",
+    style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "adm-lbl"
+  }, "Notas"), /*#__PURE__*/React.createElement("input", {
+    className: "adm-input",
+    value: notes,
+    onChange: e => setNotes(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "adm-form-actions",
+    style: {
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "adm-btn adm-btn--ghost",
+    onClick: onClose,
+    disabled: saving
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "adm-btn adm-btn--primary",
+    disabled: !canSave
+  }, saving ? "Guardando…" : "Registrar pedido")))));
+}
 var DESP_LABELS = {
   pending: "Pendiente",
   dispatched: "Despachado",
@@ -2776,6 +2982,7 @@ function TabDespachos() {
   var [loading, setLoading] = useState(true);
   var [filter, setFilter] = useState("active");
   var [q, setQ] = useState("");
+  var [showOrderForm, setShowOrderForm] = useState(false);
   var load = useCallback(async () => {
     setLoading(true);
     try {
@@ -2913,11 +3120,17 @@ function TabDespachos() {
     value: q,
     onChange: e => setQ(e.target.value)
   }), /*#__PURE__*/React.createElement("button", {
+    className: "adm-btn adm-btn--sm adm-btn--ghost",
+    onClick: () => setShowOrderForm(true)
+  }, "+ Nuevo pedido"), /*#__PURE__*/React.createElement("button", {
     className: "adm-desp-reload",
     onClick: load,
     disabled: loading,
     title: "Actualizar"
-  }, "\u21BA"))), loading ? /*#__PURE__*/React.createElement("p", {
+  }, "\u21BA"))), showOrderForm && /*#__PURE__*/React.createElement(OrderForm, {
+    onClose: () => setShowOrderForm(false),
+    onCreated: o => setOrders(prev => [o, ...prev])
+  }), loading ? /*#__PURE__*/React.createElement("p", {
     className: "adm-desp-empty"
   }, "Cargando pedidos\u2026") : filtered.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "adm-desp-empty"

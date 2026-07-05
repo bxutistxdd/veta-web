@@ -17,3 +17,19 @@ create policy "admin update wa_orders"
   on wa_orders for update
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
+
+-- ─────────────────────────────────────────────
+-- Registro manual de pedidos (venta cerrada por un asesor)
+-- ─────────────────────────────────────────────
+-- source distingue el origen del pedido: 'bot' (Luna lo detectó y cerró),
+-- 'auto-pausado' (Luna lo detectó mientras el asesor tenía el control del
+-- chat) o 'manual' (el asesor lo registró a mano desde #admin).
+alter table wa_orders add column if not exists source text default 'bot';
+
+-- INSERT: el admin autenticado puede registrar un pedido cerrado a mano
+-- (además del service_role de n8n, que ya insertaba sin pasar por RLS).
+drop policy if exists "admin insert wa_orders" on wa_orders;
+create policy "admin insert wa_orders"
+  on wa_orders for insert
+  to authenticated
+  with check (auth.role() = 'authenticated');

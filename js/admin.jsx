@@ -1181,6 +1181,7 @@ function TabChats({ goTab }) {
   const [sending, setSending]   = useState(false);
   const [orders, setOrders]     = useState([]);
   const [pendingImg, setPendingImg] = useState(null); // { file, url } imagen a enviar
+  const [showOrderForm, setShowOrderForm] = useState(false);
 
   const activeRef = useRef(active); activeRef.current = active;
   const endRef = useRef(null);
@@ -1378,6 +1379,9 @@ function TabChats({ goTab }) {
                   {orders.length > 0 ? ` · ${orders.length} pedido${orders.length>1?"s":""}` : ""}
                 </span>
               </div>
+              <button className="adm-btn adm-btn--sm adm-btn--ghost" onClick={() => setShowOrderForm(true)}>
+                Registrar pedido
+              </button>
               <button className={`adm-btn adm-btn--sm ${paused ? "adm-btn--primary" : "adm-btn--ghost"}`}
                 onClick={toggleControl}>
                 {paused ? "Devolver a la IA" : "Tomar control"}
@@ -1386,6 +1390,12 @@ function TabChats({ goTab }) {
 
             {paused && (
               <div className="adm-chat-banner">Estás atendiendo este chat — la IA no responderá hasta que lo devuelvas.</div>
+            )}
+
+            {showOrderForm && (
+              <OrderForm phone={active} customerName={activeName}
+                onClose={() => setShowOrderForm(false)}
+                onCreated={(o) => setOrders(prev => [o, ...prev])} />
             )}
 
             <div className="adm-chat-scroll">
@@ -1743,6 +1753,112 @@ function TabDescuentos() {
 }
 
 // ── Tab: Despachos ────────────────────────────────────────
+// Formulario compartido para registrar a mano un pedido cerrado por un
+// asesor (fuera de la detección automática de Luna). Se usa desde Chats
+// (teléfono precargado) y desde Despachos (en blanco).
+function OrderForm({ phone: fixedPhone, customerName: fixedName, onClose, onCreated }) {
+  const [phone,      setPhone]      = useState(fixedPhone || "");
+  const [customer,   setCustomer]   = useState(fixedName || "");
+  const [city,       setCity]       = useState("");
+  const [neighborhood, setNbhd]     = useState("");
+  const [address,    setAddress]    = useState("");
+  const [aptRef,     setAptRef]     = useState("");
+  const [payment,    setPayment]    = useState("");
+  const [recipient,  setRecipient]  = useState("");
+  const [items,      setItems]      = useState("");
+  const [notes,      setNotes]      = useState("");
+  const [saving,     setSaving]     = useState(false);
+
+  const canSave = phone.trim() && items.trim() && !saving;
+
+  const save = async (e) => {
+    e.preventDefault();
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      const order = await window.VETA_DB.createOrder({
+        phone: phone.trim(),
+        customer_name: customer.trim(),
+        city: city.trim(),
+        neighborhood: neighborhood.trim(),
+        address: address.trim(),
+        apt_ref: aptRef.trim(),
+        payment_method: payment.trim(),
+        recipient_name: recipient.trim(),
+        items: items.trim(),
+        notes: notes.trim(),
+      });
+      window.VETA_DB.notifyOrderCreated(order.id);
+      adminToast("Pedido registrado. Ya está en Despachos.");
+      onCreated && onCreated(order);
+      onClose();
+    } catch (e2) { adminToast("No se pudo registrar: " + e2.message, true); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="adm-modal-ov" onClick={onClose}>
+      <div className="adm-crop" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+        <h3 className="adm-form-card-h">Registrar pedido</h3>
+        <p className="adm-hint" style={{ marginBottom: 12 }}>
+          Para ventas cerradas por un asesor que Luna no haya detectado. Queda visible en Despachos y avisa al equipo por WhatsApp.
+        </p>
+        <form onSubmit={save}>
+          <div className="adm-form-field">
+            <label className="adm-lbl">Teléfono <span className="adm-required">*</span></label>
+            <input className="adm-input" value={phone} onChange={e => setPhone(e.target.value)}
+              disabled={!!fixedPhone} placeholder="573001234567" />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Cliente</label>
+            <input className="adm-input" value={customer} onChange={e => setCustomer(e.target.value)} />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Productos <span className="adm-required">*</span></label>
+            <input className="adm-input" value={items} onChange={e => setItems(e.target.value)}
+              placeholder="Anillo Vena(talla 7)x1, Aretes Sol(14mm)x1" />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Ciudad</label>
+            <input className="adm-input" value={city} onChange={e => setCity(e.target.value)} />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Barrio</label>
+            <input className="adm-input" value={neighborhood} onChange={e => setNbhd(e.target.value)} />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Dirección</label>
+            <input className="adm-input" value={address} onChange={e => setAddress(e.target.value)} />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Referencia / apto</label>
+            <input className="adm-input" value={aptRef} onChange={e => setAptRef(e.target.value)} />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Método de pago</label>
+            <input className="adm-input" value={payment} onChange={e => setPayment(e.target.value)}
+              placeholder="Transferencia, Nequi, contra entrega…" />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Regalo para <span className="adm-field-hint-inline">— opcional</span></label>
+            <input className="adm-input" value={recipient} onChange={e => setRecipient(e.target.value)} />
+          </div>
+          <div className="adm-form-field" style={{ marginTop: 10 }}>
+            <label className="adm-lbl">Notas</label>
+            <input className="adm-input" value={notes} onChange={e => setNotes(e.target.value)} />
+          </div>
+          <div className="adm-form-actions" style={{ marginTop: 16 }}>
+            <button type="button" className="adm-btn adm-btn--ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+            <button type="submit" className="adm-btn adm-btn--primary" disabled={!canSave}>
+              {saving ? "Guardando…" : "Registrar pedido"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 const DESP_LABELS   = { pending:"Pendiente", dispatched:"Despachado", delivered:"Entregado", problem:"⚠ Problema", cancelled:"Cancelado" };
 const DESP_STATUSES = ["pending","dispatched","delivered","problem","cancelled"];
 
@@ -2012,6 +2128,7 @@ function TabDespachos() {
   const [loading, setLoading] = useState(true);
   const [filter,  setFilter]  = useState("active");
   const [q,       setQ]       = useState("");
+  const [showOrderForm, setShowOrderForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2121,9 +2238,18 @@ function TabDespachos() {
         <div className="adm-desp-toolbar-right">
           <input className="adm-input adm-desp-search" placeholder="Buscar…"
             value={q} onChange={e => setQ(e.target.value)} />
+          <button className="adm-btn adm-btn--sm adm-btn--ghost" onClick={() => setShowOrderForm(true)}>
+            + Nuevo pedido
+          </button>
           <button className="adm-desp-reload" onClick={load} disabled={loading} title="Actualizar">↺</button>
         </div>
       </div>
+
+      {showOrderForm && (
+        <OrderForm
+          onClose={() => setShowOrderForm(false)}
+          onCreated={(o) => setOrders(prev => [o, ...prev])} />
+      )}
 
       {loading ? (
         <p className="adm-desp-empty">Cargando pedidos…</p>

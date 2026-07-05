@@ -500,6 +500,45 @@ window.VETA_DB = (function () {
     if (error) throw error;
   }
 
+  // Registro manual: el asesor cierra la venta por chat/llamada y la deja
+  // en Despachos sin depender de que la IA la detecte (bot_paused la salta).
+  async function createOrder(fields) {
+    const row = {
+      status: "pending",
+      source: "manual",
+      phone:            fields.phone,
+      customer_name:    fields.customer_name || null,
+      city:             fields.city || null,
+      neighborhood:     fields.neighborhood || null,
+      address:          fields.address || null,
+      apt_ref:          fields.apt_ref || null,
+      payment_method:   fields.payment_method || null,
+      recipient_name:   fields.recipient_name || null,
+      items:            fields.items,
+      notes:            fields.notes || null,
+      delivery_notes:   fields.delivery_notes || null,
+    };
+    const { data, error } = await sb.from("wa_orders").insert(row).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Avisa al equipo por WhatsApp de un pedido registrado manualmente,
+  // reusando el mismo relay/plantilla que usa el bot para pedidos propios.
+  async function notifyOrderCreated(orderId) {
+    const session = await getSession();
+    const jwt = session?.access_token;
+    if (!jwt) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
+    const url = getSetting("agent_send_url", RELAY_URL);
+    try {
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "notify_order", order_id: orderId, jwt }),
+      });
+    } catch (e) { console.warn("[VETA_DB] notifyOrderCreated:", e.message); }
+  }
+
   /* ── buzón de WhatsApp (#admin → pestaña Chats) ──────────────
      Lectura de wa_conversations / wa_threads (requiere sesión admin;
      RLS authenticated). El envío de mensajes 'agent' va por un relay
@@ -664,7 +703,7 @@ window.VETA_DB = (function () {
     setBotPaused, clearNeedsHuman, sendAgentMessage, uploadChatImage, subscribeChats,
     // despachos
     getOrders, updateOrderStatus, updateOrderNotes, deleteOrder,
-    updateOrderDeliveryNotes, toggleOrderHidden,
+    updateOrderDeliveryNotes, toggleOrderHidden, createOrder, notifyOrderCreated,
     sb,
   };
 })();
