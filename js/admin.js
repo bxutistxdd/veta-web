@@ -1875,6 +1875,7 @@ function TabChats({
     var text = draft.trim();
     if (!text && !pendingImg || !active || sending) return;
     setSending(true);
+    var onRetry = () => adminToast("El servidor está tardando en responder, reintentando…");
     try {
       if (pendingImg) {
         var mediaUrl = await window.VETA_DB.uploadChatImage(active, pendingImg.file);
@@ -1882,9 +1883,13 @@ function TabChats({
           text,
           type: "image",
           mediaUrl
+        }, {
+          onRetry
         });
       } else {
-        await window.VETA_DB.sendAgentMessage(active, text);
+        await window.VETA_DB.sendAgentMessage(active, text, {
+          onRetry
+        });
       }
       setDraft("");
       clearPendingImg();

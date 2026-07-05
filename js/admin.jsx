@@ -1275,12 +1275,13 @@ function TabChats({ goTab }) {
     const text = draft.trim();
     if ((!text && !pendingImg) || !active || sending) return;
     setSending(true);
+    const onRetry = () => adminToast("El servidor está tardando en responder, reintentando…");
     try {
       if (pendingImg) {
         const mediaUrl = await window.VETA_DB.uploadChatImage(active, pendingImg.file);
-        await window.VETA_DB.sendAgentMessage(active, { text, type: "image", mediaUrl });
+        await window.VETA_DB.sendAgentMessage(active, { text, type: "image", mediaUrl }, { onRetry });
       } else {
-        await window.VETA_DB.sendAgentMessage(active, text);
+        await window.VETA_DB.sendAgentMessage(active, text, { onRetry });
       }
       setDraft("");
       clearPendingImg();

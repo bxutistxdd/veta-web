@@ -621,26 +621,48 @@ window.VETA_DB = (function () {
 
   // Envía un mensaje como asesor humano vía el relay de n8n (valida el JWT).
   // `payload` puede ser un string (texto) o { text, type:'image', mediaUrl }.
-  async function sendAgentMessage(phone, payload) {
+  // El n8n de Railway a veces pierde y recupera la conexión con su Postgres
+  // interno (~40s); sin timeout el fetch se queda colgado indefinidamente y
+  // el asesor ve el botón de enviar pegado sin ningún aviso. Con timeout +
+  // un reintento, en vez de colgarse avisamos y probamos de nuevo.
+  async function sendAgentMessage(phone, payload, opts) {
     const body = typeof payload === "string" ? { text: payload } : (payload || {});
     const session = await getSession();
     const jwt = session?.access_token;
     if (!jwt) throw new Error("Sesión expirada. Vuelve a iniciar sesión.");
     const url = getSetting("agent_send_url", RELAY_URL);
+    const onRetry = opts?.onRetry;
+
+    const attempt = async (timeoutMs) => {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        return await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: ctrl.signal,
+          body: JSON.stringify({
+            phone,
+            message: body.text || "",
+            type: body.type || "text",
+            mediaUrl: body.mediaUrl || null,
+            jwt,
+          }),
+        });
+      } finally { clearTimeout(t); }
+    };
+
     let res;
     try {
-      res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone,
-          message: body.text || "",
-          type: body.type || "text",
-          mediaUrl: body.mediaUrl || null,
-          jwt,
-        }),
-      });
-    } catch (e) { throw new Error("Sin conexión con el servidor de envío."); }
+      res = await attempt(12000);
+    } catch (e) {
+      onRetry && onRetry();
+      try {
+        res = await attempt(20000);
+      } catch (e2) {
+        throw new Error("El servidor de envío no respondió. Intenta de nuevo en unos segundos.");
+      }
+    }
     if (!res.ok) {
       let msg = "No se pudo enviar (código " + res.status + ").";
       try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
