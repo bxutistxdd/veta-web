@@ -9,6 +9,9 @@ node_modules/
 .env.local
 _*.js
 
+# Build de Vite
+dist/
+
 # succ — base de datos local de memoria semantica
 .succ/
 

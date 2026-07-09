@@ -1,11 +1,27 @@
 {
+  "name": "veta-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "VETA — joyería plata 925 & oro laminado. Tienda web + panel admin.",
   "scripts": {
-    "build": "babel js/app.jsx -o js/app.js && babel js/screens.jsx -o js/screens.js && babel js/components.jsx -o js/components.js && babel js/admin.jsx -o js/admin.js && babel js/tweaks-panel.jsx -o js/tweaks-panel.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{js,jsx}\"",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\""
   },
   "devDependencies": {
-    "@babel/cli": "^7.29.7",
-    "@babel/core": "^7.29.7",
-    "@babel/plugin-transform-block-scoping": "^7.29.7",
-    "@babel/preset-react": "^7.29.7"
+    "@vitejs/plugin-react": "^6.0.3",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "prettier": "^3.9.4",
+    "vite": "^8.1.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }

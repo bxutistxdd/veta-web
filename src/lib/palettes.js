@@ -1,0 +1,77 @@
+/* VETA · paletas de color. Cada una define las custom properties de CSS para
+   modo claro y oscuro; main.jsx las aplica en :root según el tweak activo. */
+
+export const PALETTES = {
+  mediterranean: {
+    light: {
+      "--bg": "#ebe5dc",
+      "--bg-elev": "#f3eee6",
+      "--bg-soft": "#ded5c7",
+      "--ink": "#2b231b",
+      "--ink-soft": "#6b5a48",
+      "--ink-faint": "#a08866",
+      "--line": "rgba(43,35,27,.10)",
+      "--accent": "#a08866",
+      "--accent-2": "#c9b896",
+    },
+    dark: {
+      "--bg": "#14110d",
+      "--bg-elev": "#1c1814",
+      "--bg-soft": "#221d18",
+      "--ink": "#ebe5dc",
+      "--ink-soft": "#a89884",
+      "--ink-faint": "#6b5a48",
+      "--line": "rgba(235,229,220,.08)",
+      "--accent": "#c9a978",
+      "--accent-2": "#8a7253",
+    },
+  },
+  porcelain: {
+    light: {
+      "--bg": "#f6f4ef",
+      "--bg-elev": "#ffffff",
+      "--bg-soft": "#e9e6df",
+      "--ink": "#1a1a1a",
+      "--ink-soft": "#5a5a5a",
+      "--ink-faint": "#9a9a9a",
+      "--line": "rgba(26,26,26,.10)",
+      "--accent": "#b8956a",
+      "--accent-2": "#d4af37",
+    },
+    dark: {
+      "--bg": "#0f0f0f",
+      "--bg-elev": "#181818",
+      "--bg-soft": "#1f1f1f",
+      "--ink": "#f6f4ef",
+      "--ink-soft": "#9a9a9a",
+      "--ink-faint": "#5a5a5a",
+      "--line": "rgba(246,244,239,.08)",
+      "--accent": "#d4af37",
+      "--accent-2": "#8a7253",
+    },
+  },
+  obsidian: {
+    light: {
+      "--bg": "#e8e6e1",
+      "--bg-elev": "#f1efea",
+      "--bg-soft": "#d6d3cb",
+      "--ink": "#0a0a0a",
+      "--ink-soft": "#525252",
+      "--ink-faint": "#8a8a8a",
+      "--line": "rgba(10,10,10,.10)",
+      "--accent": "#3d342d",
+      "--accent-2": "#8b7355",
+    },
+    dark: {
+      "--bg": "#0a0a0a",
+      "--bg-elev": "#141414",
+      "--bg-soft": "#1a1a1a",
+      "--ink": "#e8e6e1",
+      "--ink-soft": "#9a9a9a",
+      "--ink-faint": "#5a5a5a",
+      "--line": "rgba(232,230,225,.08)",
+      "--accent": "#b8956a",
+      "--accent-2": "#6b5a48",
+    },
+  },
+};
