@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "description": "VETA — joyería plata 925 & oro laminado. Tienda web + panel admin.",
+  "author": "Juan Sebastian Galindo Bautista (bxutistxdd)",
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
