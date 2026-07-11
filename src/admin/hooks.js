@@ -3,7 +3,7 @@
    configuración y contadores (badges) de chats/despachos. Todos re-renderizan
    en vivo suscribiéndose a los cambios de db. */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { db } from "../lib/db.js";
 import { VETA_DATA } from "../lib/data.js";
 import { adminToast } from "./toast.jsx";
@@ -149,6 +149,95 @@ export function useCfg() {
     }
   }, []);
   return { cfg, save };
+}
+
+// ── Estadísticas de negocio (dashboard Inicio) ────────────
+// Carga wa_orders + cart_quotes una vez (mismo patrón que TabDespachos:
+// sin canal realtime, con `reload` manual) y deja los agregados listos.
+export function useOrdersStats() {
+  const [orders, setOrders] = useState([]);
+  const [quotes, setQuotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [o, q] = await Promise.all([db.getOrders(), db.getQuotes()]);
+      setOrders(o);
+      setQuotes(q);
+    } catch (e) {
+      adminToast("No se pudieron cargar las estadísticas: " + e.message, true);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const active = orders.filter((o) => o.status !== "cancelled");
+
+    const revenueMonth = active
+      .filter((o) => new Date(o.created_at) >= monthStart)
+      .reduce((s, o) => s + Number(o.total || 0), 0);
+    const avgTicket = active.length
+      ? active.reduce((s, o) => s + Number(o.total || 0), 0) / active.length
+      : 0;
+
+    const statusCounts = {};
+    for (const o of orders) {
+      const k = o.status || "pending";
+      statusCounts[k] = (statusCounts[k] || 0) + 1;
+    }
+
+    // Serie de ingresos por día — últimos 30 días.
+    const dayKey = (d) => d.toISOString().slice(0, 10);
+    const days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (29 - i));
+      d.setHours(0, 0, 0, 0);
+      return d;
+    });
+    const byDay = {};
+    for (const o of active) {
+      const k = dayKey(new Date(o.created_at));
+      byDay[k] = (byDay[k] || 0) + Number(o.total || 0);
+    }
+    const revenueSeries = days.map((d) => ({
+      label: d.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit" }),
+      value: byDay[dayKey(d)] || 0,
+    }));
+
+    // Conversión cotización → pedido: una cotización cuenta como convertida
+    // si quedó marcada `used` o si algún pedido referencia su `quote_code`.
+    const quoteCodes = new Set(orders.map((o) => o.quote_code).filter(Boolean));
+    const convertedQuotes = quotes.filter((q) => q.used || quoteCodes.has(q.code)).length;
+    const conversionRate = quotes.length ? (convertedQuotes / quotes.length) * 100 : null;
+
+    // Rendimiento de descuentos: total otorgado por código (pedidos activos).
+    const discountTotals = {};
+    for (const o of active) {
+      if (!o.discount_code) continue;
+      discountTotals[o.discount_code] = (discountTotals[o.discount_code] || 0) + Number(o.discount_amount || 0);
+    }
+
+    return {
+      revenueMonth,
+      avgTicket,
+      pendingCount: statusCounts.pending || 0,
+      statusCounts,
+      revenueSeries,
+      conversionRate,
+      quotesTotal: quotes.length,
+      discountTotals,
+      recentOrders: orders.slice(0, 5),
+    };
+  }, [orders, quotes]);
+
+  return { ...stats, loading, reload: load };
 }
 
 // ── Badges (contadores del sidebar) ───────────────────────

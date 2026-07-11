@@ -544,6 +544,16 @@ export const db = (function () {
     if (error) console.warn("[VETA_DB] saveCartQuote:", error.message);
   }
 
+  // Lectura de cotizaciones para el dashboard (tasa de conversión cotización→pedido).
+  async function getQuotes() {
+    const { data, error } = await sb
+      .from("cart_quotes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
   /* ── despachos (wa_orders) ── */
   async function getOrders(status) {
     let q = sb.from("wa_orders").select("*").order("created_at", { ascending: false });
@@ -887,6 +897,7 @@ export const db = (function () {
     subscribeChats,
     // despachos
     getOrders,
+    getQuotes,
     updateOrderStatus,
     updateOrderNotes,
     deleteOrder,
