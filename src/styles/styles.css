@@ -48,18 +48,14 @@
   initial-value: #c9b896;
 }
 
-:root {
-  transition:
-    --bg 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    --bg-elev 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    --bg-soft 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    --ink 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    --ink-soft 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    --ink-faint 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    --accent 700ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    --accent-2 700ms cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
+/* El cambio de tema claro/oscuro ya NO se anima transicionando estas
+   custom properties: eso forzaba un recálculo de estilo + repintado de
+   TODA la página en cada frame (cada elemento que usa var(--bg)/var(--ink)/…
+   se repinta, sin composición GPU). Ahora el crossfade lo hace la View
+   Transitions API (main.jsx, onThemeToggle) tomando una foto del antes/
+   después y componiéndolas — eso sí corre en GPU. Ver ::view-transition-*
+   más abajo. Los @property de arriba se conservan porque tipan el valor
+   como <color> (necesario para color-mix()), no por la transición. */
 :root {
   /* ── Paleta clara · mediterránea cálida ── */
   --bg: #ebe5dc;
@@ -91,6 +87,20 @@
   /* tweakable */
   --anim-scale: 1; /* intensidad de animación */
   --density: 1; /* spacing multiplier */
+}
+
+/* Crossfade del toggle claro/oscuro (View Transitions API) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 400ms;
+  animation-timing-function: var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }
 
 [data-theme="dark"] {
@@ -3197,6 +3207,19 @@ img {
   color: var(--ink-soft);
   letter-spacing: 0.03em;
   margin-bottom: 4px;
+}
+/* Visible solo para lectores de pantalla — nunca display:none en labels,
+   eso las saca también del árbol de accesibilidad. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .adm-input {
   width: 100%;
@@ -6370,6 +6393,9 @@ img {
 .adm-order-form-scroll {
   overflow-y: auto;
   padding: 14px 22px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 .adm-order-form-footer {
   padding: 14px 22px 20px;

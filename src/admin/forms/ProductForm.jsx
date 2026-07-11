@@ -269,6 +269,9 @@ function ImageManager({ images, setImages, productId, sessionUrls }) {
     <>
       <div
         className={`adm-dropzone${over ? " adm-dropzone--over" : ""}${full ? " adm-dropzone--disabled" : ""}`}
+        role="button"
+        tabIndex={full ? -1 : 0}
+        aria-label="Agregar imágenes de producto"
         onDragOver={(e) => {
           if (full) return;
           e.preventDefault();
@@ -284,6 +287,13 @@ function ImageManager({ images, setImages, productId, sessionUrls }) {
         }}
         onClick={() => {
           if (!full) inputRef.current?.click();
+        }}
+        onKeyDown={(e) => {
+          if (full) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
         }}
       >
         <input
@@ -340,6 +350,7 @@ function ImageManager({ images, setImages, productId, sessionUrls }) {
                   className="adm-mini-btn"
                   onClick={() => setCropIdx(i)}
                   title="Recortar / encuadrar"
+                  aria-label={`Recortar imagen ${i + 1}`}
                 >
                   ✎ Editar
                 </button>
@@ -348,6 +359,7 @@ function ImageManager({ images, setImages, productId, sessionUrls }) {
                   className="adm-mini-btn adm-mini-btn--del"
                   onClick={() => removeAt(i)}
                   title="Eliminar"
+                  aria-label={`Eliminar imagen ${i + 1}`}
                 >
                   ✕
                 </button>
@@ -490,8 +502,38 @@ export function ProductForm({ product, allProducts, onSave, onBack }) {
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="Ej: Anillo Vena"
+                name="product-name"
+                autoComplete="off"
               />
               {errors.name && <span className="adm-field-err">{errors.name}</span>}
+            </div>
+
+            <div className="adm-form-field adm-form-field--full">
+              <label className="adm-lbl">
+                Precio <span className="adm-required">*</span>
+              </label>
+              <div className="adm-price-row">
+                <input
+                  className={`adm-input${errors.price ? " adm-input--err" : ""}`}
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={form.price}
+                  onChange={(e) => set("price", e.target.value)}
+                  placeholder="180000"
+                  name="product-price"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  style={{ maxWidth: 220 }}
+                />
+                <span className="adm-price-cur">COP</span>
+                {Number(form.price) > 0 && (
+                  <span className="adm-field-hint" style={{ margin: 0 }}>
+                    {VETA_DATA.fmtPrice(Number(form.price))} COP
+                  </span>
+                )}
+              </div>
+              {errors.price && <span className="adm-field-err">{errors.price}</span>}
             </div>
 
             <div className="adm-form-field">
@@ -501,6 +543,8 @@ export function ProductForm({ product, allProducts, onSave, onBack }) {
                 value={id}
                 readOnly
                 style={{ color: "var(--ink-faint)" }}
+                name="product-id"
+                autoComplete="off"
               />
               <span className="adm-field-hint">Generado automáticamente</span>
             </div>
@@ -628,28 +672,6 @@ export function ProductForm({ product, allProducts, onSave, onBack }) {
                   onChange={(e) => set("finish", e.target.value)}
                 />
               )}
-            </div>
-
-            <div className="adm-form-field">
-              <label className="adm-lbl">
-                Precio <span className="adm-required">*</span>
-              </label>
-              <div className="adm-price-row">
-                <input
-                  className={`adm-input${errors.price ? " adm-input--err" : ""}`}
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={form.price}
-                  onChange={(e) => set("price", e.target.value)}
-                  placeholder="180000"
-                />
-                <span className="adm-price-cur">COP</span>
-              </div>
-              {Number(form.price) > 0 && (
-                <span className="adm-field-hint">{VETA_DATA.fmtPrice(Number(form.price))} COP</span>
-              )}
-              {errors.price && <span className="adm-field-err">{errors.price}</span>}
             </div>
           </div>
         </div>

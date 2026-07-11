@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { VETA_DATA } from "../../lib/data.js";
 import { db } from "../../lib/db.js";
+import { adminToast } from "../toast.jsx";
 
 // Celda editable: clic para escribir la cantidad; vacío = "sin definir".
 function StockCell({ pid, sz, get, set }) {
@@ -19,11 +20,17 @@ function StockCell({ pid, sz, get, set }) {
           : "adm-sc--ok";
   const commit = () => {
     const s = local.trim();
-    if (s === "") set(pid, sz, -1);
-    else {
-      const n = parseInt(s, 10);
-      if (!isNaN(n) && n >= 0) set(pid, sz, n);
+    if (s === "") {
+      set(pid, sz, -1);
+      setEdit(false);
+      return;
     }
+    const n = parseInt(s, 10);
+    if (isNaN(n) || n < 0) {
+      adminToast("Ingresa un número válido (0 o mayor), o deja vacío para \"sin definir\".", true);
+      return; // se queda en modo edición para que lo corrija, no se descarta en silencio
+    }
+    set(pid, sz, n);
     setEdit(false);
   };
   if (edit)

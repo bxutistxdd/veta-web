@@ -74,6 +74,9 @@ export function TabProductos({
           placeholder="Buscar producto…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Buscar producto"
+          name="product-search"
+          autoComplete="off"
         />
         <div className="adm-pills">
           {cats.map((c) => (
@@ -178,13 +181,19 @@ export function TabProductos({
                 </td>
                 <td>
                   <div className="adm-row-actions">
-                    <button className="adm-action-btn" onClick={() => setView(p)} title="Editar">
+                    <button
+                      className="adm-action-btn"
+                      onClick={() => setView(p)}
+                      title="Editar"
+                      aria-label={`Editar ${p.name}`}
+                    >
                       ✏
                     </button>
                     <button
                       className="adm-action-btn adm-action-btn--del"
                       onClick={() => handleDelete(p)}
                       title="Eliminar"
+                      aria-label={`Eliminar ${p.name}`}
                     >
                       ✕
                     </button>

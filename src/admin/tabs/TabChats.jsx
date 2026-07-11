@@ -486,6 +486,7 @@ export function TabChats({ goTab }) {
                     className="adm-chat-attach-x"
                     onClick={clearPendingImg}
                     title="Quitar imagen"
+                    aria-label="Quitar imagen adjunta"
                   >
                     ×
                   </button>
@@ -498,6 +499,7 @@ export function TabChats({ goTab }) {
                   onClick={() => fileRef.current && fileRef.current.click()}
                   disabled={sending}
                   title="Adjuntar imagen"
+                  aria-label="Adjuntar imagen"
                 >
                   📎
                 </button>
@@ -519,6 +521,7 @@ export function TabChats({ goTab }) {
                   onClick={send}
                   disabled={sending || (!draft.trim() && !pendingImg)}
                   title="Enviar"
+                  aria-label={sending ? "Enviando mensaje…" : "Enviar mensaje"}
                 >
                   {sending ? <span className="adm-spinner" aria-hidden="true" /> : "➤"}
                 </button>

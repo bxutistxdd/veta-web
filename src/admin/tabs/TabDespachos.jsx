@@ -153,6 +153,7 @@ function OrderCard({
             className={`adm-desp-eye${order.hidden ? " adm-desp-eye--off" : ""}`}
             onClick={() => onToggleHidden(order.id, !order.hidden)}
             title={order.hidden ? "Mostrar pedido" : "Ocultar pedido"}
+            aria-label={order.hidden ? "Mostrar pedido" : "Ocultar pedido"}
           >
             {order.hidden ? <EyeClosed /> : <EyeOpen />}
           </button>
@@ -532,7 +533,13 @@ export function TabDespachos() {
           >
             + Nuevo pedido
           </button>
-          <button className="adm-desp-reload" onClick={load} disabled={loading} title="Actualizar">
+          <button
+            className="adm-desp-reload"
+            onClick={load}
+            disabled={loading}
+            title="Actualizar"
+            aria-label="Actualizar lista de pedidos"
+          >
             ↺
           </button>
         </div>

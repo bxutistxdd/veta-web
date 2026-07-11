@@ -157,6 +157,7 @@ export function TabDescuentos() {
                             className="adm-action-btn"
                             onClick={() => setView(c)}
                             title="Editar"
+                            aria-label={`Editar ${c.code}`}
                           >
                             ✏
                           </button>
@@ -180,6 +181,7 @@ export function TabDescuentos() {
                               className="adm-action-btn adm-action-btn--del"
                               onClick={() => setConfirm(c.id)}
                               title="Eliminar"
+                              aria-label={`Eliminar ${c.code}`}
                             >
                               ✕
                             </button>
@@ -224,12 +226,21 @@ export function TabDescuentos() {
                       {c.show_on_site ? "Visible" : "Oculto"}
                     </button>
                     <div className="adm-row-actions" style={{ marginLeft: "auto" }}>
-                      <button className="adm-action-btn" onClick={() => setView(c)} title="Editar">
+                      <button
+                        className="adm-action-btn"
+                        onClick={() => setView(c)}
+                        title="Editar"
+                        aria-label={`Editar ${c.code}`}
+                      >
                         ✏
                       </button>
                       {confirm === c.id ? (
                         <span className="adm-disc-confirm-inline">
-                          <button className="adm-action-btn" onClick={() => setConfirm(null)}>
+                          <button
+                            className="adm-action-btn"
+                            onClick={() => setConfirm(null)}
+                            aria-label="Cancelar eliminación"
+                          >
                             ✗
                           </button>
                           <button
@@ -238,6 +249,7 @@ export function TabDescuentos() {
                               remove(c.id);
                               setConfirm(null);
                             }}
+                            aria-label={`Confirmar eliminación de ${c.code}`}
                           >
                             ✓
                           </button>
@@ -247,6 +259,7 @@ export function TabDescuentos() {
                           className="adm-action-btn adm-action-btn--del"
                           onClick={() => setConfirm(c.id)}
                           title="Eliminar"
+                          aria-label={`Eliminar ${c.code}`}
                         >
                           ✕
                         </button>

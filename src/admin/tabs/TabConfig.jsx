@@ -42,28 +42,50 @@ function ChangePwForm() {
   };
   return (
     <form onSubmit={submit} className="adm-pw-form">
+      <label className="adm-lbl" htmlFor="adm-pw-cur">
+        Contraseña actual
+      </label>
       <input
+        id="adm-pw-cur"
         type="password"
         className="adm-input adm-input--sm"
         placeholder="Contraseña actual"
         value={cur}
         onChange={(e) => setCur(e.target.value)}
+        name="current-password"
+        autoComplete="current-password"
       />
+      <label className="adm-lbl" htmlFor="adm-pw-new">
+        Nueva contraseña
+      </label>
       <input
+        id="adm-pw-new"
         type="password"
         className="adm-input adm-input--sm"
         placeholder="Nueva contraseña"
         value={nxt}
         onChange={(e) => setNxt(e.target.value)}
+        name="new-password"
+        autoComplete="new-password"
       />
+      <label className="adm-lbl" htmlFor="adm-pw-rep">
+        Repetir nueva contraseña
+      </label>
       <input
+        id="adm-pw-rep"
         type="password"
         className="adm-input adm-input--sm"
         placeholder="Repetir nueva"
         value={rep}
         onChange={(e) => setRep(e.target.value)}
+        name="new-password-repeat"
+        autoComplete="new-password"
       />
-      {msg && <p className={`adm-msg${msg.ok ? " adm-msg--ok" : " adm-msg--err"}`}>{msg.t}</p>}
+      {msg && (
+        <p className={`adm-msg${msg.ok ? " adm-msg--ok" : " adm-msg--err"}`} aria-live="polite">
+          {msg.t}
+        </p>
+      )}
       <button
         type="submit"
         className="adm-btn adm-btn--primary adm-btn--sm"
@@ -88,15 +110,23 @@ export function TabConfig({ cfg, save, onLogout, resetProducts }) {
   }, [cfg.bot_daily_limit]);
   return (
     <div className="adm-page">
-      <div className="adm-cfg-section">
+      <div className="adm-cfg-section adm-form-card">
         <h3 className="adm-cfg-h">WhatsApp del negocio</h3>
         <p className="adm-hint">Número con código de país, sin + ni espacios. Ej: 573001234567</p>
         <div className="adm-row-inline">
+          <label className="adm-lbl sr-only" htmlFor="adm-cfg-phone">
+            WhatsApp del negocio
+          </label>
           <input
+            id="adm-cfg-phone"
             className="adm-input"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             style={{ maxWidth: 260 }}
+            name="business-whatsapp"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="off"
           />
           <button
             className="adm-btn adm-btn--primary adm-btn--sm"
@@ -110,15 +140,18 @@ export function TabConfig({ cfg, save, onLogout, resetProducts }) {
           </button>
         </div>
       </div>
-      <hr className="adm-hr" />
-      <div className="adm-cfg-section">
+      <div className="adm-cfg-section adm-form-card">
         <h3 className="adm-cfg-h">Límite diario del bot IA</h3>
         <p className="adm-hint">
           Máximo de mensajes que el bot responde por cliente cada día. Al alcanzarlo, avisa que un
           asesor lo atenderá. Por defecto: 10.
         </p>
         <div className="adm-row-inline">
+          <label className="adm-lbl sr-only" htmlFor="adm-cfg-limit">
+            Límite diario del bot IA
+          </label>
           <input
+            id="adm-cfg-limit"
             className="adm-input"
             type="number"
             min="1"
@@ -126,6 +159,8 @@ export function TabConfig({ cfg, save, onLogout, resetProducts }) {
             value={limit}
             onChange={(e) => setLimit(Math.max(1, parseInt(e.target.value) || 1))}
             style={{ maxWidth: 100 }}
+            name="bot-daily-limit"
+            autoComplete="off"
           />
           <button
             className="adm-btn adm-btn--primary adm-btn--sm"
@@ -139,8 +174,7 @@ export function TabConfig({ cfg, save, onLogout, resetProducts }) {
           </button>
         </div>
       </div>
-      <hr className="adm-hr" />
-      <div className="adm-cfg-section">
+      <div className="adm-cfg-section adm-form-card">
         <h3 className="adm-cfg-h">Cambiar contraseña</h3>
         <p className="adm-hint">
           Contraseña por defecto: <code className="adm-code">veta2026</code>. Cámbiala tras el
@@ -148,8 +182,7 @@ export function TabConfig({ cfg, save, onLogout, resetProducts }) {
         </p>
         <ChangePwForm />
       </div>
-      <hr className="adm-hr" />
-      <div className="adm-cfg-section">
+      <div className="adm-cfg-section adm-form-card">
         <h3 className="adm-cfg-h">Datos de productos</h3>
         <p className="adm-hint">
           Restablece el catálogo al estado inicial (productos de data.js). Los productos
@@ -169,7 +202,6 @@ export function TabConfig({ cfg, save, onLogout, resetProducts }) {
           Restablecer catálogo original
         </button>
       </div>
-      <hr className="adm-hr" />
       <div className="adm-cfg-section">
         <h3 className="adm-cfg-h">Sesión</h3>
         <p className="adm-hint">La sesión se cierra automáticamente al cerrar el navegador.</p>

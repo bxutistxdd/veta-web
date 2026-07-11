@@ -122,7 +122,7 @@ export function OrderForm({ phone: fixedPhone, customerName: fixedName, onClose,
     <div className="adm-modal-ov" onClick={onClose}>
       <div
         className="adm-crop adm-order-form"
-        style={{ maxWidth: 480 }}
+        style={{ maxWidth: 560 }}
         onClick={(e) => e.stopPropagation()}
       >
         <header className="adm-order-form-hdr">
@@ -138,100 +138,144 @@ export function OrderForm({ phone: fixedPhone, customerName: fixedName, onClose,
             className="adm-modal-x"
             onClick={onClose}
             title="Cerrar (tu borrador queda guardado)"
+            aria-label="Cerrar formulario de pedido"
           >
             ×
           </button>
         </header>
         <form onSubmit={save} className="adm-order-form-body">
           <div className="adm-order-form-scroll">
-            <div className="adm-form-field">
-              <label className="adm-lbl">
-                Teléfono <span className="adm-required">*</span>
-              </label>
-              <input
-                className="adm-input"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={!!fixedPhone}
-                placeholder="573001234567"
-              />
+            <div className="adm-form-card">
+              <h3 className="adm-form-card-h">Pedido</h3>
+              <div className="adm-form-grid">
+                <div className="adm-form-field">
+                  <label className="adm-lbl">
+                    Teléfono <span className="adm-required">*</span>
+                  </label>
+                  <input
+                    className="adm-input"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={!!fixedPhone}
+                    placeholder="573001234567"
+                    name="order-phone"
+                    type="tel"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field">
+                  <label className="adm-lbl">Cliente</label>
+                  <input
+                    className="adm-input"
+                    value={customer}
+                    onChange={(e) => setCustomer(e.target.value)}
+                    name="order-customer"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field adm-form-field--full">
+                  <label className="adm-lbl">
+                    Productos <span className="adm-required">*</span>
+                  </label>
+                  <input
+                    className="adm-input"
+                    value={items}
+                    onChange={(e) => setItems(e.target.value)}
+                    placeholder="Anillo Vena(talla 7)x1, Aretes Sol(14mm)x1"
+                    name="order-items"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">Cliente</label>
-              <input
-                className="adm-input"
-                value={customer}
-                onChange={(e) => setCustomer(e.target.value)}
-              />
+
+            <div className="adm-form-card">
+              <h3 className="adm-form-card-h">Entrega</h3>
+              <div className="adm-form-grid">
+                <div className="adm-form-field">
+                  <label className="adm-lbl">Ciudad</label>
+                  <input
+                    className="adm-input"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    name="order-city"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field">
+                  <label className="adm-lbl">Barrio</label>
+                  <input
+                    className="adm-input"
+                    value={neighborhood}
+                    onChange={(e) => setNbhd(e.target.value)}
+                    name="order-neighborhood"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field adm-form-field--full">
+                  <label className="adm-lbl">Dirección</label>
+                  <input
+                    className="adm-input"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    name="order-address"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field adm-form-field--full">
+                  <label className="adm-lbl">Referencia / apto</label>
+                  <input
+                    className="adm-input"
+                    value={aptRef}
+                    onChange={(e) => setAptRef(e.target.value)}
+                    name="order-apt-ref"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">
-                Productos <span className="adm-required">*</span>
-              </label>
-              <input
-                className="adm-input"
-                value={items}
-                onChange={(e) => setItems(e.target.value)}
-                placeholder="Anillo Vena(talla 7)x1, Aretes Sol(14mm)x1"
-              />
-            </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">Ciudad</label>
-              <input className="adm-input" value={city} onChange={(e) => setCity(e.target.value)} />
-            </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">Barrio</label>
-              <input
-                className="adm-input"
-                value={neighborhood}
-                onChange={(e) => setNbhd(e.target.value)}
-              />
-            </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">Dirección</label>
-              <input
-                className="adm-input"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-            </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">Referencia / apto</label>
-              <input
-                className="adm-input"
-                value={aptRef}
-                onChange={(e) => setAptRef(e.target.value)}
-              />
-            </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">Método de pago</label>
-              <input
-                className="adm-input"
-                value={payment}
-                onChange={(e) => setPayment(e.target.value)}
-                placeholder="Transferencia, Nequi, contra entrega…"
-              />
-            </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">
-                Regalo para <span className="adm-field-hint-inline">— opcional</span>
-              </label>
-              <input
-                className="adm-input"
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-              />
-            </div>
-            <div className="adm-form-field" style={{ marginTop: 10 }}>
-              <label className="adm-lbl">
-                Instrucciones de entrega <span className="adm-field-hint-inline">— opcional</span>
-              </label>
-              <input
-                className="adm-input"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Llamar a tal hora, dejar en portería, instrucciones especiales de entrega…"
-              />
+
+            <div className="adm-form-card">
+              <h3 className="adm-form-card-h">Pago y notas</h3>
+              <div className="adm-form-grid">
+                <div className="adm-form-field">
+                  <label className="adm-lbl">Método de pago</label>
+                  <input
+                    className="adm-input"
+                    value={payment}
+                    onChange={(e) => setPayment(e.target.value)}
+                    placeholder="Transferencia, Nequi, contra entrega…"
+                    name="order-payment"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field">
+                  <label className="adm-lbl">
+                    Regalo para <span className="adm-field-hint-inline">— opcional</span>
+                  </label>
+                  <input
+                    className="adm-input"
+                    value={recipient}
+                    onChange={(e) => setRecipient(e.target.value)}
+                    name="order-recipient"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field adm-form-field--full">
+                  <label className="adm-lbl">
+                    Instrucciones de entrega{" "}
+                    <span className="adm-field-hint-inline">— opcional</span>
+                  </label>
+                  <input
+                    className="adm-input"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Llamar a tal hora, dejar en portería, instrucciones especiales de entrega…"
+                    name="order-notes"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <div className="adm-form-actions adm-order-form-footer">

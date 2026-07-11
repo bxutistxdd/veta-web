@@ -169,6 +169,7 @@ export function TabCategorias() {
                 <button
                   className="adm-action-btn"
                   title="Editar"
+                  aria-label={`Editar ${c.label}`}
                   onClick={() =>
                     setEditing({
                       mode: "edit",
@@ -185,6 +186,7 @@ export function TabCategorias() {
                 <button
                   className="adm-action-btn adm-action-btn--del"
                   title="Eliminar"
+                  aria-label={`Eliminar ${c.label}`}
                   onClick={() => del(c)}
                 >
                   ✕
@@ -207,6 +209,7 @@ export function TabCategorias() {
                     <button
                       className="adm-action-btn"
                       title="Editar"
+                      aria-label={`Editar ${sc.label}`}
                       onClick={() =>
                         setEditing({
                           mode: "edit",
@@ -223,6 +226,7 @@ export function TabCategorias() {
                     <button
                       className="adm-action-btn adm-action-btn--del"
                       title="Eliminar"
+                      aria-label={`Eliminar ${sc.label}`}
                       onClick={() => del(sc)}
                     >
                       ✕
@@ -239,6 +243,7 @@ export function TabCategorias() {
                         <button
                           className="adm-action-btn"
                           title="Editar"
+                          aria-label={`Editar ${rf.label}`}
                           onClick={() =>
                             setEditing({
                               mode: "edit",
@@ -255,6 +260,7 @@ export function TabCategorias() {
                         <button
                           className="adm-action-btn adm-action-btn--del"
                           title="Eliminar"
+                          aria-label={`Eliminar ${rf.label}`}
                           onClick={() => del(rf)}
                         >
                           ✕
