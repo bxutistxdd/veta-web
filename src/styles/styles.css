@@ -3025,6 +3025,40 @@ img {
   box-sizing: border-box;
 }
 
+/* Barra de filtros de Inicio */
+.adm-inicio-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.adm-seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.adm-seg-btn {
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 600 12.5px "Manrope", sans-serif;
+  cursor: pointer;
+  border-right: 1px solid var(--line);
+}
+.adm-seg-btn:last-child {
+  border-right: none;
+}
+.adm-seg-btn--on {
+  background: var(--ink);
+  color: var(--bg);
+}
+.adm-inicio-status-select {
+  width: auto;
+  min-width: 160px;
+}
+
 /* Stats */
 .adm-stats-grid {
   display: grid;
@@ -5650,6 +5684,10 @@ img {
   color: var(--ink-faint);
   display: block;
   margin-bottom: 4px;
+}
+.adm-desp-total {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* — Campos fijos — */

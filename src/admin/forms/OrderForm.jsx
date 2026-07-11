@@ -26,6 +26,7 @@ function loadOrderDraft(fixedPhone, fixedName) {
     payment: "",
     recipient: "",
     items: "",
+    total: "",
     notes: "",
   };
 }
@@ -42,14 +43,15 @@ export function OrderForm({ phone: fixedPhone, customerName: fixedName, onClose,
   const [payment, setPayment] = useState(() => init().payment);
   const [recipient, setRecipient] = useState(() => init().recipient);
   const [items, setItems] = useState(() => init().items);
+  const [total, setTotal] = useState(() => init().total);
   const [notes, setNotes] = useState(() => init().notes);
   const [saving, setSaving] = useState(false);
 
   const canSave = phone.trim() && items.trim() && !saving;
 
   const hasContent =
-    [customer, city, neighborhood, address, aptRef, payment, recipient, items, notes].some((v) =>
-      v.trim()
+    [customer, city, neighborhood, address, aptRef, payment, recipient, items, total, notes].some(
+      (v) => v.trim()
     ) ||
     (!fixedPhone && phone.trim());
 
@@ -68,11 +70,24 @@ export function OrderForm({ phone: fixedPhone, customerName: fixedName, onClose,
           payment,
           recipient,
           items,
+          total,
           notes,
         })
       );
     } catch (e) {}
-  }, [phone, customer, city, neighborhood, address, aptRef, payment, recipient, items, notes]);
+  }, [
+    phone,
+    customer,
+    city,
+    neighborhood,
+    address,
+    aptRef,
+    payment,
+    recipient,
+    items,
+    total,
+    notes,
+  ]);
 
   const discardDraft = () => {
     try {
@@ -105,6 +120,7 @@ export function OrderForm({ phone: fixedPhone, customerName: fixedName, onClose,
         payment_method: payment.trim(),
         recipient_name: recipient.trim(),
         items: items.trim(),
+        total: total.trim() ? Number(total) : null,
         delivery_notes: notes.trim(),
       });
       db.notifyOrderCreated(order.id);
@@ -183,6 +199,24 @@ export function OrderForm({ phone: fixedPhone, customerName: fixedName, onClose,
                     onChange={(e) => setItems(e.target.value)}
                     placeholder="Anillo Vena(talla 7)x1, Aretes Sol(14mm)x1"
                     name="order-items"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="adm-form-field">
+                  <label className="adm-lbl">
+                    Total de la venta{" "}
+                    <span className="adm-field-hint-inline">— opcional, para el dashboard</span>
+                  </label>
+                  <input
+                    className="adm-input"
+                    value={total}
+                    onChange={(e) => setTotal(e.target.value)}
+                    placeholder="120000"
+                    name="order-total"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
                     autoComplete="off"
                   />
                 </div>

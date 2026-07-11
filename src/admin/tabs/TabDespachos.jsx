@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { db } from "../../lib/db.js";
+import { VETA_DATA } from "../../lib/data.js";
 import { adminToast } from "../toast.jsx";
 import { OrderForm } from "../forms/OrderForm.jsx";
 
@@ -184,6 +185,9 @@ function OrderCard({
       <div className="adm-desp-items-block">
         <span className="adm-desp-items-lbl">Piezas</span>
         {order.items}
+        {order.total != null && (
+          <span className="adm-desp-total"> · {VETA_DATA.fmtPrice(order.total)}</span>
+        )}
       </div>
 
       {/* Campos fijos — siempre visibles */}

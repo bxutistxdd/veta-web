@@ -605,6 +605,8 @@ export const db = (function () {
       items: fields.items,
       notes: fields.notes || null,
       delivery_notes: fields.delivery_notes || null,
+      subtotal: fields.total != null ? fields.total : null,
+      total: fields.total != null ? fields.total : null,
     };
     const { data, error } = await sb.from("wa_orders").insert(row).select().single();
     if (error) throw error;
