@@ -86,6 +86,9 @@ export function DiscountForm({ initial, onSave, onCancel }) {
                 onChange={(e) => set("code", e.target.value.toUpperCase())}
                 placeholder="VETAINAUGURACIÓN"
                 style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}
+                name="discount-code"
+                autoComplete="off"
+                spellCheck={false}
               />
               {errors.code && <span className="adm-field-err">{errors.code}</span>}
               <span className="adm-field-hint">
@@ -99,6 +102,8 @@ export function DiscountForm({ initial, onSave, onCancel }) {
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 placeholder="Ej: 25% de descuento por inauguración"
+                name="discount-description"
+                autoComplete="off"
               />
             </div>
           </div>
@@ -143,6 +148,11 @@ export function DiscountForm({ initial, onSave, onCancel }) {
                 </span>
               )}
             </div>
+          </div>
+          <h3 className="adm-form-card-h" style={{ marginTop: 18 }}>
+            Restricciones
+          </h3>
+          <div className="adm-form-grid adm-form-grid--3">
             <div className="adm-form-field">
               <label className="adm-lbl">Subtotal mínimo (COP)</label>
               <input
@@ -153,6 +163,8 @@ export function DiscountForm({ initial, onSave, onCancel }) {
                 value={form.min_subtotal}
                 onChange={(e) => set("min_subtotal", e.target.value)}
                 placeholder="0 = sin mínimo"
+                name="discount-min-subtotal"
+                autoComplete="off"
               />
             </div>
             <div className="adm-form-field">
@@ -165,6 +177,8 @@ export function DiscountForm({ initial, onSave, onCancel }) {
                 value={form.max_uses}
                 onChange={(e) => set("max_uses", e.target.value)}
                 placeholder="Vacío = sin límite"
+                name="discount-max-uses"
+                autoComplete="off"
               />
             </div>
             <div className="adm-form-field">
@@ -174,6 +188,8 @@ export function DiscountForm({ initial, onSave, onCancel }) {
                 type="date"
                 value={form.expires_at}
                 onChange={(e) => set("expires_at", e.target.value)}
+                name="discount-expires-at"
+                autoComplete="off"
               />
               <span className="adm-field-hint">Vacío = no vence</span>
             </div>
