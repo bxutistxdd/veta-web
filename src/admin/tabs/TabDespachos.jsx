@@ -546,7 +546,7 @@ export function TabDespachos() {
       )}
 
       {loading ? (
-        <p className="adm-desp-empty">Cargando pedidos…</p>
+        <p className="adm-desp-empty adm-desp-empty--loading">Cargando pedidos…</p>
       ) : filtered.length === 0 ? (
         <p className="adm-desp-empty">
           {filter === "active" ? "No hay pedidos activos." : "No hay pedidos con este estado."}

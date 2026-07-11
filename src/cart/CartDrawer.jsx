@@ -2,14 +2,23 @@
    Lista los items con su estado de stock, totales con descuento y el botón
    "Continuar por WhatsApp". */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { VETA_DATA } from "../lib/data.js";
 import { db } from "../lib/db.js";
 import { getStockStatus } from "../lib/stock.js";
 import { Magnetic, Placeholder } from "../components/primitives.jsx";
 import { CartCoupon } from "./CartCoupon.jsx";
 
+// Umbral de descarte por velocidad (px/s), no solo por distancia — así un
+// swipe corto pero rápido también cierra el cajón, como un gesto real.
+const DISMISS_VELOCITY = 300;
+const DISMISS_OFFSET_RATIO = 0.4;
+
 export function CartDrawer({ open, onClose, cart, waPhone }) {
+  const drawerRef = useRef(null);
+  const prefersReducedMotion = useReducedMotion();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -76,7 +85,27 @@ export function CartDrawer({ open, onClose, cart, waPhone }) {
   return (
     <>
       <div className="cart-scrim" data-on={open ? "1" : "0"} onClick={onClose} />
-      <aside className="cart-drawer" data-on={open ? "1" : "0"} aria-hidden={!open}>
+      <motion.aside
+        ref={drawerRef}
+        className="cart-drawer"
+        aria-hidden={!open}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={{ left: 0, right: 0.6 }}
+        onDragEnd={(_, info) => {
+          const width = drawerRef.current?.offsetWidth || 480;
+          if (info.velocity.x > DISMISS_VELOCITY || info.offset.x > width * DISMISS_OFFSET_RATIO) {
+            onClose();
+          }
+        }}
+        initial={{ x: "100%" }}
+        animate={{ x: open ? 0 : "100%" }}
+        transition={
+          prefersReducedMotion
+            ? { duration: 0 }
+            : { type: "spring", duration: 0.5, bounce: 0.2 }
+        }
+      >
         <header className="cart-head">
           <h3>Tu bolsa</h3>
           <button className="cart-close" onClick={onClose} aria-label="Cerrar">
@@ -205,7 +234,7 @@ export function CartDrawer({ open, onClose, cart, waPhone }) {
             </p>
           </footer>
         )}
-      </aside>
+      </motion.aside>
     </>
   );
 }

@@ -358,7 +358,7 @@ export function TabChats({ goTab }) {
           </div>
         </div>
         <div className="adm-chat-list-scroll">
-          {loading && <p className="adm-empty">Cargando conversaciones…</p>}
+          {loading && <p className="adm-empty adm-empty--loading">Cargando conversaciones…</p>}
           {!loading && filtered.length === 0 && (
             <p className="adm-empty">
               {q || filter !== "todos"
@@ -468,7 +468,7 @@ export function TabChats({ goTab }) {
             )}
 
             <div className="adm-chat-scroll">
-              {msgLoading && <p className="adm-empty">Cargando mensajes…</p>}
+              {msgLoading && <p className="adm-empty adm-empty--loading">Cargando mensajes…</p>}
               {!msgLoading && messages.length === 0 && (
                 <p className="adm-empty">Sin mensajes todavía.</p>
               )}
@@ -520,7 +520,7 @@ export function TabChats({ goTab }) {
                   disabled={sending || (!draft.trim() && !pendingImg)}
                   title="Enviar"
                 >
-                  {sending ? "…" : "➤"}
+                  {sending ? <span className="adm-spinner" aria-hidden="true" /> : "➤"}
                 </button>
               </div>
             </div>

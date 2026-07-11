@@ -86,6 +86,7 @@
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1); /* paneles/drawers tipo iOS */
 
   /* tweakable */
   --anim-scale: 1; /* intensidad de animación */
@@ -588,7 +589,7 @@ img {
   height: 100%;
   object-fit: cover;
   z-index: 1;
-  transition: transform 1200ms var(--ease-out);
+  transition: transform 700ms var(--ease-out);
 }
 .ph--img::before {
   opacity: 0.25;
@@ -1331,10 +1332,6 @@ img {
 }
 .product-card .ph {
   aspect-ratio: 4 / 5;
-  transition: transform 1000ms var(--ease-out);
-}
-.product-card:hover .ph {
-  transform: scale(1.025);
 }
 .product-card-meta {
   display: flex;
@@ -1721,7 +1718,10 @@ img {
   letter-spacing: 0.04em;
   border-radius: 999px;
   cursor: pointer;
-  transition: all 300ms var(--ease-out);
+  transition:
+    color 300ms var(--ease-out),
+    border-color 300ms var(--ease-out),
+    background 300ms var(--ease-out);
 }
 .variant-chip:hover {
   color: var(--ink);
@@ -1755,7 +1755,10 @@ img {
   font-family: var(--mono);
   font-size: 12px;
   cursor: pointer;
-  transition: all 300ms var(--ease-out);
+  transition:
+    color 300ms var(--ease-out),
+    border-color 300ms var(--ease-out),
+    background 300ms var(--ease-out);
 }
 .size-chip:hover {
   border-color: var(--ink-faint);
@@ -1901,15 +1904,11 @@ img {
   width: min(480px, 100vw);
   background: var(--bg);
   z-index: 201;
-  transform: translateX(100%);
   will-change: transform;
-  transition: transform 600ms var(--ease-spring);
   display: grid;
   grid-template-rows: auto 1fr auto;
   box-shadow: -20px 0 60px color-mix(in oklab, var(--ink) 25%, transparent);
-}
-.cart-drawer[data-on="1"] {
-  transform: translateX(0);
+  touch-action: pan-y;
 }
 
 .cart-head {
@@ -2173,7 +2172,9 @@ img {
   --gutter: clamp(28px, 5vw, 80px);
 }
 
-/* Respeta reduce-motion */
+/* Respeta reduce-motion: menos y más suave, no cero — se corta el
+   movimiento (transform) y las animaciones decorativas, pero se
+   conserva el feedback de color/opacidad (hover, focus, press). */
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .split-char {
@@ -2185,9 +2186,20 @@ img {
   .marquee-track {
     animation: none !important;
   }
-  * {
-    transition-duration: 0.001ms !important;
+  .adm-spinner {
+    animation: adm-spin 1.4s linear infinite !important;
+  }
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  *:not(.reveal):not(.split-char) {
+    transition-property: color, background, background-color, border-color,
+      opacity, box-shadow !important;
+    transition-duration: 150ms !important;
   }
 }
 
@@ -2840,7 +2852,7 @@ img {
   flex-direction: column;
   transform: translateY(-100%);
   will-change: transform;
-  transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 320ms var(--ease-drawer);
   pointer-events: none;
   overflow-y: auto;
   overflow-x: hidden;
@@ -3115,7 +3127,11 @@ img {
   background: var(--bg-soft);
   color: var(--ink-faint);
   cursor: pointer;
-  transition: all 0.12s;
+  transition:
+    opacity 0.12s,
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
   white-space: nowrap;
 }
 .adm-badge:hover {
@@ -3159,7 +3175,10 @@ img {
     500 12px "Manrope",
     sans-serif;
   cursor: pointer;
-  transition: all 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
 .adm-pill:hover {
   background: var(--bg-soft);
@@ -3287,6 +3306,30 @@ img {
   text-align: center;
   color: var(--ink-faint);
   font-size: 13px;
+}
+.adm-empty--loading {
+  animation: adm-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes adm-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes adm-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Tab Stock ─────────────────────────────────────────── */
@@ -4120,7 +4163,7 @@ img {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
   transform: translateY(-110%);
   will-change: transform;
-  transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.26s var(--ease-drawer);
   max-height: 80dvh;
   overflow-y: auto;
 }
@@ -4635,6 +4678,7 @@ img {
   background: transparent;
   cursor: pointer;
   text-align: left;
+  animation: adm-fade-in 220ms var(--ease-out);
   transition: background 0.12s;
 }
 .adm-chat-item:hover {
@@ -5060,6 +5104,21 @@ img {
   cursor: default;
 }
 
+/* Spinner de progreso — feedback durante envío/reintento (hasta ~20s) */
+.adm-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, var(--bg) 35%, transparent);
+  border-top-color: var(--bg);
+  animation: adm-spin 800ms linear infinite;
+}
+@keyframes adm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ── Responsive: una sola columna, lista ↔ hilo ── */
 @media (max-width: 720px) {
   /* ── Encuadre estilo WhatsApp ──
@@ -5294,7 +5353,7 @@ img {
   transition:
     color 250ms ease,
     border-color 250ms ease,
-    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform 400ms var(--ease-spring);
 }
 .adm-desp-reload:hover {
   color: var(--ink);
@@ -5324,6 +5383,7 @@ img {
   transition:
     box-shadow 0.2s,
     transform 0.2s;
+  animation: adm-fade-in 220ms var(--ease-out);
 }
 .adm-desp-card:hover {
   box-shadow: 0 6px 28px rgba(0, 0, 0, 0.18);
@@ -5670,6 +5730,9 @@ img {
   padding: 48px 0;
   font-size: 14px;
   margin: 0;
+}
+.adm-desp-empty--loading {
+  animation: adm-pulse 1.4s ease-in-out infinite;
 }
 
 /* ── DESPACHOS — responsive ─────────────────────────────── */

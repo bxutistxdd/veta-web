@@ -10,12 +10,51 @@ export function adminToast(text, isErr = false) {
   _toastSubs.forEach((fn) => fn({ text, isErr, id: Date.now() + Math.random() }));
 }
 
+function ToastItem({ toast, onDone }) {
+  const [shown, setShown] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setShown(true));
+    const timer = setTimeout(() => setLeaving(true), 3500);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!leaving) return;
+    const t = setTimeout(onDone, 200);
+    return () => clearTimeout(t);
+  }, [leaving, onDone]);
+
+  const open = shown && !leaving;
+  return (
+    <div
+      style={{
+        padding: "12px 16px",
+        borderRadius: 10,
+        maxWidth: 320,
+        fontSize: 14,
+        color: "#fff",
+        background: toast.isErr ? "#b3261e" : "#1f7a4d",
+        boxShadow: "0 6px 20px rgba(0,0,0,.25)",
+        transform: open ? "translateY(0)" : "translateY(8px)",
+        opacity: open ? 1 : 0,
+        transition: "transform 200ms var(--ease-out), opacity 200ms var(--ease-out)",
+      }}
+    >
+      {toast.text}
+    </div>
+  );
+}
+
 export function Toaster() {
   const [items, setItems] = useState([]);
   useEffect(() => {
     const fn = (t) => {
       setItems((prev) => [...prev, t]);
-      setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== t.id)), 3500);
     };
     _toastSubs.push(fn);
     return () => {
@@ -37,20 +76,11 @@ export function Toaster() {
       }}
     >
       {items.map((t) => (
-        <div
+        <ToastItem
           key={t.id}
-          style={{
-            padding: "12px 16px",
-            borderRadius: 10,
-            maxWidth: 320,
-            fontSize: 14,
-            color: "#fff",
-            background: t.isErr ? "#b3261e" : "#1f7a4d",
-            boxShadow: "0 6px 20px rgba(0,0,0,.25)",
-          }}
-        >
-          {t.text}
-        </div>
+          toast={t}
+          onDone={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
+        />
       ))}
     </div>
   );
