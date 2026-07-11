@@ -63,7 +63,7 @@ export function DiscountForm({ initial, onSave, onCancel }) {
   };
 
   return (
-    <div className="adm-disc-form-wrap">
+    <div className="adm-page">
       <div className="adm-form-topbar">
         <button type="button" className="adm-back-btn" onClick={onCancel}>
           ← Volver

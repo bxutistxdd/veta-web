@@ -6103,10 +6103,6 @@ img {
 /* ════════════════════════════════════════════════════════════
    PANEL ADMIN — Tab Descuentos
    ════════════════════════════════════════════════════════════ */
-.adm-disc-form-wrap {
-  max-width: 740px;
-}
-
 .adm-disc-code {
   font-size: 12.5px;
   font-weight: 700;
