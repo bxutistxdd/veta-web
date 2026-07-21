@@ -950,7 +950,7 @@ img {
    ───────────────────────────────────────────── */
 .carousel {
   position: relative;
-  padding: clamp(64px, 9vh, 112px) var(--gutter);
+  padding: clamp(40px, 7vh, 112px) var(--gutter);
   max-width: var(--maxw);
   margin: 0 auto;
 }
@@ -972,6 +972,17 @@ img {
   aspect-ratio: 4 / 5;
   background: var(--bg-soft);
   overflow: hidden;
+}
+/* En pantallas anchas y bajas (laptops, escritorio) el layout es de dos
+   columnas: si el visual escala solo por ancho, su alto 4:5 suele superar
+   el alto disponible y obliga a scrollear para ver el texto y los controles.
+   Por eso aquí se limita por alto de viewport y se centra en su columna. */
+@media (min-width: 881px) {
+  .carousel-visual {
+    justify-self: center;
+    width: auto;
+    height: clamp(260px, 54vh, 480px);
+  }
 }
 .carousel-visual .ph {
   position: absolute;
