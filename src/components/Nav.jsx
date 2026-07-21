@@ -67,6 +67,7 @@ export function Nav({
     { id: "home", label: "Inicio" },
     { id: "catalog", label: "Catálogo" },
     { id: "care", label: "Cuidado" },
+    { id: "story", label: "Nuestra historia" },
   ];
   const isActive = (id) => {
     if (id === "catalog") return route.name === "catalog" || route.name === "pdp";
