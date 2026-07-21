@@ -16,6 +16,7 @@ import { Home } from "./screens/Home.jsx";
 import { Catalog } from "./screens/Catalog.jsx";
 import { PDP } from "./screens/PDP.jsx";
 import { Care } from "./screens/Care.jsx";
+import { Story } from "./screens/Story.jsx";
 import { useCart } from "./cart/useCart.js";
 import { CartDrawer } from "./cart/CartDrawer.jsx";
 import { SearchOverlay } from "./cart/SearchOverlay.jsx";
@@ -171,6 +172,7 @@ function App() {
       )}
       {route.name === "pdp" && <PDP id={route.id} onNavigate={navigate} onAdd={handleAdd} />}
       {route.name === "care" && <Care onNavigate={navigate} />}
+      {route.name === "story" && <Story />}
 
       <Footer onNavigate={navigate} />
 

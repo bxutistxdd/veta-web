@@ -23,16 +23,16 @@ export function Home({ onNavigate }) {
         items={[
           "Plata ley 925",
           "Oro laminado 18k",
-          "Hecho a mano en Colombia",
+          "Piezas seleccionadas con criterio",
           "Garantía de por vida",
           "Envíos a todo el país",
           "Atención por WhatsApp",
         ]}
       />
       <HomeHero />
-      <HomeCarousel />
       <HomeCategories onNavigate={onNavigate} />
       <HomeFeatured products={featured} onOpen={(p) => onNavigate({ name: "pdp", id: p.id })} />
+      <HomeCarousel />
       <HomeManifesto />
       <HomeNumbers />
     </main>
@@ -41,12 +41,6 @@ export function Home({ onNavigate }) {
 
 function HomeHero() {
   const heroRef = useRef(null);
-  const [heroQ, setHeroQ] = useState("");
-
-  const doSearch = () => {
-    const q = heroQ.trim();
-    if (q) location.hash = `catalog?q=${encodeURIComponent(q)}`;
-  };
 
   useEffect(() => {
     const el = heroRef.current;
@@ -98,7 +92,7 @@ function HomeHero() {
               <b>Plata ley 925</b>
             </div>
             <div>Oro laminado 18k</div>
-            <div>Hecho en Colombia</div>
+            <div>Curado en Colombia</div>
           </div>
         </div>
         <h1 className="h-display">
@@ -110,74 +104,19 @@ function HomeHero() {
         </h1>
         <div className="hero-bottom">
           <Reveal delay={900}>
-            <p className="hero-tagline">
-              Piezas pensadas para acompañar una vida entera. Plata ley 925 y oro laminado, fundidos
-              y pulidos a mano en talleres pequeños.
+            <p className="hero-cta-line">
+              Oro laminado 18k <span className="hero-cta-dot">—</span> Selección curada{" "}
+              <span className="hero-cta-dot">—</span> Garantía de por vida
             </p>
           </Reveal>
           <Reveal delay={1100}>
-            <div className="hero-actions">
+            <div className="hero-cta-row">
+              <span className="hero-cta-invite">Visita nuestro catálogo y descubre cada pieza.</span>
               <Magnetic strength={0.22} radius={140}>
                 <button className="btn" onClick={() => (location.hash = "catalog")}>
-                  Ver catálogo
+                  Ver catálogo →
                 </button>
               </Magnetic>
-              <Magnetic strength={0.22} radius={140}>
-                <button
-                  className="btn btn--ghost"
-                  onClick={() =>
-                    document
-                      .getElementById("home-pin")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }
-                >
-                  Conoce VETA
-                </button>
-              </Magnetic>
-            </div>
-          </Reveal>
-          <Reveal delay={1300}>
-            <div className="hero-search">
-              <div className="hero-search-bar">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  width="16"
-                  height="16"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M21 21l-4.5-4.5" />
-                </svg>
-                <input
-                  className="hero-search-input"
-                  value={heroQ}
-                  onChange={(e) => setHeroQ(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && doSearch()}
-                  placeholder="Busca anillo plata, collar fino, piercing…"
-                  aria-label="Buscar productos"
-                />
-                <button className="hero-search-go" onClick={doSearch} aria-label="Buscar">
-                  →
-                </button>
-              </div>
-              <div className="hero-search-hints">
-                {["Anillo plata", "Collar 40cm", "Arete argolla"].map((h) => (
-                  <button
-                    key={h}
-                    className="hero-search-hint"
-                    onClick={() => {
-                      location.hash = `catalog?q=${encodeURIComponent(h)}`;
-                    }}
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
             </div>
           </Reveal>
         </div>
@@ -195,15 +134,15 @@ function HomeCarousel() {
       body: "92.5% de plata pura. Sin aleaciones que oxiden la piel ni sustituciones invisibles. Cada pieza viene con su sello grabado al interior.",
       shape: "ring",
       tag: "VETA · 925",
-      label: "pieza fundida a mano",
+      label: "sello 925 verificado",
     },
     {
-      eyebrow: "02 · Proceso",
-      title: "Talleres pequeños.\nManos que conoces.",
-      body: "Trabajamos con un círculo cerrado de artesanos en Mompox y Bogotá. Series cortas, control de calidad pieza por pieza, sin intermediarios.",
+      eyebrow: "02 · Selección",
+      title: "Elegimos antes\nde poner en venta.",
+      body: "Cada pieza pasa por nuestras manos antes de llegar a las tuyas: revisamos peso, acabado y sello 925 una por una. Hoy curamos con proveedores de confianza en Bogotá — ya preparamos nuestra propia producción.",
       shape: "necklace",
-      tag: "VETA · taller",
-      label: "filigrana momposina",
+      tag: "VETA · curaduría",
+      label: "pieza revisada",
     },
     {
       eyebrow: "03 · Acompañamiento",
@@ -230,7 +169,6 @@ function HomeCarousel() {
 
   return (
     <section
-      id="home-pin"
       className="carousel"
       data-paused={paused ? "1" : "0"}
       onMouseEnter={() => setPaused(true)}
@@ -460,9 +398,9 @@ function HomeManifesto() {
         </Reveal>
         <Reveal delay={400}>
           <p className="body" style={{ marginBottom: 32 }}>
-            No fabricamos para una temporada. Cada referencia se queda hasta que deja de tener
-            sentido. Probamos cierres, pulimos cantos, hablamos con quien nos compra. Vendemos
-            pocas, atendemos a todas.
+            No vendemos por temporada. Cada referencia se queda en catálogo hasta que deja de
+            tener sentido. Revisamos cierres, pulimos cantos, hablamos con quien nos compra.
+            Elegimos pocas, atendemos a todas.
           </p>
         </Reveal>
       </div>
@@ -475,7 +413,7 @@ function HomeNumbers() {
     { num: "925", label: "Pureza de plata" },
     { num: "18k", label: "Oro laminado" },
     { num: <>∞</>, label: "Garantía estructura" },
-    { num: "00", label: "Intermediarios" },
+    { num: "100%", label: "Autenticidad verificada" },
   ];
   return (
     <div className="section-body" style={{ paddingBottom: 120 }}>

@@ -9,7 +9,7 @@ export function Footer({ onNavigate }) {
             VETA
           </div>
           <p className="footer-tagline">
-            Plata ley 925 y oro laminado, hechos a mano para acompañar.
+            Plata ley 925 y oro laminado, elegidos con cuidado para acompañar.
           </p>
         </div>
         <div className="footer-col">
@@ -71,7 +71,15 @@ export function Footer({ onNavigate }) {
           >
             Cuidado de la joya
           </a>
-          <a href="#">Nuestra historia</a>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate({ name: "story" });
+            }}
+          >
+            Nuestra historia
+          </a>
           <a href="#">Garantía</a>
           <a href="#">Envíos</a>
         </div>
